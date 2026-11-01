@@ -26,9 +26,9 @@ struct PosterCard: View {
 
     @ViewBuilder private var focusable: some View {
         if let route {
-            NavigationLink(value: route) { artwork }.buttonStyle(.card)
+            NavigationLink(value: route) { artwork }.buttonStyle(GlassCardButtonStyle(cornerRadius: 20))
         } else {
-            Button { action?() } label: { artwork }.buttonStyle(.card)
+            Button { action?() } label: { artwork }.buttonStyle(GlassCardButtonStyle(cornerRadius: 20))
         }
     }
 

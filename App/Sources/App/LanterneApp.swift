@@ -4,12 +4,14 @@ import LanterneCore
 @main
 struct LanterneApp: App {
     @State private var model = AppModel.make()
+    @State private var ambient = Ambient()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(model)
+                .environment(ambient)
                 .preferredColorScheme(.dark)
                 .task { await model.bootstrap() }
         }

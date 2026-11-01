@@ -44,6 +44,9 @@ targets:
       - path: App/Resources/TestMedia
         type: folder
         buildPhase: resources
+      - path: App/Resources/Fonts
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: LanterneCore
       - package: AetherEngine
@@ -61,6 +64,12 @@ targets:
         UIUserInterfaceStyle: Dark
         ITSAppUsesNonExemptEncryption: false
         UIApplicationSupportsIndirectInputEvents: true
+        # Manrope (SIL Open Font License, voir Fonts/Manrope-OFL.txt).
+        UIAppFonts:
+          - Fonts/Manrope-Medium.ttf
+          - Fonts/Manrope-SemiBold.ttf
+          - Fonts/Manrope-Bold.ttf
+          - Fonts/Manrope-ExtraBold.ttf
         NSLocalNetworkUsageDescription: "Lanterne contacte les addons et le serveur de streaming hébergés sur votre réseau local (NAS)."
         # Les addons Stremio sont choisis par l'utilisateur et certains servent
         # leurs médias en HTTP. La validation TLS reste active pour tout HTTPS ;

@@ -51,7 +51,7 @@ struct HomeView: View {
             BillboardBackdrop(meta: shown)
             VStack(alignment: .leading, spacing: 0) {
                 BillboardInfo(meta: shown)
-                    .frame(height: 430, alignment: .bottomLeading)
+                    .frame(height: 470, alignment: .bottomLeading)
                     .padding(.horizontal, Theme.horizontalMargin)
                     .padding(.bottom, 18)
                 ScrollView(.vertical) {
@@ -59,7 +59,7 @@ struct HomeView: View {
                         rows
                     }
                     .padding(.top, 24)
-                    .padding(.bottom, 120)
+                    .padding(.bottom, 60)
                 }
                 // Masque : les rangées qui remontent disparaissent en fondu au lieu de
                 // passer sous le résumé du bandeau (constaté sur l'appareil, build 10).

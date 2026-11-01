@@ -69,6 +69,8 @@ struct RemoteImage<Placeholder: View>: View {
     let maxPixel: Int
     var contentMode: ContentMode = .fill
     @ViewBuilder var placeholder: () -> Placeholder
+    /// Appelé avec l'image chargée (teinte ambiante, etc.).
+    var onLoaded: ((UIImage) -> Void)?
 
     @State private var image: UIImage?
     @State private var loadedURL: URL?
@@ -96,6 +98,7 @@ struct RemoteImage<Placeholder: View>: View {
                 image = loaded
                 loadedURL = url
             }
+            if let loaded { onLoaded?(loaded) }
         }
     }
 }

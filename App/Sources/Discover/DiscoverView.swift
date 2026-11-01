@@ -4,6 +4,8 @@ import LanterneCore
 /// Exploration : type de contenu → catalogue → genre, en grille paginée.
 struct DiscoverView: View {
     @Environment(AppModel.self) private var app
+    /// Type imposé par l'onglet (Films, Séries) ; `nil` = choix libre.
+    var fixedType: String?
     @State private var selectedType: String = ContentType.movie
     @State private var selectedCatalogID: String?
     @State private var genre: String?
@@ -46,7 +48,11 @@ struct DiscoverView: View {
             }
             .padding(.vertical, 40)
         }
-        .onAppear { if !types.contains(selectedType), let first = types.first { selectedType = first }; rebuild() }
+        .onAppear {
+            if let fixedType { selectedType = fixedType }
+            else if !types.contains(selectedType), let first = types.first { selectedType = first }
+            rebuild()
+        }
         .onChange(of: selectedType) { _, _ in selectedCatalogID = nil; genre = nil; rebuild() }
         .onChange(of: selectedCatalogID) { _, _ in genre = nil; rebuild() }
         .onChange(of: genre) { _, _ in row?.reload(genre: effectiveGenre) }
@@ -70,7 +76,13 @@ struct DiscoverView: View {
 
     private var pickers: some View {
         VStack(alignment: .leading, spacing: 18) {
-            chipRow(items: types.map { ($0, ContentTypeLabel.label(for: $0)) }, selected: selectedType) { selectedType = $0 }
+            if fixedType == nil {
+                chipRow(items: types.map { ($0, ContentTypeLabel.label(for: $0)) }, selected: selectedType) { selectedType = $0 }
+            } else {
+                Text(ContentTypeLabel.label(for: selectedType))
+                    .font(.screenTitle)
+                    .padding(.horizontal, Theme.horizontalMargin)
+            }
             if catalogsOfType.count > 1 {
                 chipRow(items: catalogsOfType.map { ($0.id, "\(Localize.catalogTitle(name: $0.title, type: $0.catalog.type)) · \($0.addon.manifest.name)") },
                         selected: current?.id ?? "") { selectedCatalogID = $0 }

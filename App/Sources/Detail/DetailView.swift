@@ -3,6 +3,7 @@ import LanterneCore
 
 struct DetailView: View {
     @Environment(AppModel.self) private var app
+    @Environment(Ambient.self) private var ambient
     @State private var detail: DetailModel
     @Namespace private var focusNamespace
 
@@ -16,18 +17,16 @@ struct DetailView: View {
         ZStack(alignment: .topLeading) {
             backdrop
             ScrollView(.vertical) {
-                VStack(alignment: .leading, spacing: 44) {
+                VStack(alignment: .leading, spacing: 40) {
                     header
                     if case .failed(let message) = detail.state {
                         MessageView(systemImage: "exclamationmark.triangle", title: "Fiche indisponible", message: message,
                                     actionTitle: "Réessayer") { detail.load(app: app) }
+                            .padding(.horizontal, Theme.horizontalMargin)
                     }
-                    if detail.isSeries {
-                        seasonsAndEpisodes
-                    }
-                    credits
+                    panel
                 }
-                .padding(.bottom, 80)
+                .padding(.bottom, 70)
             }
             .scrollClipDisabled()
         }
@@ -39,47 +38,53 @@ struct DetailView: View {
         }
     }
 
-    // MARK: Fond
+    // MARK: Fond : l'image du contenu teinte tout l'écran
 
     private var backdrop: some View {
-        RemoteImage(url: meta.background ?? meta.poster, maxPixel: 1920) { Theme.background }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipped()
-            .overlay(LinearGradient(colors: [Theme.background.opacity(0.35), Theme.background.opacity(0.92), Theme.background],
-                                    startPoint: .top, endPoint: .bottom))
-            .overlay(LinearGradient(colors: [Theme.background.opacity(0.9), .clear], startPoint: .leading, endPoint: .trailing))
-            .ignoresSafeArea()
+        ZStack {
+            RemoteImage(url: meta.background ?? meta.poster, maxPixel: 1920,
+                        placeholder: { Color.clear }, onLoaded: { ambient.update(from: $0) })
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+            LinearGradient(colors: [Theme.backgroundDeep.opacity(0.8), ambient.tint.opacity(0.35), .clear],
+                           startPoint: .leading, endPoint: .trailing)
+            LinearGradient(stops: [.init(color: .clear, location: 0.35),
+                                   .init(color: Theme.backgroundDeep.opacity(0.85), location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+        }
+        .ignoresSafeArea()
     }
 
     // MARK: En-tête
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 22) {
             if let logo = meta.logo {
                 RemoteImage(url: logo, maxPixel: 900, contentMode: .fit) {
                     Text(meta.name).font(.heroTitle).foregroundStyle(Theme.textPrimary)
                 }
-                .frame(maxWidth: 700, maxHeight: 190, alignment: .bottomLeading)
+                .frame(maxWidth: 720, maxHeight: 200, alignment: .bottomLeading)
             } else {
                 Text(meta.name.isEmpty ? "…" : meta.name)
                     .font(.heroTitle).foregroundStyle(Theme.textPrimary).lineLimit(2)
-                    .shadow(color: .black.opacity(0.5), radius: 8)
+                    .minimumScaleFactor(0.6)
+                    .shadow(color: .black.opacity(0.4), radius: 10)
             }
-            MetaLine(meta: meta)
+            MetaChips(meta: meta)
             if detail.state == .loading && meta.description == nil {
                 ShimmerBlock().frame(width: 900, height: 110)
             } else if let description = meta.description {
                 Text(description)
-                    .font(.system(size: 27))
+                    .font(.bodyLarge)
                     .foregroundStyle(Theme.textSecondary)
                     .lineLimit(4)
                     .frame(maxWidth: 960, alignment: .leading)
             }
-            actions.padding(.top, 14)
+            actions.padding(.top, 8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Theme.horizontalMargin)
-        .padding(.top, 180)
+        .padding(.top, 120)
         .focusSection()
     }
 
@@ -93,7 +98,7 @@ struct DetailView: View {
     }
 
     @ViewBuilder private var actions: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        HStack(spacing: 20) {
             if let videoID = detail.targetVideoID {
                 NavigationLink(value: Route.sources(sourcesRoute(videoID: videoID, video: detail.targetVideo,
                                                                  start: detail.resumePosition))) {
@@ -105,7 +110,7 @@ struct DetailView: View {
                         }
                     } icon: { Image(systemName: "play.fill") }
                 }
-                .buttonStyle(ActionButtonStyle())
+                .buttonStyle(PillButtonStyle(prominent: true))
                 .prefersDefaultFocus(in: focusNamespace)
                 .accessibilityIdentifier("detail.play")
 
@@ -113,17 +118,17 @@ struct DetailView: View {
                     NavigationLink(value: Route.sources(sourcesRoute(videoID: videoID, video: detail.targetVideo, start: nil))) {
                         Label("Depuis le début", systemImage: "arrow.counterclockwise")
                     }
-                    .buttonStyle(ActionButtonStyle())
+                    .buttonStyle(PillButtonStyle())
                 }
             }
 
             Button {
                 detail.toggleLibrary(app: app)
             } label: {
-                Label(detail.isInLibrary ? "Dans ma liste" : "Ajouter à ma liste",
-                      systemImage: detail.isInLibrary ? "checkmark" : "plus")
+                Image(systemName: detail.isInLibrary ? "checkmark" : "plus")
             }
-            .buttonStyle(ActionButtonStyle())
+            .buttonStyle(CircleButtonStyle())
+            .accessibilityLabel(Text(detail.isInLibrary ? "Retirer de ma liste" : "Ajouter à ma liste"))
             .accessibilityIdentifier("detail.library")
 
             if !detail.isSeries {
@@ -131,9 +136,10 @@ struct DetailView: View {
                 Button {
                     detail.setWatched(!watched, video: nil, app: app)
                 } label: {
-                    Label(watched ? "Vu" : "Marquer comme vu", systemImage: watched ? "eye.fill" : "eye")
+                    Image(systemName: watched ? "eye.fill" : "eye")
                 }
-                .buttonStyle(ActionButtonStyle())
+                .buttonStyle(CircleButtonStyle())
+                .accessibilityLabel(Text(watched ? "Marquer comme non vu" : "Marquer comme vu"))
             }
         }
     }
@@ -142,73 +148,84 @@ struct DetailView: View {
         SourcesRoute(meta: meta, videoID: videoID, video: video, startPosition: start, autoPlay: app.settings.sources.autoPlay)
     }
 
-    // MARK: Saisons et épisodes
+    // MARK: Panneau de verre : épisodes (série) ou générique (film)
 
-    @ViewBuilder private var seasonsAndEpisodes: some View {
-        if meta.videos.isEmpty {
-            if detail.state == .loading {
-                ShimmerBlock().frame(height: 300).padding(.horizontal, Theme.horizontalMargin)
-            } else {
-                Text("Aucun épisode n'est listé pour cette série.")
-                    .font(.meta).foregroundStyle(Theme.textTertiary)
-                    .padding(.horizontal, Theme.horizontalMargin)
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 26) {
-                ScrollView(.horizontal) {
-                    HStack(spacing: 20) {
-                        ForEach(meta.seasons, id: \.self) { season in
-                            Button {
-                                detail.selectedSeason = season
-                            } label: {
-                                Text(season == 0 ? "Bonus" : "Saison \(season)")
+    @ViewBuilder private var panel: some View {
+        if detail.isSeries {
+            VStack(alignment: .leading, spacing: 24) {
+                if meta.videos.isEmpty {
+                    if detail.state == .loading {
+                        ShimmerBlock().frame(height: 280)
+                    } else {
+                        Text("Aucun épisode n'est listé pour cette série.")
+                            .font(.meta).foregroundStyle(Theme.textTertiary)
+                    }
+                } else {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 12) {
+                            ForEach(meta.seasons, id: \.self) { season in
+                                Button {
+                                    detail.selectedSeason = season
+                                } label: {
+                                    Text(season == 0 ? "Bonus" : "Saison \(season)")
+                                }
+                                .buttonStyle(PillButtonStyle(selected: season == (detail.selectedSeason ?? meta.seasons.first)))
                             }
-                            .buttonStyle(PillButtonStyle(selected: season == (detail.selectedSeason ?? meta.seasons.first)))
                         }
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 6)
                     }
-                    .padding(.horizontal, Theme.horizontalMargin)
-                    .padding(.vertical, 16)
-                }
-                .scrollClipDisabled()
-                .focusSection()
+                    .scrollClipDisabled()
+                    .focusSection()
 
-                ScrollView(.horizontal) {
-                    LazyHStack(alignment: .top, spacing: 40) {
-                        ForEach(detail.episodesInSelectedSeason) { video in
-                            EpisodeCard(video: video,
-                                        isWatched: detail.watched.contains(video.id),
-                                        progress: detail.progress(for: video),
-                                        route: .sources(sourcesRoute(videoID: video.id, video: video,
-                                                                     start: video.id == detail.targetVideo?.id ? detail.resumePosition : nil)),
-                                        onToggleWatched: { watched in detail.setWatched(watched, video: video, app: app) })
+                    ScrollView(.horizontal) {
+                        LazyHStack(alignment: .top, spacing: 34) {
+                            ForEach(detail.episodesInSelectedSeason) { video in
+                                EpisodeCard(video: video,
+                                            isWatched: detail.watched.contains(video.id),
+                                            progress: detail.progress(for: video),
+                                            route: .sources(sourcesRoute(videoID: video.id, video: video,
+                                                                         start: video.id == detail.targetVideo?.id ? detail.resumePosition : nil)),
+                                            onToggleWatched: { watched in detail.setWatched(watched, video: video, app: app) })
+                            }
                         }
+                        .padding(.vertical, 24)
+                        .padding(.horizontal, 6)
                     }
-                    .padding(.horizontal, Theme.horizontalMargin)
-                    .padding(.vertical, 30)
+                    .scrollClipDisabled()
+                    .focusSection()
                 }
-                .scrollClipDisabled()
-                .focusSection()
             }
+            .padding(34)
+            .background(GlassPanel(cornerRadius: 40))
+            .padding(.horizontal, 70)
+        } else {
+            credits
         }
     }
-
-    // MARK: Générique
 
     @ViewBuilder private var credits: some View {
         let lines: [(String, [String])] = [("Avec", meta.cast), ("Réalisation", meta.directors), ("Scénario", meta.writers)]
             .filter { !$0.1.isEmpty }
         if !lines.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 60) {
                 ForEach(lines, id: \.0) { line in
-                    HStack(alignment: .firstTextBaseline, spacing: 14) {
-                        Text(line.0).foregroundStyle(Theme.textTertiary)
-                        Text(line.1.prefix(8).joined(separator: ", ")).foregroundStyle(Theme.textSecondary).lineLimit(2)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(line.0).font(.manrope(19, .heavy)).foregroundStyle(Theme.textTertiary)
+                        Text(line.1.prefix(6).joined(separator: "\n"))
+                            .font(.manrope(23, .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(6)
                     }
-                    .font(.meta)
+                    .frame(maxWidth: 420, alignment: .leading)
                 }
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, Theme.horizontalMargin)
-            .frame(maxWidth: 1500, alignment: .leading)
+            .padding(36)
+            .background(GlassPanel(cornerRadius: 40))
+            .padding(.horizontal, 70)
+            // Lignes non focalisables : on garantit l'accès au défilement.
+            .focusable()
         }
     }
 }
@@ -253,7 +270,7 @@ struct EpisodeCard: View {
                 }
                 .frame(width: width, height: width * 9 / 16)
             }
-            .buttonStyle(.card)
+            .buttonStyle(GlassCardButtonStyle(cornerRadius: 20))
             .focused($focused)
             .contextMenu {
                 Button(isWatched ? "Marquer comme non vu" : "Marquer comme vu") { onToggleWatched(!isWatched) }
