@@ -24,7 +24,7 @@ struct AccountView: View {
                         .accessibilityIdentifier("account.link")
                     NavigationLink("Se connecter avec e-mail et mot de passe") { EmailLoginView() }
                 } footer: {
-                    Text("Sans compte, Lanterne fonctionne avec les addons officiels (Cinemeta, OpenSubtitles) et une bibliothèque locale. La connexion utilise l'API non officielle de Stremio, susceptible d'évoluer.")
+                    Text("Sans compte, Aurora fonctionne avec les addons officiels (Cinemeta, OpenSubtitles) et une bibliothèque locale. La connexion utilise l'API non officielle de Stremio, susceptible d'évoluer.")
                 }
             }
         }

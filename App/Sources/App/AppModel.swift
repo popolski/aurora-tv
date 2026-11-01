@@ -96,7 +96,7 @@ final class AppModel {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
         let http: any HTTPClient = isUITest
             ? UITestHTTPClient()
-            : URLSessionHTTPClient(userAgent: "Lanterne/\(version) (tvOS)")
+            : URLSessionHTTPClient(userAgent: "Aurora/\(version) (tvOS)")
         let secrets: any SecretStore = isUITest ? InMemorySecretStore() : KeychainSecretStore(service: "io.github.popolski.lanterne")
         let defaults: any KeyValueStore = isUITest ? InMemoryStore() : UserDefaultsStore()
         let fileCache: any KeyValueStore = isUITest ? InMemoryStore() : FileStore.caches(subdirectory: "Lanterne")
@@ -188,5 +188,5 @@ final class AppModel {
 enum AppInfo {
     static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?" }
     static var build: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?" }
-    static var versionString: String { "Lanterne \(version) (\(build))" }
+    static var versionString: String { "Aurora \(version) (\(build))" }
 }

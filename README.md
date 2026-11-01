@@ -1,7 +1,9 @@
-# Lanterne
+# Aurora
 
 Client Stremio natif pour Apple TV (tvOS 18+, conçu pour l'Apple TV 4K sous tvOS 27).
-Interface SwiftUI sombre et ambrée, navigation pensée pour la Siri Remote, addons Stremio,
+Nom affiché : **Aurora** (anciennement « Lanterne », nom conservé pour le dépôt, le module
+et l'identifiant `io.github.popolski.lanterne`, qui ne doit pas changer pour que les mises à
+jour conservent les données). Interface SwiftUI « Aurore » teintée par l'image du contenu, navigation pensée pour la Siri Remote, addons Stremio,
 compte et bibliothèque synchronisés, lecteur AetherEngine (MKV, HEVC, HDR10/Dolby Vision,
 DTS/TrueHD, sous-titres texte et image) avec repli AVPlayer.
 

@@ -54,7 +54,7 @@ targets:
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: Lanterne
+        CFBundleDisplayName: Aurora
         CFBundleDevelopmentRegion: fr
         CFBundleLocalizations: [fr]
         CFBundleShortVersionString: $(MARKETING_VERSION)
@@ -70,7 +70,7 @@ targets:
           - Fonts/Manrope-SemiBold.ttf
           - Fonts/Manrope-Bold.ttf
           - Fonts/Manrope-ExtraBold.ttf
-        NSLocalNetworkUsageDescription: "Lanterne contacte les addons et le serveur de streaming hébergés sur votre réseau local (NAS)."
+        NSLocalNetworkUsageDescription: "Aurora contacte les addons et le serveur de streaming hébergés sur votre réseau local (NAS)."
         # Les addons Stremio sont choisis par l'utilisateur et certains servent
         # leurs médias en HTTP. La validation TLS reste active pour tout HTTPS ;
         # le code impose HTTPS pour les addons et l'API, sauf réseau local

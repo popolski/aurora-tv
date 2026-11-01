@@ -134,7 +134,7 @@ struct PlaybackSettingsView: View {
             } header: {
                 Text("Serveur de streaming (torrents) : \(app.settings.playback.streamingServerURL.isEmpty ? "aucun" : app.settings.playback.streamingServerURL)")
             } footer: {
-                Text("Saisissez l'adresse puis validez. Lanterne ne lit pas les torrents lui-même. Les sources torrent ne sont lisibles que via un serveur de streaming Stremio que vous hébergez (par exemple un conteneur Docker sur votre NAS). Lanterne ne fournit ni ne recommande aucun contenu.")
+                Text("Saisissez l'adresse puis validez. Aurora ne lit pas les torrents elle-même. Les sources torrent ne sont lisibles que via un serveur de streaming Stremio que vous hébergez (par exemple un conteneur Docker sur votre NAS). Aurora ne fournit ni ne recommande aucun contenu.")
             }
         }
         .navigationTitle("Lecteur")
@@ -286,8 +286,8 @@ struct AboutView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 Text(AppInfo.versionString).font(.screenTitle)
-                Text("Client Stremio natif pour Apple TV. Lanterne n'héberge, ne fournit ni ne recommande aucun contenu : il affiche ce que renvoient les addons que vous installez.")
-                Text("Compte Stremio : Lanterne utilise l'API de compte non officielle de Stremio (celle des applications officielles). Elle peut changer sans préavis.")
+                Text("Client Stremio natif pour Apple TV. Aurora n'héberge, ne fournit ni ne recommande aucun contenu : elle affiche ce que renvoient les addons que vous installez.")
+                Text("Compte Stremio : Aurora utilise l'API de compte non officielle de Stremio (celle des applications officielles). Elle peut changer sans préavis.")
                 Text("Lecture : AetherEngine (LGPL-3.0 avec exception App Store) et FFmpeg (LGPL), liés dynamiquement.")
                 Text("Médias de test : mires générées avec FFmpeg, libres de droits.")
             }

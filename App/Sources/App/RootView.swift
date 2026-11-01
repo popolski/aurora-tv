@@ -49,7 +49,7 @@ struct RootView: View {
     var body: some View {
         TabView(selection: $tab) {
             ForEach([RootTab.home, .movies, .series, .library, .settings]) { t in
-                Tab(t.label, value: t) { root(t) }
+                Tab(value: t) { root(t) } label: { Text(t.label) }
             }
             Tab(RootTab.search.label, systemImage: "magnifyingglass", value: RootTab.search, role: .search) {
                 root(.search)
