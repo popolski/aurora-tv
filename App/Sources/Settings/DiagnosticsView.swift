@@ -52,6 +52,22 @@ struct DiagnosticsView: View {
                 }
             }
 
+            Section {
+                InfoRow(label: "Groupe d'apps (app)", value: SharedContainer.provisionedGroupID() ?? "aucun dans le profil")
+                InfoRow(label: "Groupe d'apps (carrousel)", value: extensionGroupID ?? "aucun dans le profil")
+                if let status = TopShelfStatus.load(from: SharedContainer.defaults()) {
+                    InfoRow(label: "Dernière mise à jour", value: status.date.formatted(date: .abbreviated, time: .shortened))
+                    InfoRow(label: "Films · bandes-annonces", value: "\(status.items) · \(status.trailers)")
+                    InfoRow(label: "Adresse du NAS reçue", value: status.serverKnown ? "oui" : "non")
+                } else {
+                    InfoRow(label: "Compte rendu du carrousel", value: "aucun (groupe non partagé, ou pas encore rafraîchi)")
+                }
+            } header: {
+                Text("Top Shelf (carrousel de l'écran d'accueil)")
+            } footer: {
+                Text("Le carrousel reçoit l'adresse du NAS par un groupe d'apps partagé. Si aucun groupe n'apparaît, l'installation ne l'a pas attribué et le carrousel reste sans bande-annonce.")
+            }
+
             Section("Version") {
                 InfoRow(label: "Application", value: AppInfo.versionString)
                 InfoRow(label: "Moteur de lecture", value: app.settings.playback.engine.label)
@@ -147,5 +163,14 @@ struct LogsView: View {
         case .warning: Theme.accent
         case .error: Theme.danger
         }
+    }
+}
+
+extension DiagnosticsView {
+    /// Groupe d'apps du profil de l'extension Top Shelf (dans PlugIns/).
+    var extensionGroupID: String? {
+        guard let plugins = Bundle.main.builtInPlugInsURL,
+              let bundle = Bundle(url: plugins.appendingPathComponent("AuroraTopShelf.appex")) else { return nil }
+        return SharedContainer.provisionedGroupID(bundle: bundle)
     }
 }

@@ -10,11 +10,14 @@ public enum SharedContainer {
 
     /// Groupe d'apps attribué par la signature, sinon le nom prévu.
     public static func groupID(bundle: Bundle = .main) -> String {
-        if let url = bundle.url(forResource: "embedded", withExtension: "mobileprovision"),
-           let data = try? Data(contentsOf: url), let id = groupID(fromProvision: data) {
-            return id
-        }
-        return defaultGroupID
+        provisionedGroupID(bundle: bundle) ?? defaultGroupID
+    }
+
+    /// Groupe d'apps inscrit dans le profil de provisionnement du paquet, s'il y en a un.
+    public static func provisionedGroupID(bundle: Bundle = .main) -> String? {
+        guard let url = bundle.url(forResource: "embedded", withExtension: "mobileprovision"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return groupID(fromProvision: data)
     }
 
     /// Lit `com.apple.security.application-groups` dans un profil (plist entouré d'une signature CMS).
@@ -55,6 +58,32 @@ public struct TopShelfConfig: Codable, Sendable, Equatable {
     public static func load(from defaults: UserDefaults?) -> TopShelfConfig? {
         guard let data = defaults?.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(TopShelfConfig.self, from: data)
+    }
+
+    public func save(to defaults: UserDefaults?) {
+        guard let defaults, let data = try? JSONEncoder().encode(self) else { return }
+        defaults.set(data, forKey: Self.key)
+    }
+}
+
+/// Compte rendu du dernier rafraîchissement du carrousel, écrit par l'extension.
+/// Si l'app le lit, c'est que le groupe d'apps est réellement partagé.
+public struct TopShelfStatus: Codable, Sendable, Equatable {
+    public var date: Date
+    public var groupID: String
+    public var serverKnown: Bool
+    public var items: Int
+    public var trailers: Int
+
+    public static let key = "topshelf.status.v1"
+
+    public init(date: Date = Date(), groupID: String, serverKnown: Bool, items: Int, trailers: Int) {
+        self.date = date; self.groupID = groupID; self.serverKnown = serverKnown; self.items = items; self.trailers = trailers
+    }
+
+    public static func load(from defaults: UserDefaults?) -> TopShelfStatus? {
+        guard let data = defaults?.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(TopShelfStatus.self, from: data)
     }
 
     public func save(to defaults: UserDefaults?) {

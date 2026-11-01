@@ -12,12 +12,16 @@ final class ContentProvider: TVTopShelfContentProvider {
     // `nonsending` : s'exécute sur le contexte de l'appelant, le contenu (non `Sendable`)
     // ne change donc pas de domaine de concurrence en étant renvoyé.
     nonisolated(nonsending) override func loadTopShelfContent() async -> (any TVTopShelfContent)? {
-        let config = TopShelfConfig.load(from: SharedContainer.defaults())
+        let shared = SharedContainer.defaults()
+        let config = TopShelfConfig.load(from: shared)
         let metas = await TopShelfLoader.latestMovies(limit: 10)
-        guard !metas.isEmpty else { return nil }  // tvOS garde alors l'image statique
         let server = config?.server
-        if let server { TopShelfLoader.prefetchTrailers(metas, server: server) }
         let items = metas.map { Self.item(for: $0, server: server) }
+        // Compte rendu lisible par l'app (Réglages › Diagnostics) si le groupe est partagé.
+        TopShelfStatus(groupID: SharedContainer.groupID(), serverKnown: server != nil, items: items.count,
+                       trailers: items.filter { $0.previewVideoURL != nil }.count).save(to: shared)
+        guard !items.isEmpty else { return nil }  // tvOS garde alors l'image statique
+        if let server { TopShelfLoader.prefetchTrailers(metas, server: server) }
         return TVTopShelfCarouselContent(style: .details, items: items)
     }
 
