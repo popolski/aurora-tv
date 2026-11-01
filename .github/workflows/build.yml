@@ -1,0 +1,208 @@
+name: Build
+
+on:
+  push:
+    branches: ["main", "claude/**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Image GitHub « xcode-27 » (macOS 27, ARM64). Xcode 27 est exigé par AetherEngine.
+  XCODE_APP: /Applications/Xcode_27.1.app
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_INSTALL_CLEANUP: "1"
+
+jobs:
+  core-tests:
+    name: Tests LanterneCore (swift test)
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sélection de Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+          swift --version
+      - name: swift test
+        working-directory: Packages/LanterneCore
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tee ../../core-tests.log
+      - name: Journaux de test
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-tests-log
+          path: core-tests.log
+          retention-days: 14
+
+  app:
+    name: Application tvOS (IPA)
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      HAS_SIGNING: ${{ secrets.SIGN_P12_BASE64 != '' }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sélection de Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+          xcrun --sdk appletvos --show-sdk-version
+      - name: XcodeGen
+        run: |
+          brew install xcodegen
+          xcodegen --version
+          xcodegen generate
+      - name: Version
+        id: version
+        run: |
+          MARKETING=$(grep -E '^\s+MARKETING_VERSION:' project.yml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "version=${MARKETING}" >> "$GITHUB_OUTPUT"
+          echo "build=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "Version ${MARKETING} (${GITHUB_RUN_NUMBER}) — commit ${GITHUB_SHA::8}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Cache des paquets Swift
+        uses: actions/cache@v4
+        with:
+          path: .spm
+          key: spm-${{ runner.os }}-${{ hashFiles('project.yml', 'Packages/LanterneCore/Package.swift') }}
+          restore-keys: spm-${{ runner.os }}-
+      - name: Résolution des dépendances
+        run: |
+          set -o pipefail
+          xcodebuild -resolvePackageDependencies -project Lanterne.xcodeproj -scheme Lanterne \
+            -clonedSourcePackagesDirPath .spm 2>&1 | tee resolve.log
+          find . -name Package.resolved -path "*Lanterne.xcodeproj*" -exec cat {} \;
+      - name: Compilation (appareil tvOS, arm64, Release)
+        run: |
+          STATUS=0
+          xcodebuild build \
+            -project Lanterne.xcodeproj -scheme Lanterne -configuration Release \
+            -destination 'generic/platform=tvOS' \
+            -derivedDataPath build/dd -clonedSourcePackagesDirPath .spm \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            CURRENT_PROJECT_VERSION=${{ steps.version.outputs.build }} \
+            DEBUG_INFORMATION_FORMAT=dwarf-with-dsym \
+            > build.log 2>&1 || STATUS=$?
+          grep -E "error:|BUILD (SUCCEEDED|FAILED)" build.log | sort -u | head -n 300 || true
+          echo "xcodebuild : code de sortie $STATUS"
+          exit $STATUS
+      - name: Résumé des erreurs de compilation
+        if: failure()
+        run: |
+          grep -E "error:" build.log | sort -u | head -n 100 >> "$GITHUB_STEP_SUMMARY" || true
+      - name: IPA non signée
+        run: |
+          IPA="dist/Lanterne-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}-unsigned.ipa"
+          bash scripts/package-ipa.sh build/dd/Build/Products/Release-appletvos/Lanterne.app "$IPA"
+          bash scripts/verify-ipa.sh "$IPA" io.github.popolski.lanterne
+          shasum -a 256 dist/*.ipa | tee dist/SHA256SUMS.txt
+      - name: IPA signée (optionnelle, si secrets configurés)
+        env:
+          SIGN_P12_BASE64: ${{ secrets.SIGN_P12_BASE64 }}
+          SIGN_P12_PASSWORD: ${{ secrets.SIGN_P12_PASSWORD }}
+          SIGN_PROFILE_BASE64: ${{ secrets.SIGN_PROFILE_BASE64 }}
+        if: env.HAS_SIGNING == 'true'
+        run: |
+          UNSIGNED=$(ls dist/*-unsigned.ipa)
+          bash scripts/sign-ipa.sh "$UNSIGNED" "${UNSIGNED/-unsigned/-signed}"
+          bash scripts/verify-ipa.sh "${UNSIGNED/-unsigned/-signed}" io.github.popolski.lanterne
+      - name: dSYM
+        run: |
+          mkdir -p dist
+          (cd build/dd/Build/Products/Release-appletvos && zip -qry "$GITHUB_WORKSPACE/dist/dSYMs.zip" *.dSYM) || echo "pas de dSYM"
+      - name: Artefact IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lanterne-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}
+          path: |
+            dist/*.ipa
+            dist/SHA256SUMS.txt
+          retention-days: 30
+      - name: Artefacts de diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-${{ github.run_number }}
+          path: |
+            build.log
+            resolve.log
+            dist/dSYMs.zip
+          retention-days: 14
+
+  ui-tests:
+    name: Tests d'interface (simulateur tvOS)
+    runs-on: xcode-27
+    timeout-minutes: 60
+    # Indicatifs : un échec n'empêche pas la production de l'IPA.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sélection de Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcrun simctl list devices available | grep -i "apple tv" || true
+      - name: XcodeGen
+        run: |
+          brew install xcodegen
+          xcodegen generate
+      - name: Cache des paquets Swift
+        uses: actions/cache@v4
+        with:
+          path: .spm
+          key: spm-${{ runner.os }}-${{ hashFiles('project.yml', 'Packages/LanterneCore/Package.swift') }}
+          restore-keys: spm-${{ runner.os }}-
+      - name: xcodebuild test
+        run: |
+          DEVICE=$(xcrun simctl list devices available | grep -E "Apple TV 4K \(3rd generation\) \(" | grep -v "1080p" | head -n1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
+          echo "Simulateur : $DEVICE"
+          STATUS=0
+          xcodebuild test \
+            -project Lanterne.xcodeproj -scheme Lanterne \
+            -destination "id=$DEVICE" \
+            -derivedDataPath build/dd-test -clonedSourcePackagesDirPath .spm \
+            -resultBundlePath ui-tests.xcresult \
+            CODE_SIGNING_ALLOWED=NO > ui-tests.log 2>&1 || STATUS=$?
+          grep -E "Test Case .*(passed|failed)|error:|TEST (SUCCEEDED|FAILED)" ui-tests.log | head -n 200 || true
+          exit $STATUS
+      - name: Résultats
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-tests-${{ github.run_number }}
+          path: |
+            ui-tests.xcresult
+            ui-tests.log
+          retention-days: 14
+
+  release:
+    name: Publication (tags v*)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [core-tests, app]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Lanterne-*
+          merge-multiple: true
+          path: dist
+      - name: Release GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/*.ipa dist/SHA256SUMS.txt \
+            --repo "${GITHUB_REPOSITORY}" --title "Lanterne ${GITHUB_REF_NAME}" \
+            --notes "IPA non signée pour atvloadly. Voir docs/DEPLOYMENT.md."

@@ -1,0 +1,81 @@
+# Architecture
+
+## Vue d'ensemble
+
+```
+┌──────────────────────── App (tvOS, SwiftUI + UIKit) ─────────────────────────┐
+│  RootView (onglets) ─ NavigationStack ─ Route(.meta/.catalog/.sources)        │
+│  Home · Explorer · Recherche · Bibliothèque · Réglages · Fiche · Sources      │
+│  AppModel (@Observable, MainActor) : état observé + accès aux services        │
+│  Player : PlayerViewController (UIKit, télécommande) + PlayerSession          │
+│           └─ PlaybackEngine ── AetherPlaybackEngine | SystemPlaybackEngine    │
+│  Platform : ImageLoader, journaux (fichier/os_log), client HTTP de test       │
+└───────────────────────────────┬──────────────────────────────────────────────┘
+                                │ async/await, actors
+┌───────────────────────── LanterneCore (SwiftPM, sans UI) ────────────────────┐
+│  Addons : modèles du protocole, URL, AddonClient (cache, limites), Aggregator │
+│           AddonRegistry (actor : addons installés, trousseau + cache)         │
+│  Account : StremioAPI (non officielle), AccountService (actor : session, sync) │
+│  Library : LibraryItem (format Stremio), LibraryStore (actor), WatchedBitField│
+│  Streams : StreamTraits (annoncé), Playability, SourceRanker                  │
+│  Playback : TrackSelector, PlaybackMilestoneTracker                           │
+│  Settings, Persistence (UserDefaults/fichier/trousseau), Networking, Log      │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Principe :** toute la logique testable (protocole, tri, bibliothèque, jalons, sélection de
+pistes, réglages) est dans `LanterneCore`, compilée et testée sur macOS avec `swift test`. L'app
+ne contient que la présentation, la navigation, l'intégration des moteurs et de la plateforme.
+
+## Choix techniques
+
+| Sujet | Choix | Raison |
+|---|---|---|
+| UI | SwiftUI (tvOS 18+), UIKit pour le lecteur | SwiftUI gère bien le focus des grilles/rangées ; le lecteur a besoin du contrôle fin des appuis (`pressesBegan/Ended`) et du geste de balayage |
+| Concurrence | Swift 6, concurrence stricte ; app en isolation `MainActor` par défaut ; services en `actor` | absence de courses de données vérifiée à la compilation ; annulation structurée (tâches de chargement annulées à la sortie des écrans) |
+| Navigation | une `NavigationStack` par onglet, destinations par valeur (`Route`) déclarées à la racine | évite les destinations ignorées dans les conteneurs paresseux ; la pile restaure le focus au retour |
+| Lecteur | `fullScreenCover` racine → `UIViewControllerRepresentable` | un seul point de présentation, fermeture centralisée, libération du moteur à la fermeture |
+| Projet | XcodeGen | projet reproductible, pas de `.pbxproj` en conflit |
+| Dépendances | AetherEngine (version exacte) uniquement | rien d'autre n'est nécessaire |
+
+## Focus et télécommande
+
+- Rangées horizontales et sections marquées `focusSection()` : déplacement vertical prévisible
+  entre rangées, horizontal dans une rangée.
+- Fiche : `prefersDefaultFocus` sur « Lire/Reprendre ».
+- Retour : la pile de navigation restaure le focus sur l'élément d'origine (vérifié par un test
+  d'interface sur simulateur).
+- Lecteur : la vue racine est focalisable et reçoit les appuis ; quand un panneau ou un écran
+  d'erreur/fin est ouvert, `preferredFocusEnvironments` bascule vers la surcouche SwiftUI et le
+  geste de balayage est désactivé. Menu ferme d'abord le panneau, puis masque l'interface, puis
+  ferme le lecteur. Appui long sur une affiche « Continuer » ou un épisode : menu contextuel
+  (retirer, marquer vu/non vu).
+
+## Cycle de vie du lecteur
+
+1. `AppModel.play(context)` → `fullScreenCover` → `PlayerViewController` créé avec une
+   `PlayerSession`.
+2. `viewDidAppear` → `session.start()` : création de la requête moteur, jalon « source ouverte »,
+   chargement asynchrone, boucle d'observation à 4 Hz.
+3. Pendant la lecture : jalons, chien de garde « pas d'image », pistes par défaut (préférences),
+   sous-titres externes ajoutés sans retarder le démarrage, progression enregistrée toutes les
+   15 s et à chaque pause (écritures regroupées par `LibraryStore`).
+4. Fin : épisode suivant (même `bingeGroup` en priorité) avec compte à rebours, ou écran de fin.
+5. Fermeture (Menu, bouton, disparition de la vue) : `session.close()` idempotent → progression
+   finale, règle du générique, arrêt du moteur (critères d'affichage remis à zéro, session audio
+   libérée), mise en veille réautorisée, puis envoi des modifications au compte.
+
+## Persistance (contrainte tvOS)
+
+tvOS ne garantit qu'environ 500 Ko de stockage local persistant (`UserDefaults`) ; tout fichier
+peut être purgé. D'où : réglages + copie de secours compacte de la bibliothèque dans
+`UserDefaults`, bibliothèque complète et caches en fichiers, secrets dans le trousseau. Décodage
+tolérant champ par champ : une version future ne fait jamais perdre les réglages existants.
+
+## Ce que l'interface affiche et n'affiche pas
+
+- Jamais d'information inventée : champs absents masqués (année, durée, note…).
+- Caractéristiques des sources : « annoncées » (contour) d'après le texte de l'addon ; les
+  caractéristiques **détectées** par le moteur sont dans Informations pendant la lecture, à côté
+  des annoncées.
+- Note : uniquement la note IMDb fournie par l'addon de métadonnées, étiquetée « IMDb ».

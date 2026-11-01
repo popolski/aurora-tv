@@ -1,0 +1,17 @@
+# Projet généré par XcodeGen
+Lanterne.xcodeproj/
+# Produits de compilation
+build/
+dist/
+.spm/
+.build/
+DerivedData/
+*.xcresult
+# SwiftPM
+Packages/LanterneCore/.build/
+Packages/LanterneCore/.swiftpm/
+# Divers
+.DS_Store
+*.p12
+*.mobileprovision
+*.cer

@@ -1,0 +1,11 @@
+{
+  "metas": [
+    { "id": "tt0111161", "type": "movie", "name": "The Shawshank Redemption", "poster": "https://example.com/p1.jpg",
+      "releaseInfo": "1994", "imdbRating": "9.3", "genres": ["Drama"], "description": "Two imprisoned men bond..." },
+    { "id": "tt0068646", "type": "movie", "name": "The Godfather", "poster": "", "releaseInfo": 1972, "imdbRating": 9.2 },
+    { "type": "movie", "name": "Sans identifiant (doit être ignoré)" },
+    "pas un objet",
+    { "id": "tt0468569", "type": "movie", "name": "The Dark Knight", "poster": "javascript:alert(1)", "posterShape": "landscape" }
+  ],
+  "cacheMaxAge": 3600
+}

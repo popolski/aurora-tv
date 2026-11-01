@@ -1,0 +1,10 @@
+{
+  "id": "org.example.legacy",
+  "version": 1,
+  "name": "Legacy",
+  "types": ["movie"],
+  "resources": ["catalog", "stream"],
+  "catalogs": [
+    { "type": "movie", "id": "search", "extraRequired": ["search"], "extraSupported": ["search", "skip"] }
+  ]
+}

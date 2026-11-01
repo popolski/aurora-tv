@@ -1,0 +1,9 @@
+{ "result": { "addons": [
+  { "transportUrl": "https://v3-cinemeta.strem.io/manifest.json", "flags": { "official": true, "protected": true },
+    "manifest": { "id": "com.linvo.cinemeta", "version": "3.0.13", "name": "Cinemeta", "types": ["movie","series"],
+                  "resources": ["catalog", "meta"], "catalogs": [] } },
+  { "transportUrl": "not a url", "manifest": { "id": "x", "name": "x", "types": [], "resources": [] } },
+  { "transportUrl": "https://addon.example.com/c0nf1gS3cr3tK3yV4lu3/manifest.json",
+    "manifest": { "id": "org.example.streams", "version": "1.0.0", "name": "Example Streams", "types": ["movie","series"],
+                  "resources": [{"name":"stream","types":["movie","series"],"idPrefixes":["tt"]}], "catalogs": [] } }
+], "lastModified": "2026-10-01T00:00:00.000Z" } }

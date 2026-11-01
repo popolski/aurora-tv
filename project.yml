@@ -1,0 +1,110 @@
+# Projet Xcode généré par XcodeGen (https://github.com/yonaskolb/XcodeGen).
+# Ne pas éditer Lanterne.xcodeproj : il est régénéré à chaque compilation.
+name: Lanterne
+
+options:
+  bundleIdPrefix: io.github.popolski
+  deploymentTarget:
+    tvOS: "18.0"
+  developmentLanguage: fr
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+    # La signature est faite hors Xcode (atvloadly ou scripts/sign-ipa.sh).
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGNING_ALLOWED: NO
+    CODE_SIGNING_REQUIRED: NO
+    CODE_SIGN_IDENTITY: ""
+    DEVELOPMENT_TEAM: ""
+
+packages:
+  LanterneCore:
+    path: Packages/LanterneCore
+  AetherEngine:
+    url: https://github.com/superuser404notfound/AetherEngine
+    # Version exacte : le moteur évolue très vite, une montée de version doit
+    # être un choix explicite, testé sur l'appareil.
+    exactVersion: 7.53.1
+
+targets:
+  Lanterne:
+    type: application
+    platform: tvOS
+    sources:
+      - path: App/Sources
+      - path: App/Resources/Assets.xcassets
+      - path: App/Resources/TestMedia
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - package: LanterneCore
+      - package: AetherEngine
+        product: AetherEngine
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Lanterne
+        CFBundleDevelopmentRegion: fr
+        CFBundleLocalizations: [fr]
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UIRequiredDeviceCapabilities: [arm64]
+        UIUserInterfaceStyle: Dark
+        ITSAppUsesNonExemptEncryption: false
+        UIApplicationSupportsIndirectInputEvents: true
+        NSLocalNetworkUsageDescription: "Lanterne contacte les addons et le serveur de streaming hébergés sur votre réseau local (NAS)."
+        # Les addons Stremio sont choisis par l'utilisateur et certains servent
+        # leurs médias en HTTP. La validation TLS reste active pour tout HTTPS ;
+        # le code impose HTTPS pour les addons et l'API, sauf réseau local
+        # (voir docs/SECURITY.md).
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.popolski.lanterne
+        PRODUCT_NAME: Lanterne
+        TARGETED_DEVICE_FAMILY: "3"
+        ASSETCATALOG_COMPILER_APPICON_NAME: "App Icon & Top Shelf Image"
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+
+  LanterneUITests:
+    type: bundle.ui-testing
+    platform: tvOS
+    sources:
+      - path: App/UITests
+    dependencies:
+      - target: Lanterne
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.popolski.lanterne.uitests
+        TEST_TARGET_NAME: Lanterne
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Lanterne:
+    build:
+      targets:
+        Lanterne: all
+        LanterneUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - LanterneUITests
+    run:
+      config: Debug
+      environmentVariables:
+        LANTERNE_LOG_LEVEL: debug
+    archive:
+      config: Release

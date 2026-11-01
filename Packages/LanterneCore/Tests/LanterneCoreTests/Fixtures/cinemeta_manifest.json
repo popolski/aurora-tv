@@ -1,0 +1,26 @@
+{
+  "id": "com.linvo.cinemeta",
+  "version": "3.0.13",
+  "name": "Cinemeta",
+  "description": "The official addon for movie and series catalogs",
+  "logo": "https://example.com/cinemeta-logo.png",
+  "background": "",
+  "types": ["movie", "series"],
+  "idPrefixes": ["tt"],
+  "resources": [
+    "catalog",
+    { "name": "meta", "types": ["movie", "series"], "idPrefixes": ["tt"] },
+    "addon_catalog"
+  ],
+  "catalogs": [
+    { "type": "movie", "id": "top", "name": "Popular",
+      "extra": [ { "name": "genre", "options": ["Action", "Comedy", "Drama"] }, { "name": "search" }, { "name": "skip" } ] },
+    { "type": "series", "id": "top", "name": "Popular",
+      "extra": [ { "name": "genre", "options": ["Action", "Drama"] }, { "name": "search" }, { "name": "skip" } ] },
+    { "type": "movie", "id": "year", "name": "New",
+      "extra": [ { "name": "genre", "isRequired": true, "options": ["2026", "2025"] }, { "name": "skip" } ] },
+    { "type": "movie", "id": "top", "name": "Doublon ignoré" },
+    { "type": 42 }
+  ],
+  "behaviorHints": { "configurable": false, "newEpisodeNotifications": true }
+}

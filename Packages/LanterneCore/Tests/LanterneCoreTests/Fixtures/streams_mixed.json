@@ -1,0 +1,18 @@
+{
+  "streams": [
+    { "name": "Example\n4K", "description": "Movie.2026.2160p.UHD.BluRay.REMUX.DV.HDR.HEVC.TrueHD.Atmos.7.1-GRP\n💾 58.2 GB 👤 120",
+      "url": "https://example.com/video/movie.mkv",
+      "behaviorHints": { "bingeGroup": "example-4k", "videoSize": 62491426816, "filename": "Movie.2026.2160p.REMUX.mkv",
+                         "proxyHeaders": { "request": { "User-Agent": "Lanterne", "Referer": "https://example.com/", "Host": "evil", "X-Bad\r\nInjected": "x" } } } },
+    { "name": "Example\n1080p", "title": "Movie.2026.MULTi.VFF.1080p.WEB-DL.x264.DDP5.1\n💾 3,4 Go",
+      "url": "https://example.com/video/movie-1080.mp4" },
+    { "name": "P2P", "description": "Movie 720p VOSTFR", "infoHash": "ABCDEF0123456789ABCDEF0123456789ABCDEF01", "fileIdx": 2,
+      "sources": ["tracker:udp://tracker.example.com:80", "dht:abcdef"] },
+    { "name": "Magnet", "url": "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&tr=udp%3A%2F%2Ft.example.com%3A1337" },
+    { "name": "Bande-annonce", "ytId": "dQw4w9WgXcQ" },
+    { "name": "Site", "externalUrl": "https://example.com/watch" },
+    { "name": "Invalide sans source" },
+    { "name": "CAM", "description": "Movie.2026.HDCAM.x264", "url": "https://example.com/cam.mp4" },
+    { "name": "Archive", "rarUrls": [["https://example.com/a.rar", 1000]] }
+  ]
+}

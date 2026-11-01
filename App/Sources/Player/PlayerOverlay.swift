@@ -1,0 +1,450 @@
+import SwiftUI
+import LanterneCore
+
+/// Interface superposée au lecteur : barre de progression, états de
+/// démarrage/erreur/fin, panneau de pistes et d'informations.
+struct PlayerOverlay: View {
+    let session: PlayerSession
+
+    var body: some View {
+        ZStack {
+            if session.chromeVisible || session.scrubTarget != nil {
+                ChromeView(session: session)
+                    .transition(.opacity)
+            }
+            statusLayer
+            if let panel = session.panel {
+                PlayerPanel(session: session, initial: panel)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+            // Jalon atteint, exposé aux tests d'interface (quasi invisible).
+            Text(session.milestones.highest?.label ?? "aucun")
+                .font(.system(size: 2))
+                .opacity(0.02)
+                .accessibilityIdentifier("player.milestone")
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+        .animation(.easeInOut(duration: 0.25), value: session.chromeVisible)
+        .animation(.easeInOut(duration: 0.25), value: session.panel)
+        .ignoresSafeArea()
+    }
+
+    @ViewBuilder private var statusLayer: some View {
+        switch session.status {
+        case .starting(let message):
+            StartingView(message: message, session: session)
+        case .active:
+            if session.snapshot.phase == .buffering {
+                ProgressView().scaleEffect(1.6).tint(Theme.accent)
+            }
+        case .noPicture:
+            ProblemCard(
+                icon: "eye.slash",
+                title: "Aucune image affichée",
+                message: "Le moteur avance dans la vidéo mais ne signale aucune image prête à l'affichage. Cette source n'est probablement pas lisible correctement sur l'Apple TV.",
+                session: session, showWait: true)
+        case .failed(let message):
+            ProblemCard(icon: "exclamationmark.triangle", title: "Lecture impossible", message: message,
+                        session: session, showWait: false)
+        case .ended:
+            EndCard(session: session)
+        }
+    }
+}
+
+// MARK: - Barre de transport
+
+private struct ChromeView: View {
+    let session: PlayerSession
+
+    var body: some View {
+        let s = session.snapshot
+        VStack(alignment: .leading, spacing: 0) {
+            LinearGradient(colors: [.black.opacity(0.75), .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 260)
+                .overlay(alignment: .topLeading) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(session.title).font(.system(size: 44, weight: .bold)).foregroundStyle(.white).lineLimit(1)
+                        if let line = session.subtitleLine {
+                            Text(line).font(.meta).foregroundStyle(Theme.textSecondary).lineLimit(1)
+                        }
+                    }
+                    .padding(.horizontal, 90).padding(.top, 60)
+                }
+            Spacer()
+            LinearGradient(colors: [.clear, .black.opacity(0.85)], startPoint: .top, endPoint: .bottom)
+                .frame(height: 300)
+                .overlay(alignment: .bottom) {
+                    VStack(spacing: 18) {
+                        TimelineBar(position: session.displayedPosition, duration: s.duration, buffered: s.buffered,
+                                    isScrubbing: session.scrubTarget != nil)
+                            .frame(height: 12)
+                        HStack {
+                            Image(systemName: s.phase == .playing ? "pause.fill" : "play.fill")
+                            Text(TimeFormat.clock(session.displayedPosition))
+                            Spacer()
+                            if session.scrubTarget != nil {
+                                Text("Cliquez pour aller à \(TimeFormat.clock(session.displayedPosition)) · Menu pour annuler")
+                                    .foregroundStyle(Theme.accent)
+                            } else {
+                                Text("▼ Audio et sous-titres").foregroundStyle(Theme.textTertiary)
+                            }
+                            Spacer()
+                            Text(s.duration > 0 ? "−" + TimeFormat.clock(max(0, s.duration - session.displayedPosition)) : "--:--")
+                        }
+                        .font(.system(size: 26, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 90).padding(.bottom, 60)
+                }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+private struct TimelineBar: View {
+    let position: TimeInterval
+    let duration: TimeInterval
+    let buffered: TimeInterval
+    let isScrubbing: Bool
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let p = duration > 0 ? min(1, max(0, position / duration)) : 0
+            let b = duration > 0 ? min(1, max(0, buffered / duration)) : 0
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.white.opacity(0.18))
+                Capsule().fill(Color.white.opacity(0.35)).frame(width: w * b)
+                Capsule().fill(Theme.accent).frame(width: max(12, w * p))
+                Circle().fill(.white)
+                    .frame(width: isScrubbing ? 30 : 20, height: isScrubbing ? 30 : 20)
+                    .offset(x: w * p - (isScrubbing ? 15 : 10))
+            }
+        }
+    }
+}
+
+// MARK: - États
+
+private struct StartingView: View {
+    let message: String
+    let session: PlayerSession
+
+    var body: some View {
+        VStack(spacing: 26) {
+            ProgressView().scaleEffect(1.8).tint(Theme.accent)
+            Text(message).font(.sectionTitle).foregroundStyle(.white)
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(PlaybackMilestone.allCases, id: \.self) { m in
+                    let reached = session.milestones.reached[m] != nil
+                    HStack(spacing: 12) {
+                        Image(systemName: reached ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(reached ? Theme.success : Theme.textTertiary)
+                        Text(m.label).foregroundStyle(reached ? Theme.textSecondary : Theme.textTertiary)
+                    }
+                    .font(.system(size: 22))
+                }
+            }
+            Text("Menu pour annuler").font(.system(size: 20)).foregroundStyle(Theme.textTertiary)
+        }
+        .padding(50)
+        .background(RoundedRectangle(cornerRadius: 28).fill(.black.opacity(0.65)))
+    }
+}
+
+private struct ProblemCard: View {
+    let icon: String
+    let title: String
+    let message: String
+    let session: PlayerSession
+    let showWait: Bool
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Image(systemName: icon).font(.system(size: 60)).foregroundStyle(Theme.accent)
+            Text(title).font(.sectionTitle).foregroundStyle(.white)
+            Text(message).font(.meta).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center).frame(maxWidth: 1000)
+            Text("Moteur : \(session.engineName) · étape atteinte : \(session.milestones.highest?.label ?? "aucune")")
+                .font(.system(size: 20)).foregroundStyle(Theme.textTertiary)
+            HStack(spacing: 22) {
+                if showWait {
+                    Button("Continuer quand même") { session.acknowledgeNoPicture() }.buttonStyle(PillButtonStyle())
+                } else {
+                    Button("Réessayer") { session.retry() }.buttonStyle(PillButtonStyle(prominent: true))
+                }
+                if !session.playableAlternatives.isEmpty {
+                    Button("Autre source…") { session.panel = .sources }.buttonStyle(PillButtonStyle())
+                }
+                Button(session.engine is SystemPlaybackEngine ? "Réessayer avec AetherEngine" : "Réessayer avec AVPlayer") {
+                    session.retryWithOtherEngine()
+                }
+                .buttonStyle(PillButtonStyle())
+                Button("Fermer") { session.close() }.buttonStyle(PillButtonStyle())
+            }
+            .focusSection()
+        }
+        .padding(60)
+        .background(RoundedRectangle(cornerRadius: 30).fill(.black.opacity(0.8)))
+        .padding(80)
+    }
+}
+
+private struct EndCard: View {
+    let session: PlayerSession
+
+    var body: some View {
+        VStack(spacing: 24) {
+            if let next = session.nextEpisode {
+                Text("Épisode suivant").font(.meta).foregroundStyle(Theme.textSecondary)
+                Text([next.episodeCode, next.title.isEmpty ? nil : next.title].compactMap { $0 }.joined(separator: " · "))
+                    .font(.sectionTitle).foregroundStyle(.white)
+                if let n = session.nextCountdown {
+                    Text("Lecture dans \(n) s").font(.meta).foregroundStyle(Theme.accent)
+                }
+                HStack(spacing: 22) {
+                    Button("Lire maintenant") { session.playNext() }.buttonStyle(PillButtonStyle(prominent: true))
+                    if session.nextCountdown != nil {
+                        Button("Annuler") { session.cancelCountdown() }.buttonStyle(PillButtonStyle())
+                    }
+                    Button("Fermer") { session.close() }.buttonStyle(PillButtonStyle())
+                }
+                .focusSection()
+            } else {
+                Text("Lecture terminée").font(.sectionTitle).foregroundStyle(.white)
+                Button("Fermer") { session.close() }.buttonStyle(PillButtonStyle(prominent: true))
+            }
+        }
+        .padding(60)
+        .background(RoundedRectangle(cornerRadius: 30).fill(.black.opacity(0.8)))
+    }
+}
+
+// MARK: - Panneau
+
+private struct PlayerPanel: View {
+    let session: PlayerSession
+    @State private var tab: PlayerSession.Panel
+
+    init(session: PlayerSession, initial: PlayerSession.Panel) {
+        self.session = session
+        _tab = State(initialValue: initial)
+    }
+
+    var body: some View {
+        VStack {
+            Spacer()
+            VStack(alignment: .leading, spacing: 26) {
+                HStack(spacing: 18) {
+                    tabButton("Audio et sous-titres", .tracks)
+                    if !session.playableAlternatives.isEmpty { tabButton("Sources", .sources) }
+                    tabButton("Informations", .info)
+                }
+                .focusSection()
+                ScrollView(.vertical) {
+                    Group {
+                        switch tab {
+                        case .tracks: TracksPanel(session: session)
+                        case .sources: SourcesPanel(session: session)
+                        case .info: InfoPanel(session: session)
+                        }
+                    }
+                    .padding(.vertical, 10)
+                }
+                .frame(maxHeight: 520)
+            }
+            .padding(50)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).fill(Color.black.opacity(0.45)))
+            )
+            .padding(.horizontal, 60)
+            .padding(.bottom, 40)
+        }
+    }
+
+    private func tabButton(_ title: String, _ value: PlayerSession.Panel) -> some View {
+        Button(title) { tab = value }
+            .buttonStyle(PillButtonStyle(prominent: tab == value))
+    }
+}
+
+private struct TracksPanel: View {
+    let session: PlayerSession
+
+    var body: some View {
+        let s = session.snapshot
+        HStack(alignment: .top, spacing: 50) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Audio").font(.cardTitle).foregroundStyle(Theme.textSecondary)
+                if s.audioTracks.isEmpty {
+                    Text("Aucune piste signalée").font(.meta).foregroundStyle(Theme.textTertiary)
+                }
+                ForEach(s.audioTracks) { track in
+                    TrackButton(title: track.displayName, selected: track.id == s.selectedAudioID) {
+                        session.selectAudio(track.id)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .focusSection()
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Sous-titres").font(.cardTitle).foregroundStyle(Theme.textSecondary)
+                TrackButton(title: "Désactivés", selected: s.selectedSubtitleID == nil) { session.selectSubtitle(nil) }
+                ForEach(s.subtitleTracks) { track in
+                    TrackButton(title: track.displayName, selected: track.id == s.selectedSubtitleID) {
+                        session.selectSubtitle(track.id)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .focusSection()
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Décalage").font(.cardTitle).foregroundStyle(Theme.textSecondary)
+                Text(String(format: "%+.2f s", session.subtitleDelay)).font(.sectionTitle).foregroundStyle(.white)
+                HStack(spacing: 14) {
+                    Button("−0,25 s") { session.adjustSubtitleDelay(by: -0.25) }.buttonStyle(PillButtonStyle())
+                    Button("+0,25 s") { session.adjustSubtitleDelay(by: 0.25) }.buttonStyle(PillButtonStyle())
+                }
+                if session.engine.rendersSubtitlesItself {
+                    Text("Non applicable avec le lecteur système.").font(.system(size: 19)).foregroundStyle(Theme.textTertiary)
+                }
+            }
+            .focusSection()
+        }
+    }
+}
+
+private struct TrackButton: View {
+    let title: String
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(selected ? Theme.accent : Theme.textTertiary)
+                Text(title).lineLimit(1)
+            }
+            .font(.system(size: 24, weight: .medium))
+        }
+        .buttonStyle(RowButtonStyle())
+    }
+}
+
+private struct SourcesPanel: View {
+    let session: PlayerSession
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Changer de source (la position est conservée)").font(.meta).foregroundStyle(Theme.textSecondary)
+            ForEach(session.playableAlternatives.prefix(25)) { source in
+                Button { session.switchSource(source) } label: {
+                    SourceRow(source: source, isBest: false, wasUsed: false)
+                }
+                .buttonStyle(RowButtonStyle())
+            }
+        }
+    }
+}
+
+private struct InfoPanel: View {
+    let session: PlayerSession
+
+    var body: some View {
+        let s = session.snapshot
+        HStack(alignment: .top, spacing: 60) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Détecté par le moteur").font(.cardTitle).foregroundStyle(Theme.textSecondary)
+                infoLine("Résolution", s.detected.resolutionLabel)
+                infoLine("Codec vidéo", s.detected.videoCodec)
+                infoLine("Plage dynamique", s.detected.dynamicRange)
+                infoLine("Images/s", s.detected.frameRate.map { String(format: "%.3f", $0) })
+                infoLine("Conteneur", s.detected.container)
+                infoLine("Codec audio", s.detected.audioCodec)
+                ForEach(s.diagnostics) { line in infoLine(line.label, line.value) }
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Annoncé par l'addon").font(.cardTitle).foregroundStyle(Theme.textSecondary)
+                if let t = session.context.source?.traits {
+                    infoLine("Résolution", t.resolution?.label)
+                    infoLine("HDR", t.hdr.isEmpty ? nil : t.hdr.map(\.label).joined(separator: ", "))
+                    infoLine("Codec vidéo", t.videoCodec?.label)
+                    infoLine("Audio", t.audioCodecs.isEmpty ? nil : t.audioCodecs.map(\.label).joined(separator: ", "))
+                    infoLine("Taille", t.sizeLabel)
+                    infoLine("Addon", session.context.source?.addonName)
+                } else {
+                    Text("Média de test local").font(.meta).foregroundStyle(Theme.textTertiary)
+                }
+                Text("Démarrage").font(.cardTitle).foregroundStyle(Theme.textSecondary).padding(.top, 16)
+                ForEach(PlaybackMilestone.allCases, id: \.self) { m in
+                    infoLine(m.label, session.milestones.latency(of: m).map { String(format: "+%.2f s", $0) })
+                }
+                infoLine("Blocages", "\(session.milestones.stallCount)")
+            }
+        }
+        // Lignes non focalisables : un bouton invisible garantit l'accès au défilement.
+        .focusable()
+    }
+
+    private func infoLine(_ label: String, _ value: String?) -> some View {
+        HStack(spacing: 16) {
+            Text(label).foregroundStyle(Theme.textTertiary).frame(width: 280, alignment: .leading)
+            Text(value ?? "—").foregroundStyle(.white).lineLimit(1)
+        }
+        .font(.system(size: 21))
+    }
+}
+
+// MARK: - Sous-titres
+
+/// Surcouche de sous-titres (texte stylé ou images PGS/DVB), non interactive.
+struct SubtitleLayer: View {
+    let session: PlayerSession
+
+    var body: some View {
+        GeometryReader { geo in
+            let prefs = session.languagePrefs
+            ZStack {
+                ForEach(session.cues) { cue in
+                    switch cue.body {
+                    case .text(let text, let italic, let bold):
+                        Text(text)
+                            .font(.system(size: prefs.subtitleSize.pointSize, weight: bold ? .heavy : .semibold))
+                            .italic(italic)
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(.white)
+                            .shadow(color: .black, radius: 2, x: 0, y: 0)
+                            .shadow(color: .black.opacity(0.8), radius: 6, x: 0, y: 2)
+                            .padding(.horizontal, prefs.subtitleBackground ? 18 : 0)
+                            .padding(.vertical, prefs.subtitleBackground ? 6 : 0)
+                            .background(prefs.subtitleBackground ? Color.black.opacity(0.5) : .clear,
+                                        in: RoundedRectangle(cornerRadius: 8))
+                            .frame(maxWidth: geo.size.width * 0.85)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: cue.top ? .top : .bottom)
+                            .padding(.bottom, cue.top ? 0 : geo.size.height * prefs.subtitleVerticalOffset)
+                            .padding(.top, cue.top ? geo.size.height * 0.06 : 0)
+                    case .image(let image, let rect, let canvas):
+                        let cw = canvas.width > 0 ? canvas.width : 1920
+                        let ch = canvas.height > 0 ? canvas.height : 1080
+                        let scale = min(geo.size.width / cw, geo.size.height / ch)
+                        let ox = (geo.size.width - cw * scale) / 2
+                        let oy = (geo.size.height - ch * scale) / 2
+                        Image(decorative: image, scale: 1)
+                            .resizable()
+                            .frame(width: rect.width * scale, height: rect.height * scale)
+                            .position(x: ox + rect.midX * scale, y: oy + rect.midY * scale)
+                    }
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}

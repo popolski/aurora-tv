@@ -1,0 +1,7 @@
+{
+  "subtitles": [
+    { "id": "1234", "lang": "fre", "url": "https://example.com/subs/1234.srt" },
+    { "id": 5678, "lang": "eng", "url": "https://example.com/subs/5678.srt", "label": "English SDH" },
+    { "id": "bad", "lang": "fre", "url": "file:///etc/passwd" }
+  ]
+}
