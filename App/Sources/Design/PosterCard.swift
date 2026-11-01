@@ -9,6 +9,8 @@ struct PosterCard: View {
     var shape: PosterShape = .poster
     var progress: Double?
     var badge: String?
+    /// Film probablement encore à l'affiche : pastille discrète en haut à droite.
+    var inCinema = false
     var width: CGFloat = Theme.Poster.width
     /// Navigation vers une destination (prioritaire sur `action`).
     var route: Route?
@@ -42,6 +44,10 @@ struct PosterCard: View {
 
             if let badge {
                 Badge(text: badge, tint: Theme.accent, announced: false)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            } else if inCinema {
+                CinemaBadge()
                     .padding(10)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }

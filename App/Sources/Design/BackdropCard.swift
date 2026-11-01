@@ -14,6 +14,8 @@ struct BackdropCard: View {
     var logoURL: URL?
     var subtitle: String?
     var progress: Double?
+    /// Film probablement encore à l'affiche : pastille discrète en haut à droite.
+    var inCinema = false
     var route: Route?
     var action: (() -> Void)?
     var onFocus: (() -> Void)?
@@ -68,6 +70,12 @@ struct BackdropCard: View {
             }
             .padding(.horizontal, 22)
             .padding(.bottom, progress == nil ? 18 : 30)
+
+            if inCinema {
+                CinemaBadge()
+                    .padding(12)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
 
             if let progress, progress > 0 {
                 GeometryReader { geo in

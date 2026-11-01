@@ -1,4 +1,5 @@
 import SwiftUI
+import LanterneCore
 import Observation
 
 /// Identité visuelle « Aurore » : l'image d'abord. L'affiche du contenu mis en
@@ -276,6 +277,25 @@ struct Chip: View {
         .background(Capsule().fill(Color.white.opacity(tint == nil ? 0.16 : 0.08)))
         .overlay(Capsule().strokeBorder((tint ?? Color.white).opacity(tint == nil ? 0.22 : 0.55), lineWidth: 1))
     }
+}
+
+/// Petite pastille « au cinéma » (icône seule) posée sur une miniature.
+struct CinemaBadge: View {
+    var body: some View {
+        Image(systemName: "popcorn.fill")
+            .font(.system(size: 18, weight: .bold))
+            .foregroundStyle(Theme.accent)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Capsule().fill(Theme.backgroundDeep.opacity(0.72)))
+            .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.5), lineWidth: 1))
+            .accessibilityLabel(Text("Au cinéma"))
+    }
+}
+
+extension MetaItem {
+    /// Probablement encore à l'affiche (estimation, voir `cinemaStatus`).
+    var isInCinema: Bool { cinemaStatus() == .inTheaters }
 }
 
 struct SectionHeader: View {

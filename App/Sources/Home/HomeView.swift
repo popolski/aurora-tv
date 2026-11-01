@@ -187,7 +187,7 @@ struct HomeView: View {
             ShelfRow(title: "Ma liste", items: Array(model.libraryItems.prefix(30)), cardHeight: BackdropCard.height) { item in
                 let rich = home.enriched[item.id]
                 BackdropCard(title: item.name, imageURL: rich?.background, fallbackURL: item.poster, logoURL: rich?.logo,
-                             route: .meta(rich ?? item.previewMeta), onFocus: { candidate = item.previewMeta })
+                             inCinema: rich?.isInCinema ?? false, route: .meta(rich ?? item.previewMeta), onFocus: { candidate = item.previewMeta })
             }
         }
         ForEach(home.rows) { row in
@@ -230,7 +230,7 @@ struct CatalogShelf: View {
         ShelfRow(title: row.title, subtitle: row.subtitle, items: row.items, isLoading: row.isLoading, error: row.error,
                  cardHeight: BackdropCard.height, onReachEnd: { row.loadNextPage() }) { meta in
             BackdropCard(title: meta.name, imageURL: meta.background, fallbackURL: meta.poster, logoURL: meta.logo,
-                         route: .meta(meta), onFocus: { onFocus(meta) })
+                         inCinema: meta.isInCinema, route: .meta(meta), onFocus: { onFocus(meta) })
         }
         .onAppear { row.loadIfNeeded() }
     }
@@ -247,7 +247,8 @@ struct ContinueWatchingBackdrop: View {
     var body: some View {
         BackdropCard(title: item.name, imageURL: meta?.background, fallbackURL: item.poster, logoURL: meta?.logo,
                      subtitle: ContinueWatchingCard.subtitle(for: item),
-                     progress: item.state.progress, route: .meta(meta ?? item.previewMeta), onFocus: onFocus)
+                     progress: item.state.progress, inCinema: meta?.isInCinema ?? false,
+                     route: .meta(meta ?? item.previewMeta), onFocus: onFocus)
             .contextMenu {
                 Button("Retirer de « Continuer à regarder »", role: .destructive) {
                     Task { await model.library.dismissFromContinueWatching(item.id) }
@@ -262,7 +263,7 @@ struct MetaPosterLink: View {
 
     var body: some View {
         PosterCard(title: meta.name, imageURL: meta.poster, subtitle: meta.displayYear, shape: meta.posterShape,
-                   route: .meta(meta))
+                   inCinema: meta.isInCinema, route: .meta(meta))
     }
 }
 
