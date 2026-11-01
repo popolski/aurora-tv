@@ -12,16 +12,18 @@ addons installés par l'utilisateur. Il n'embarque aucun moteur torrent.
 
 | Élément | Implémenté | Compilé | Testé automatiquement | Validé sur Apple TV |
 |---|---|---|---|---|
-| Protocole addon (manifestes, catalogues, fiches, flux, sous-titres) | ✅ | ⏳ CI | ⏳ tests unitaires écrits (réponses simulées) | ⏳ |
-| Compte Stremio (e-mail, code QR), synchro addons/bibliothèque | ✅ | ⏳ | ⏳ simulé uniquement — API réelle non jointe | ⏳ |
-| Smart Sources (analyse, tri, lisibilité) | ✅ | ⏳ | ⏳ | ⏳ |
-| Bibliothèque, progression, reprise, épisode suivant | ✅ | ⏳ | ⏳ | ⏳ |
-| Lecteur (AetherEngine + AVPlayer), jalons, chien de garde | ✅ | ⏳ | ⏳ tests d'interface sur simulateur (indicatifs) | ⏳ |
-| CI GitHub Actions → IPA non signée + vérification | ✅ | ⏳ | — | — |
+| Protocole addon (manifestes, catalogues, fiches, flux, sous-titres) | ✅ | ✅ | ✅ tests unitaires (réponses simulées) | ⏳ |
+| Compte Stremio (e-mail, code QR), synchro addons/bibliothèque | ✅ | ✅ | ✅ simulé (84 tests du cœur) | 🟡 connexion + synchro OK sur « Chambre » (build 6, 01/11/2026) ; bibliothèque à vérifier |
+| Smart Sources (analyse, tri, lisibilité) | ✅ | ✅ | ✅ | ⏳ |
+| Bibliothèque, progression, reprise, épisode suivant | ✅ | ✅ | ✅ | ⏳ |
+| Lecteur (AetherEngine + AVPlayer), jalons, chien de garde | ✅ | ✅ | ⏳ tests d'interface sur simulateur (indicatifs) | 🟡 clips de test embarqués signalés fonctionnels (build 6) ; sources réelles à qualifier |
+| CI GitHub Actions → IPA non signée + vérification | ✅ | ✅ | — | ✅ installée via atvloadly (build 6) |
 
-⏳ = pas encore exécuté. Le code a été écrit dans un environnement sans compilateur Swift ni accès
-aux serveurs Stremio : **la première compilation se fera sur GitHub Actions** et des corrections
-sont attendues. Rien n'est déclaré « fonctionnel » avant exécution réelle.
+⏳ = pas encore exécuté ; 🟡 = validé partiellement sur l'appareil, d'après le retour de
+l'utilisateur. Rien n'est déclaré « fonctionnel » sans exécution réelle.
+
+Remarque atvloadly : la page d'installation peut rester bloquée à 100 % alors que l'installation a
+abouti (vérifier la version dans Réglages › À propos).
 
 ## Démarrage rapide
 
