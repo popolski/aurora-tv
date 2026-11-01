@@ -61,6 +61,14 @@ struct HomeView: View {
                     .padding(.top, 24)
                     .padding(.bottom, 120)
                 }
+                // Masque : les rangées qui remontent disparaissent en fondu au lieu de
+                // passer sous le résumé du bandeau (constaté sur l'appareil, build 10).
+                .mask(
+                    LinearGradient(stops: [.init(color: .clear, location: 0),
+                                           .init(color: .black, location: 0.05),
+                                           .init(color: .black, location: 1)],
+                                   startPoint: .top, endPoint: .bottom)
+                )
             }
         }
         .onAppear { configure() }
@@ -271,7 +279,7 @@ struct MetaLine: View {
                 .accessibilityLabel(Text("Note IMDb \(rating)"))
             }
             if !meta.genres.isEmpty {
-                Text(meta.genres.prefix(3).joined(separator: " · ")).lineLimit(1)
+                Text(meta.genres.prefix(3).map(Localize.genre).joined(separator: " · ")).lineLimit(1)
             }
         }
         .font(.meta)

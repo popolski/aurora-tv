@@ -72,12 +72,12 @@ struct DiscoverView: View {
         VStack(alignment: .leading, spacing: 18) {
             chipRow(items: types.map { ($0, ContentTypeLabel.label(for: $0)) }, selected: selectedType) { selectedType = $0 }
             if catalogsOfType.count > 1 {
-                chipRow(items: catalogsOfType.map { ($0.id, "\($0.title) · \($0.addon.manifest.name)") },
+                chipRow(items: catalogsOfType.map { ($0.id, "\(Localize.catalogTitle(name: $0.title, type: $0.catalog.type)) · \($0.addon.manifest.name)") },
                         selected: current?.id ?? "") { selectedCatalogID = $0 }
             }
             if let options = current?.catalog.genreOptions, !options.isEmpty {
                 let required = current?.catalog.requiredExtras.contains { $0.name == ExtraName.genre } ?? false
-                let items = (required ? [] : [("", "Tous")]) + options.map { ($0, $0) }
+                let items = (required ? [] : [("", "Tous")]) + options.map { ($0, Localize.genre($0)) }
                 chipRow(items: items, selected: effectiveGenre ?? "") { genre = $0.isEmpty ? nil : $0 }
             }
         }

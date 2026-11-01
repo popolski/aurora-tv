@@ -24,8 +24,8 @@ final class CatalogRowModel: Identifiable {
         self.genre = genre
     }
 
-    var title: String { ref.title }
-    var subtitle: String { "\(ref.typeLabel) · \(ref.addon.manifest.name)" }
+    var title: String { Localize.catalogTitle(name: ref.title, type: ref.catalog.type) }
+    var subtitle: String { ref.addon.manifest.name }
 
     func loadIfNeeded() {
         guard !loadedOnce else { return }
