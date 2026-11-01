@@ -39,61 +39,108 @@ final class HomeModel {
 struct HomeView: View {
     @Environment(AppModel.self) private var model
     @State private var home = HomeModel()
+    /// Contenu affiché dans le bandeau (celui qui a le focus, après un court délai).
+    @State private var featured: MetaItem?
+    @State private var candidate: MetaItem?
+    @State private var enriched: [String: MetaItem] = [:]
+
+    private var shown: MetaItem? { (featured ?? home.hero).map { enriched[$0.id] ?? $0 } }
 
     var body: some View {
-        ScrollView(.vertical) {
-            LazyVStack(alignment: .leading, spacing: Theme.rowSpacing) {
-                if let hero = home.hero {
-                    HeroBanner(meta: hero)
-                } else if home.rows.isEmpty && model.isBootstrapped {
-                    MessageView(systemImage: "puzzlepiece.extension",
-                                title: "Aucun catalogue",
-                                message: model.addons.isEmpty
-                                    ? "Aucun addon n'est disponible. Vérifiez la connexion réseau ou ajoutez des addons dans Réglages."
-                                    : "Vos addons ne proposent pas de catalogue affichable sur l'accueil.")
-                } else {
-                    ShimmerBlock().frame(height: 560).padding(.horizontal, Theme.horizontalMargin)
-                }
-
-                if !model.continueWatching.isEmpty {
-                    ShelfRow(title: "Continuer à regarder", items: model.continueWatching) { item in
-                        ContinueWatchingCard(item: item)
+        ZStack(alignment: .topLeading) {
+            BillboardBackdrop(meta: shown)
+            VStack(alignment: .leading, spacing: 0) {
+                BillboardInfo(meta: shown)
+                    .frame(height: 430, alignment: .bottomLeading)
+                    .padding(.horizontal, Theme.horizontalMargin)
+                    .padding(.bottom, 18)
+                ScrollView(.vertical) {
+                    LazyVStack(alignment: .leading, spacing: 26) {
+                        rows
                     }
-                }
-
-                if !model.libraryItems.isEmpty {
-                    ShelfRow(title: "Ma bibliothèque", items: Array(model.libraryItems.prefix(30))) { item in
-                        LibraryPosterCard(item: item)
-                    }
-                }
-
-                ForEach(home.rows) { row in
-                    CatalogShelf(row: row)
+                    .padding(.top, 24)
+                    .padding(.bottom, 120)
                 }
             }
-            .padding(.vertical, 40)
         }
-        .scrollClipDisabled()
         .onAppear { configure() }
         .onChange(of: model.addons) { _, _ in configure() }
         .onChange(of: model.settings) { _, _ in configure() }
+        // Le bandeau suit le focus après une courte pause (pas de clignotement en défilement rapide).
+        .task(id: candidate?.id) {
+            guard let candidate else { return }
+            try? await Task.sleep(nanoseconds: 280_000_000)
+            guard !Task.isCancelled else { return }
+            featured = candidate
+            await enrich(candidate)
+        }
+    }
+
+    @ViewBuilder private var rows: some View {
+        if home.rows.isEmpty && model.continueWatching.isEmpty && model.isBootstrapped {
+            MessageView(systemImage: "puzzlepiece.extension",
+                        title: "Aucun catalogue",
+                        message: model.addons.isEmpty
+                            ? "Aucun addon n'est disponible. Vérifiez la connexion réseau ou ajoutez des addons dans Réglages."
+                            : "Vos addons ne proposent pas de catalogue affichable sur l'accueil.")
+        }
+        if !model.continueWatching.isEmpty {
+            ShelfRow(title: "Continuer à regarder", items: model.continueWatching, cardHeight: BackdropCard.height) { item in
+                ContinueWatchingBackdrop(item: item) { candidate = item.previewMeta }
+            }
+        }
+        if !model.libraryItems.isEmpty {
+            ShelfRow(title: "Ma liste", items: Array(model.libraryItems.prefix(30)), cardHeight: BackdropCard.height) { item in
+                BackdropCard(title: item.name, imageURL: nil, fallbackURL: item.poster, route: .meta(item.previewMeta),
+                             onFocus: { candidate = item.previewMeta })
+            }
+        }
+        ForEach(home.rows) { row in
+            CatalogShelf(row: row) { meta in candidate = meta }
+        }
     }
 
     private func configure() {
         home.configure(addons: model.addons, settings: model.settings, aggregator: model.aggregator)
     }
+
+    /// Complète un aperçu pauvre (élément de bibliothèque : pas d'image de fond ni de résumé).
+    private func enrich(_ meta: MetaItem) async {
+        guard meta.background == nil || meta.description == nil, enriched[meta.id] == nil else { return }
+        guard let detail = try? await model.aggregator.meta(type: meta.type, id: meta.id, addons: model.addons) else { return }
+        enriched[meta.id] = meta.merged(withDetail: detail)
+    }
 }
 
-/// Rangée de catalogue avec navigation vers la fiche ou la grille complète.
+/// Rangée de catalogue (cartes paysage).
 struct CatalogShelf: View {
     let row: CatalogRowModel
+    var onFocus: (MetaItem) -> Void = { _ in }
 
     var body: some View {
         ShelfRow(title: row.title, subtitle: row.subtitle, items: row.items, isLoading: row.isLoading, error: row.error,
-                 onReachEnd: { row.loadNextPage() }) { meta in
-            MetaPosterLink(meta: meta)
+                 cardHeight: BackdropCard.height, onReachEnd: { row.loadNextPage() }) { meta in
+            BackdropCard(title: meta.name, imageURL: meta.background, fallbackURL: meta.poster, logoURL: meta.logo,
+                         route: .meta(meta), onFocus: { onFocus(meta) })
         }
         .onAppear { row.loadIfNeeded() }
+    }
+}
+
+/// Carte « Continuer à regarder » (paysage, avec progression).
+struct ContinueWatchingBackdrop: View {
+    @Environment(AppModel.self) private var model
+    let item: LibraryItem
+    var onFocus: () -> Void = {}
+
+    var body: some View {
+        BackdropCard(title: item.name, imageURL: nil, fallbackURL: item.poster, subtitle: ContinueWatchingCard.subtitle(for: item),
+                     progress: item.state.progress, route: .meta(item.previewMeta), onFocus: onFocus)
+            .contextMenu {
+                Button("Retirer de « Continuer à regarder »", role: .destructive) {
+                    Task { await model.library.dismissFromContinueWatching(item.id) }
+                }
+            }
     }
 }
 
@@ -120,7 +167,9 @@ struct ContinueWatchingCard: View {
     @Environment(AppModel.self) private var model
     let item: LibraryItem
 
-    private var subtitle: String {
+    private var subtitle: String { Self.subtitle(for: item) }
+
+    static func subtitle(for item: LibraryItem) -> String {
         if let video = item.state.videoID, item.type == ContentType.series {
             let parts = video.split(separator: ":")
             if parts.count >= 3, let s = Int(parts[parts.count - 2]), let e = Int(parts[parts.count - 1]) {

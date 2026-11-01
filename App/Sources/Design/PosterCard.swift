@@ -115,7 +115,7 @@ struct ShelfRow<Item: Identifiable, Card: View>: View {
     @ViewBuilder let card: (Item) -> Card
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 6) {
             SectionHeader(title: title, subtitle: subtitle)
             if let error, items.isEmpty {
                 Text(error).font(.meta).foregroundStyle(Theme.textTertiary)
@@ -124,7 +124,8 @@ struct ShelfRow<Item: Identifiable, Card: View>: View {
                 ScrollView(.horizontal) {
                     HStack(spacing: 40) {
                         ForEach(0..<7, id: \.self) { _ in
-                            ShimmerBlock().frame(width: Theme.Poster.width, height: Theme.Poster.height)
+                            ShimmerBlock().frame(width: cardHeight < Theme.Poster.height ? BackdropCard.width : Theme.Poster.width,
+                                                 height: min(cardHeight, Theme.Poster.height))
                         }
                     }
                     .padding(.horizontal, Theme.horizontalMargin)
@@ -145,7 +146,7 @@ struct ShelfRow<Item: Identifiable, Card: View>: View {
                     .padding(.vertical, 30)
                 }
                 .scrollClipDisabled()
-                .frame(height: cardHeight + 40)
+                .frame(height: cardHeight + 70)
             }
         }
         .focusSection()

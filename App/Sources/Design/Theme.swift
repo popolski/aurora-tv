@@ -30,7 +30,7 @@ extension Font {
     /// Typographie lisible à plusieurs mètres (tailles de base tvOS à 1080p).
     static let heroTitle = Font.system(size: 76, weight: .heavy, design: .default)
     static let screenTitle = Font.system(size: 52, weight: .bold)
-    static let sectionTitle = Font.system(size: 34, weight: .semibold)
+    static let sectionTitle = Font.system(size: 30, weight: .bold)
     static let cardTitle = Font.system(size: 24, weight: .semibold)
     static let bodyLarge = Font.system(size: 29, weight: .regular)
     static let meta = Font.system(size: 24, weight: .medium)
@@ -67,6 +67,35 @@ struct PillButtonStyle: ButtonStyle {
                 .scaleEffect(isFocused ? 1.06 : (configuration.isPressed ? 0.97 : 1))
                 .shadow(color: isFocused ? Theme.accent.opacity(0.35) : .clear, radius: 18, y: 8)
                 .animation(.easeOut(duration: 0.18), value: isFocused)
+        }
+    }
+}
+
+/// Bouton d'action empilé (fiche) : large, aligné à gauche, plein clair au focus.
+struct ActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        ActionBody(configuration: configuration)
+    }
+
+    private struct ActionBody: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.isFocused) private var isFocused
+
+        var body: some View {
+            configuration.label
+                .font(.system(size: 27, weight: .semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 28)
+                .padding(.vertical, 15)
+                .frame(width: 560, alignment: .leading)
+                .foregroundStyle(isFocused ? Color.black : Theme.textPrimary)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(isFocused ? Color.white : Color.white.opacity(0.08))
+                )
+                .scaleEffect(isFocused ? 1.04 : (configuration.isPressed ? 0.98 : 1), anchor: .leading)
+                .shadow(color: isFocused ? .black.opacity(0.4) : .clear, radius: 14, y: 6)
+                .animation(.easeOut(duration: 0.16), value: isFocused)
         }
     }
 }

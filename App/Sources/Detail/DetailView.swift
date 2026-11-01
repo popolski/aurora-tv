@@ -27,7 +27,6 @@ struct DetailView: View {
                     }
                     credits
                 }
-                .padding(.top, 80)
                 .padding(.bottom, 80)
             }
             .scrollClipDisabled()
@@ -55,36 +54,32 @@ struct DetailView: View {
     // MARK: En-tête
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 60) {
-            VStack(alignment: .leading, spacing: 22) {
-                if let logo = meta.logo {
-                    RemoteImage(url: logo, maxPixel: 900, contentMode: .fit) {
-                        Text(meta.name).font(.heroTitle).foregroundStyle(Theme.textPrimary)
-                    }
-                    .frame(maxWidth: 760, maxHeight: 200, alignment: .leading)
-                } else {
-                    Text(meta.name.isEmpty ? "…" : meta.name)
-                        .font(.heroTitle).foregroundStyle(Theme.textPrimary).lineLimit(2)
+        VStack(alignment: .leading, spacing: 20) {
+            if let logo = meta.logo {
+                RemoteImage(url: logo, maxPixel: 900, contentMode: .fit) {
+                    Text(meta.name).font(.heroTitle).foregroundStyle(Theme.textPrimary)
                 }
-                MetaLine(meta: meta)
-                if detail.state == .loading && meta.description == nil {
-                    ShimmerBlock().frame(width: 900, height: 120)
-                } else if let description = meta.description {
-                    Text(description)
-                        .font(.bodyLarge)
-                        .foregroundStyle(Theme.textSecondary)
-                        .lineLimit(5)
-                        .frame(maxWidth: 1100, alignment: .leading)
-                }
-                actions.padding(.top, 12)
+                .frame(maxWidth: 700, maxHeight: 190, alignment: .bottomLeading)
+            } else {
+                Text(meta.name.isEmpty ? "…" : meta.name)
+                    .font(.heroTitle).foregroundStyle(Theme.textPrimary).lineLimit(2)
+                    .shadow(color: .black.opacity(0.5), radius: 8)
             }
-            Spacer(minLength: 0)
-            RemoteImage(url: meta.poster, maxPixel: 900) { PosterPlaceholder(title: meta.name) }
-                .frame(width: 320, height: 480)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
-                .shadow(color: .black.opacity(0.5), radius: 30, y: 16)
+            MetaLine(meta: meta)
+            if detail.state == .loading && meta.description == nil {
+                ShimmerBlock().frame(width: 900, height: 110)
+            } else if let description = meta.description {
+                Text(description)
+                    .font(.system(size: 27))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(4)
+                    .frame(maxWidth: 960, alignment: .leading)
+            }
+            actions.padding(.top, 14)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Theme.horizontalMargin)
+        .padding(.top, 180)
         .focusSection()
     }
 
@@ -98,7 +93,7 @@ struct DetailView: View {
     }
 
     @ViewBuilder private var actions: some View {
-        HStack(spacing: 26) {
+        VStack(alignment: .leading, spacing: 12) {
             if let videoID = detail.targetVideoID {
                 NavigationLink(value: Route.sources(sourcesRoute(videoID: videoID, video: detail.targetVideo,
                                                                  start: detail.resumePosition))) {
@@ -110,25 +105,25 @@ struct DetailView: View {
                         }
                     } icon: { Image(systemName: "play.fill") }
                 }
-                .buttonStyle(PillButtonStyle(prominent: true))
+                .buttonStyle(ActionButtonStyle())
                 .prefersDefaultFocus(in: focusNamespace)
                 .accessibilityIdentifier("detail.play")
 
                 if detail.resumePosition != nil {
                     NavigationLink(value: Route.sources(sourcesRoute(videoID: videoID, video: detail.targetVideo, start: nil))) {
-                        Label("Depuis le début", systemImage: "backward.end.fill")
+                        Label("Depuis le début", systemImage: "arrow.counterclockwise")
                     }
-                    .buttonStyle(PillButtonStyle())
+                    .buttonStyle(ActionButtonStyle())
                 }
             }
 
             Button {
                 detail.toggleLibrary(app: app)
             } label: {
-                Label(detail.isInLibrary ? "Dans la bibliothèque" : "Ajouter",
+                Label(detail.isInLibrary ? "Dans ma liste" : "Ajouter à ma liste",
                       systemImage: detail.isInLibrary ? "checkmark" : "plus")
             }
-            .buttonStyle(PillButtonStyle())
+            .buttonStyle(ActionButtonStyle())
             .accessibilityIdentifier("detail.library")
 
             if !detail.isSeries {
@@ -136,9 +131,9 @@ struct DetailView: View {
                 Button {
                     detail.setWatched(!watched, video: nil, app: app)
                 } label: {
-                    Label(watched ? "Vu" : "Marquer vu", systemImage: watched ? "eye.fill" : "eye")
+                    Label(watched ? "Vu" : "Marquer comme vu", systemImage: watched ? "eye.fill" : "eye")
                 }
-                .buttonStyle(PillButtonStyle())
+                .buttonStyle(ActionButtonStyle())
             }
         }
     }

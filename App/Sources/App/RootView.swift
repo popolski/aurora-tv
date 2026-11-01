@@ -45,6 +45,8 @@ struct RootView: View {
                 NavigationRoot { SettingsView() }
             }
         }
+        // Navigation latérale repliable (à la place des onglets en haut).
+        .tabViewStyle(.sidebarAdaptable)
         .tint(Theme.accent)
     }
 }
