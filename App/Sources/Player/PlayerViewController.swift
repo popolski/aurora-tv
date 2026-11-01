@@ -2,9 +2,11 @@ import UIKit
 import SwiftUI
 import LanterneCore
 
-/// Vue racine focalisable : reçoit les appuis de la télécommande quand
-/// aucune surcouche interactive n'est ouverte.
-final class PlayerRootView: UIView {
+/// Vue transparente focalisable qui capte la télécommande quand aucune
+/// surcouche interactive n'est ouverte. Elle est **sœur** des surcouches (et
+/// non leur parente) : sur tvOS, une vue focalisable empêche ses sous-vues de
+/// recevoir le focus, ce qui bloquerait le panneau Audio/Sous-titres.
+final class RemoteCatcherView: UIView {
     override var canBecomeFocused: Bool { true }
 }
 
@@ -19,11 +21,13 @@ final class PlayerRootView: UIView {
 /// - Menu : annule le déplacement, masque l'interface, puis ferme le lecteur.
 final class PlayerViewController: UIViewController {
     let session: PlayerSession
-    private let root = PlayerRootView()
+    private let root = UIView()
+    private let catcher = RemoteCatcherView()
     private var engineView: UIView
     private let subtitleHost: UIHostingController<SubtitleLayer>
     private let overlayHost: UIHostingController<PlayerOverlay>
     private var pan: UIPanGestureRecognizer?
+    private var swipes: [UISwipeGestureRecognizer] = []
     private var started = false
     private let skipInterval: TimeInterval
 
@@ -47,6 +51,10 @@ final class PlayerViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         install(engineView)
+        catcher.frame = root.bounds
+        catcher.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        catcher.backgroundColor = .clear
+        root.addSubview(catcher)
         for host in [subtitleHost, overlayHost] as [UIViewController] {
             addChild(host)
             host.view.backgroundColor = .clear
@@ -59,8 +67,18 @@ final class PlayerViewController: UIViewController {
 
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
         pan.cancelsTouchesInView = false
+        pan.delegate = self
         root.addGestureRecognizer(pan)
         self.pan = pan
+        // Balayages verticaux (convention du lecteur Apple) : bas = panneau, haut = interface.
+        for direction in [UISwipeGestureRecognizer.Direction.down, .up] {
+            let swipe = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipe(_:)))
+            swipe.direction = direction
+            swipe.cancelsTouchesInView = false
+            swipe.delegate = self
+            root.addGestureRecognizer(swipe)
+            swipes.append(swipe)
+        }
 
         session.onFocusContextChange = { [weak self] in self?.updateFocusTarget() }
         session.onEngineViewChange = { [weak self] view in self?.replaceEngineView(view) }
@@ -98,11 +116,12 @@ final class PlayerViewController: UIViewController {
     // MARK: Focus
 
     override var preferredFocusEnvironments: [any UIFocusEnvironment] {
-        session.needsInteractiveOverlay ? [overlayHost] : [root]
+        session.needsInteractiveOverlay ? [overlayHost] : [catcher]
     }
 
     private func updateFocusTarget() {
         pan?.isEnabled = !session.needsInteractiveOverlay
+        for swipe in swipes { swipe.isEnabled = !session.needsInteractiveOverlay }
         setNeedsFocusUpdate()
         updateFocusIfNeeded()
     }
@@ -178,15 +197,27 @@ final class PlayerViewController: UIViewController {
         }
     }
 
+    @objc private func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
+        guard !session.needsInteractiveOverlay, session.scrubTarget == nil else { return }
+        if gesture.direction == .down {
+            session.touch()
+            session.panel = .tracks
+        } else {
+            session.touch()
+        }
+    }
+
     @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
         guard !session.needsInteractiveOverlay, root.bounds.width > 0 else { return }
         let translation = gesture.translation(in: root)
         switch gesture.state {
         case .began:
-            session.beginScrub()
+            // Le déplacement ne démarre qu'au premier mouvement horizontal franc.
+            break
         case .changed:
-            // Ignore les mouvements essentiellement verticaux.
-            guard abs(translation.x) > abs(translation.y) else { return }
+            // Ignore les mouvements essentiellement verticaux (réservés aux balayages haut/bas).
+            guard abs(translation.x) > abs(translation.y) * 1.5 else { return }
+            if session.scrubTarget == nil { session.beginScrub() }
             session.updateScrub(fraction: Double(translation.x / root.bounds.width))
         default:
             break
@@ -194,20 +225,47 @@ final class PlayerViewController: UIViewController {
     }
 }
 
-/// Intégration SwiftUI du lecteur (présenté en plein écran depuis la racine).
-struct PlayerScreen: UIViewControllerRepresentable {
-    @Environment(AppModel.self) private var app
-    let context: PlaybackContext
+extension PlayerViewController: UIGestureRecognizerDelegate {
+    /// Le balayage horizontal (déplacement) et les balayages verticaux coexistent.
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+        true
+    }
+}
 
-    func makeUIViewController(context ctx: Context) -> PlayerViewController {
+/// Présentation UIKit du lecteur, plein écran, par-dessus l'interface SwiftUI.
+///
+/// Un `fullScreenCover` SwiftUI garde la main sur le focus : les préférences de
+/// focus du contrôleur UIKit étaient ignorées et la télécommande n'atteignait pas
+/// le lecteur. Un contrôleur présenté par UIKit dispose de son propre contexte de
+/// focus ; à sa fermeture, tvOS rend le focus à l'élément SwiftUI d'origine.
+@MainActor
+enum PlayerPresenter {
+    private static weak var current: PlayerViewController?
+
+    static func present(_ context: PlaybackContext, app: AppModel) {
+        guard current == nil, let presenter = topViewController() else {
+            LogChannel("player").warning("présentation du lecteur impossible (déjà ouvert ou fenêtre absente)")
+            return
+        }
         let session = PlayerSession(context: context, app: app)
-        session.onClose = { [weak app] in app?.playbackDidEnd() }
-        return PlayerViewController(session: session, skipInterval: app.settings.playback.skipInterval)
+        let controller = PlayerViewController(session: session, skipInterval: app.settings.playback.skipInterval)
+        controller.modalPresentationStyle = .fullScreen
+        session.onClose = { [weak controller, weak app] in
+            if let controller, controller.presentingViewController != nil {
+                controller.dismiss(animated: true)
+            }
+            app?.playbackDidEnd()
+        }
+        current = controller
+        presenter.present(controller, animated: true)
     }
 
-    func updateUIViewController(_ controller: PlayerViewController, context ctx: Context) {}
-
-    static func dismantleUIViewController(_ controller: PlayerViewController, coordinator: ()) {
-        controller.session.close()
+    private static func topViewController() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow) ?? scenes.first?.windows.first
+        var top = window?.rootViewController
+        while let presented = top?.presentedViewController { top = presented }
+        return top
     }
 }

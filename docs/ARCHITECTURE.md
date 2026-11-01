@@ -34,7 +34,7 @@ ne contient que la présentation, la navigation, l'intégration des moteurs et d
 | UI | SwiftUI (tvOS 18+), UIKit pour le lecteur | SwiftUI gère bien le focus des grilles/rangées ; le lecteur a besoin du contrôle fin des appuis (`pressesBegan/Ended`) et du geste de balayage |
 | Concurrence | Swift 6, concurrence stricte ; app en isolation `MainActor` par défaut ; services en `actor` | absence de courses de données vérifiée à la compilation ; annulation structurée (tâches de chargement annulées à la sortie des écrans) |
 | Navigation | une `NavigationStack` par onglet, destinations par valeur (`Route`) déclarées à la racine | évite les destinations ignorées dans les conteneurs paresseux ; la pile restaure le focus au retour |
-| Lecteur | `fullScreenCover` racine → `UIViewControllerRepresentable` | un seul point de présentation, fermeture centralisée, libération du moteur à la fermeture |
+| Lecteur | contrôleur UIKit présenté plein écran (`PlayerPresenter`) | contexte de focus propre (un `fullScreenCover` SwiftUI empêchait la télécommande d'atteindre le lecteur — constaté sur l'appareil, build 6) ; fermeture centralisée, libération du moteur |
 | Projet | XcodeGen | projet reproductible, pas de `.pbxproj` en conflit |
 | Dépendances | AetherEngine (version exacte) uniquement | rien d'autre n'est nécessaire |
 
@@ -45,7 +45,7 @@ ne contient que la présentation, la navigation, l'intégration des moteurs et d
 - Fiche : `prefersDefaultFocus` sur « Lire/Reprendre ».
 - Retour : la pile de navigation restaure le focus sur l'élément d'origine (vérifié par un test
   d'interface sur simulateur).
-- Lecteur : la vue racine est focalisable et reçoit les appuis ; quand un panneau ou un écran
+- Lecteur : une vue transparente focalisable, sœur des surcouches, reçoit les appuis ; quand un panneau ou un écran
   d'erreur/fin est ouvert, `preferredFocusEnvironments` bascule vers la surcouche SwiftUI et le
   geste de balayage est désactivé. Menu ferme d'abord le panneau, puis masque l'interface, puis
   ferme le lecteur. Appui long sur une affiche « Continuer » ou un épisode : menu contextuel
@@ -53,8 +53,8 @@ ne contient que la présentation, la navigation, l'intégration des moteurs et d
 
 ## Cycle de vie du lecteur
 
-1. `AppModel.play(context)` → `fullScreenCover` → `PlayerViewController` créé avec une
-   `PlayerSession`.
+1. `AppModel.play(context)` → `PlayerPresenter` présente un `PlayerViewController` (UIKit) avec
+   une `PlayerSession`.
 2. `viewDidAppear` → `session.start()` : création de la requête moteur, jalon « source ouverte »,
    chargement asynchrone, boucle d'observation à 4 Hz.
 3. Pendant la lecture : jalons, chien de garde « pas d'image », pistes par défaut (préférences),

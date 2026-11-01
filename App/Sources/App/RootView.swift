@@ -28,7 +28,6 @@ struct RootView: View {
     @State private var tab: RootTab = .home
 
     var body: some View {
-        @Bindable var model = model
         TabView(selection: $tab) {
             Tab("Accueil", systemImage: "house", value: RootTab.home) {
                 NavigationRoot { HomeView() }
@@ -47,10 +46,6 @@ struct RootView: View {
             }
         }
         .tint(Theme.accent)
-        .fullScreenCover(item: $model.playback) { context in
-            PlayerScreen(context: context)
-                .environment(model)
-        }
     }
 }
 

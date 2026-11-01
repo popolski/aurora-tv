@@ -169,8 +169,10 @@ final class AppModel {
     // MARK: Lecture
 
     func play(_ context: PlaybackContext) {
+        guard playback == nil else { return }
         log.info("lecture demandée : \(context.meta.name) [\(context.videoID)]")
         playback = context
+        PlayerPresenter.present(context, app: self)
     }
 
     /// Appelé à la fermeture du lecteur : envoie la progression au compte.
