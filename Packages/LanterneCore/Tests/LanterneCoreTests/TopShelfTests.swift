@@ -62,9 +62,9 @@ struct TopShelfTests {
 
     @Test func parsesRuntimes() {
         func seconds(_ s: String) -> TimeInterval? { MetaItem(id: "x", type: "movie", name: "x", runtime: s).runtimeSeconds }
-        #expect(seconds("148 min") == 148 * 60)
-        #expect(seconds("2h 28min") == 2 * 3600 + 28 * 60)
-        #expect(seconds("1 h 05") == 3600 + 5 * 60)
+        #expect(seconds("148 min") == TimeInterval(148 * 60))
+        #expect(seconds("2h 28min") == TimeInterval(2 * 3600 + 28 * 60))
+        #expect(seconds("1 h 05") == TimeInterval(3600 + 5 * 60))
         #expect(seconds("2h") == 7200)
         #expect(seconds("N/A") == nil)
     }

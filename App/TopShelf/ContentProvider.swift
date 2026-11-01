@@ -9,7 +9,9 @@ import LanterneCore
 /// est renseignée. La bande-annonce vient du service du NAS, dont l'adresse est
 /// partagée par l'app via le groupe d'apps ; sans elle, le carrousel reste en images.
 final class ContentProvider: TVTopShelfContentProvider {
-    override func loadTopShelfContent() async -> (any TVTopShelfContent)? {
+    // `nonsending` : s'exécute sur le contexte de l'appelant, le contenu (non `Sendable`)
+    // ne change donc pas de domaine de concurrence en étant renvoyé.
+    nonisolated(nonsending) override func loadTopShelfContent() async -> (any TVTopShelfContent)? {
         let config = TopShelfConfig.load(from: SharedContainer.defaults())
         let metas = await TopShelfLoader.latestMovies(limit: 10)
         guard !metas.isEmpty else { return nil }  // tvOS garde alors l'image statique
