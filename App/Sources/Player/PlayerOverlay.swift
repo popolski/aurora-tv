@@ -92,7 +92,11 @@ private struct ChromeView: View {
                             Image(systemName: s.phase == .playing ? "pause.fill" : "play.fill")
                             Text(TimeFormat.clock(session.displayedPosition))
                             Spacer()
-                            if session.scrubTarget != nil {
+                            if let rate = session.shuttleRate {
+                                Text("\(rate > 0 ? "▶▶" : "◀◀") ×\(Int(abs(rate))) · Relâchez pour reprendre la lecture")
+                                    .foregroundStyle(Theme.accent)
+                                    .contentTransition(.numericText())
+                            } else if session.scrubTarget != nil {
                                 Text("Cliquez pour aller à \(TimeFormat.clock(session.displayedPosition)) · Menu pour annuler")
                                     .foregroundStyle(Theme.accent)
                             } else {

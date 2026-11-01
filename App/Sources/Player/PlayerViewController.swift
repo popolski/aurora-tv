@@ -16,6 +16,9 @@ final class RemoteCatcherView: UIView {
 /// Commandes :
 /// - clic central / Lecture-Pause : lecture ↔ pause (ou validation d'un déplacement) ;
 /// - clic à gauche/droite du pavé : −/+ intervalle de saut ;
+/// - gauche/droite maintenu : retour/avance rapide qui accélère (×8 → ×128),
+///   la lecture reprend au point atteint au relâchement ;
+/// - touches ⏪/⏩ d'une télécommande de TV : voir `RemoteCommands` ;
 /// - balayage horizontal : déplacement dans la vidéo, validé par un clic ;
 /// - bas : panneau Audio / Sous-titres / Sources / Infos ; haut : affiche l'interface ;
 /// - Menu : annule le déplacement, masque l'interface, puis ferme le lecteur.
@@ -29,6 +32,9 @@ final class PlayerViewController: UIViewController {
     private var pan: UIPanGestureRecognizer?
     private var swipes: [UISwipeGestureRecognizer] = []
     private var started = false
+    /// Appui gauche/droite en cours : au-delà de 0,45 s, il devient un défilement rapide.
+    private var holdTask: Task<Void, Never>?
+    private var heldArrow: UIPress.PressType?
     private let skipInterval: TimeInterval
 
     init(session: PlayerSession, skipInterval: TimeInterval) {
@@ -143,12 +149,31 @@ final class PlayerViewController: UIViewController {
         }
         guard !session.needsInteractiveOverlay else { return }
         switch press.type {
-        case .leftArrow:
-            session.seek(by: -skipInterval)
-        case .rightArrow:
-            session.seek(by: skipInterval)
+        case .leftArrow, .rightArrow:
+            // Le saut part au relâchement ; maintenu, l'appui lance le défilement rapide.
+            let type = press.type
+            heldArrow = type
+            holdTask?.cancel()
+            holdTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 450_000_000)
+                guard let self, !Task.isCancelled, self.heldArrow == type else { return }
+                self.session.startShuttle(forward: type == .rightArrow)
+            }
         default:
             break
+        }
+    }
+
+    /// Fin d'appui gauche/droite : saut simple, ou validation du défilement rapide.
+    private func releaseArrow(_ type: UIPress.PressType, cancelled: Bool) {
+        guard heldArrow == type else { return }
+        holdTask?.cancel()
+        holdTask = nil
+        heldArrow = nil
+        if session.isShuttling {
+            session.stopShuttle(commit: true)
+        } else if !cancelled {
+            session.seek(by: type == .rightArrow ? skipInterval : -skipInterval)
         }
     }
 
@@ -165,6 +190,8 @@ final class PlayerViewController: UIViewController {
             return
         }
         switch press.type {
+        case .leftArrow, .rightArrow:
+            releaseArrow(press.type, cancelled: false)
         case .select:
             if session.scrubTarget != nil { session.commitScrub() } else { session.togglePlayPause() }
         case .playPause:
@@ -192,6 +219,7 @@ final class PlayerViewController: UIViewController {
             super.pressesCancelled(presses, with: event)
             return
         }
+        if press.type == .leftArrow || press.type == .rightArrow { releaseArrow(press.type, cancelled: true) }
     }
 
     @objc private func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
@@ -205,7 +233,7 @@ final class PlayerViewController: UIViewController {
     }
 
     @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
-        guard !session.needsInteractiveOverlay, root.bounds.width > 0 else { return }
+        guard !session.needsInteractiveOverlay, !session.isShuttling, root.bounds.width > 0 else { return }
         let translation = gesture.translation(in: root)
         switch gesture.state {
         case .began:

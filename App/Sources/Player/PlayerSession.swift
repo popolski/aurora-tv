@@ -31,6 +31,8 @@ final class PlayerSession {
     /// Encart « Épisode suivant » affiché pendant le générique (avant la fin du fichier).
     private(set) var upNext: MetaVideo?
     private(set) var scrubTarget: TimeInterval?
+    /// Vitesse du défilement rapide en cours (secondes de vidéo par seconde, signée).
+    private(set) var shuttleRate: Double?
     private(set) var subtitleDelay: TimeInterval
     /// Préférences d'affichage des sous-titres (la surcouche est hors de l'environnement SwiftUI).
     let languagePrefs: LanguagePreferences
@@ -56,6 +58,8 @@ final class PlayerSession {
     @ObservationIgnored private var lastInteraction = Date()
     @ObservationIgnored private var lastScrubActivity = Date()
     @ObservationIgnored private var scrubOrigin: TimeInterval = 0
+    @ObservationIgnored private var shuttleTask: Task<Void, Never>?
+    @ObservationIgnored private var remoteCommands: RemoteCommands?
     @ObservationIgnored private var tracksConfigured = false
     @ObservationIgnored private var userChoseSubtitle = false
     @ObservationIgnored private var externalAdded = false
@@ -114,6 +118,9 @@ final class PlayerSession {
 
     func start() {
         guard !closed else { return }
+        if remoteCommands == nil {
+            remoteCommands = RemoteCommands(session: self, skipInterval: app.settings.playback.skipInterval)
+        }
         loadTask?.cancel()
         auxTask?.cancel()
         milestones.reset()
@@ -246,6 +253,7 @@ final class PlayerSession {
         accumulateProgress(now: now, s: s)
         autoHideChrome(now: now, s: s)
         if scrubTarget != nil, now.timeIntervalSince(lastScrubActivity) > 8 { cancelScrub() }
+        publishNowPlaying()
         lastTick = now
     }
 
@@ -350,6 +358,63 @@ final class PlayerSession {
     func togglePlayPause() {
         touch()
         if snapshot.phase == .playing { engine.pause() } else { engine.play() }
+        publishNowPlaying(force: true)
+    }
+
+    func play() {
+        touch()
+        engine.play()
+        publishNowPlaying(force: true)
+    }
+
+    func pause() {
+        touch()
+        engine.pause()
+        publishNowPlaying(force: true)
+    }
+
+    var isShuttling: Bool { shuttleTask != nil }
+
+    /// Avance / retour rapide continu (touche maintenue) : la vitesse double toutes
+    /// les 1,5 s, de ×8 à ×128. La lecture reprend au point atteint au relâchement.
+    func startShuttle(forward: Bool) {
+        guard snapshot.duration > 0, shuttleTask == nil, !closed else { return }
+        beginScrub()
+        guard scrubTarget != nil else { return }
+        let sign: Double = forward ? 1 : -1
+        let started = Date()
+        shuttleRate = 8 * sign
+        shuttleTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                guard let self, !Task.isCancelled, let target = self.scrubTarget else { return }
+                let level = min(4, Int(Date().timeIntervalSince(started) / 1.5))
+                let rate = 8 * pow(2, Double(level)) * sign
+                self.shuttleRate = rate
+                self.scrubTarget = (target + rate * 0.1).limited(to: 0...max(0, self.snapshot.duration - 1))
+                self.lastScrubActivity = Date()
+                self.touch()
+            }
+        }
+    }
+
+    func stopShuttle(commit: Bool) {
+        guard shuttleTask != nil else { return }
+        endShuttle()
+        if commit { commitScrub() } else { cancelScrub() }
+    }
+
+    private func endShuttle() {
+        shuttleTask?.cancel()
+        shuttleTask = nil
+        shuttleRate = nil
+    }
+
+    private func publishNowPlaying(force: Bool = false) {
+        guard let remoteCommands else { return }
+        let title = context.video.map { [context.meta.name, $0.episodeCode ?? $0.title].joined(separator: " · ") } ?? context.meta.name
+        remoteCommands.publish(title: title, position: snapshot.position, duration: snapshot.duration,
+                               playing: snapshot.phase == .playing, force: force)
     }
 
     func seek(by delta: TimeInterval) {
@@ -384,12 +449,16 @@ final class PlayerSession {
     }
 
     func commitScrub() {
+        endShuttle()
         guard let target = scrubTarget else { return }
         scrubTarget = nil
         seek(to: target)
     }
 
-    func cancelScrub() { scrubTarget = nil }
+    func cancelScrub() {
+        endShuttle()
+        scrubTarget = nil
+    }
 
     // MARK: Erreurs, fin, épisode suivant
 
@@ -611,6 +680,9 @@ final class PlayerSession {
         auxTask?.cancel()
         ticker?.cancel()
         ticker = nil
+        endShuttle()
+        remoteCommands?.invalidate()
+        remoteCommands = nil
         engine.stop()
         cues = []
         UIApplication.shared.isIdleTimerDisabled = false

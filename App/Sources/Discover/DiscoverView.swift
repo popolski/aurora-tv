@@ -1,115 +1,184 @@
 import SwiftUI
 import LanterneCore
 
-/// Exploration : type de contenu → catalogue → genre, en grille paginée.
+/// Les trois façons d'explorer Films et Séries (catalogues Cinemeta).
+enum DiscoverKind: String, CaseIterable, Identifiable {
+    case popular = "top", new = "year", featured = "imdbRating"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .popular: "Populaires"
+        case .new: "Nouveautés"
+        case .featured: "À la une"
+        }
+    }
+}
+
+/// Exploration d'un type (Films ou Séries) : Populaires (filtre par genre),
+/// Nouveautés (filtre par année) ou À la une. Seuls ces trois choix sont
+/// proposés ; les autres catalogues (Trakt, etc.) restent sur l'accueil.
 struct DiscoverView: View {
     @Environment(AppModel.self) private var app
-    /// Type imposé par l'onglet (Films, Séries) ; `nil` = choix libre.
+    /// Type affiché par l'onglet (Films, Séries).
     var fixedType: String?
-    @State private var selectedType: String = ContentType.movie
-    @State private var selectedCatalogID: String?
-    @State private var genre: String?
+    @State private var kind: DiscoverKind = .popular
+    /// Genre (Populaires) ou année (Nouveautés) ; `nil` = tous / valeur par défaut.
+    @State private var filter: String?
     @State private var row: CatalogRowModel?
 
-    /// Catalogues explorables : sans extra obligatoire, ou dont le seul extra obligatoire est un genre à options.
-    private var catalogs: [CatalogRef] {
-        app.addons.flatMap { addon in
-            addon.manifest.catalogs.filter { c in
-                c.requiredExtras.allSatisfy { $0.name == ExtraName.genre && !$0.options.isEmpty }
-            }.map { CatalogRef(addon: addon, catalog: $0) }
+    private var type: String { fixedType ?? ContentType.movie }
+
+    /// Catalogue d'un des trois choix : Cinemeta d'abord, sinon tout addon qui expose le même identifiant.
+    private func catalog(for kind: DiscoverKind) -> CatalogRef? {
+        let refs = app.addons.flatMap { addon in
+            addon.manifest.catalogs
+                .filter { $0.type == type && $0.id == kind.rawValue }
+                .map { CatalogRef(addon: addon, catalog: $0) }
         }
+        return refs.first { $0.addon.manifest.id == "com.linvo.cinemeta" } ?? refs.first
     }
 
-    private var types: [String] {
-        var seen: [String] = []
-        for c in catalogs where !seen.contains(c.catalog.type) { seen.append(c.catalog.type) }
-        return seen.sorted { a, b in
-            let order = [ContentType.movie, ContentType.series]
-            return (order.firstIndex(of: a) ?? 99, a) < (order.firstIndex(of: b) ?? 99, b)
+    private var kinds: [DiscoverKind] { DiscoverKind.allCases.filter { catalog(for: $0) != nil } }
+    private var current: CatalogRef? { catalog(for: kind) }
+
+    /// Options du menu déroulant : genres (Populaires) ou années, de la plus récente (Nouveautés).
+    private var filterOptions: [String] {
+        guard kind != .featured, let options = current?.catalog.genreOptions else { return [] }
+        if kind == .new, options.allSatisfy({ Int($0) != nil }) {
+            return options.sorted { (Int($0) ?? 0) > (Int($1) ?? 0) }
         }
+        return options
     }
 
-    private var catalogsOfType: [CatalogRef] { catalogs.filter { $0.catalog.type == selectedType } }
+    private var filterRequired: Bool {
+        current?.catalog.requiredExtras.contains { $0.name == ExtraName.genre } ?? false
+    }
 
-    private var current: CatalogRef? {
-        catalogsOfType.first { $0.id == selectedCatalogID } ?? catalogsOfType.first
+    /// Valeur envoyée à l'addon : choix de l'utilisateur, ou première option si le filtre est obligatoire.
+    private var effectiveFilter: String? {
+        if let filter { return filter }
+        return filterRequired ? filterOptions.first : nil
     }
 
     var body: some View {
         ScrollView(.vertical) {
-            VStack(alignment: .leading, spacing: 30) {
-                pickers
+            VStack(alignment: .leading, spacing: 34) {
+                header
                 if let row {
                     CatalogGrid(row: row)
                 } else if app.isBootstrapped {
                     MessageView(systemImage: "square.grid.2x2", title: "Aucun catalogue à explorer",
-                                message: "Vos addons ne proposent pas de catalogue explorable.")
+                                message: "Le catalogue Cinemeta n'est pas disponible. Vérifiez vos addons dans Réglages.")
                 }
             }
             .padding(.vertical, 40)
         }
         .onAppear {
-            if let fixedType { selectedType = fixedType }
-            else if !types.contains(selectedType), let first = types.first { selectedType = first }
+            if !kinds.contains(kind), let first = kinds.first { kind = first }
             rebuild()
         }
-        .onChange(of: selectedType) { _, _ in selectedCatalogID = nil; genre = nil; rebuild() }
-        .onChange(of: selectedCatalogID) { _, _ in genre = nil; rebuild() }
-        .onChange(of: genre) { _, _ in row?.reload(genre: effectiveGenre) }
+        .onChange(of: kind) { _, _ in filter = nil; rebuild() }
+        .onChange(of: filter) { _, _ in row?.reload(genre: effectiveFilter) }
         .onChange(of: app.addons) { _, _ in rebuild() }
-    }
-
-    private var effectiveGenre: String? {
-        if let genre { return genre }
-        // Genre obligatoire : premier choix par défaut.
-        if let required = current?.catalog.requiredExtras.first(where: { $0.name == ExtraName.genre }) { return required.options.first }
-        return nil
     }
 
     private func rebuild() {
         guard let ref = current else { row = nil; return }
         if row?.ref == ref { return }
-        let model = CatalogRowModel(ref: ref, aggregator: app.aggregator, genre: effectiveGenre)
+        let model = CatalogRowModel(ref: ref, aggregator: app.aggregator, genre: effectiveFilter)
         row = model
         model.loadIfNeeded()
     }
 
-    private var pickers: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            if fixedType == nil {
-                chipRow(items: types.map { ($0, ContentTypeLabel.label(for: $0)) }, selected: selectedType) { selectedType = $0 }
-            } else {
-                Text(ContentTypeLabel.label(for: selectedType))
-                    .font(.screenTitle)
-                    .padding(.horizontal, Theme.horizontalMargin)
-            }
-            if catalogsOfType.count > 1 {
-                chipRow(items: catalogsOfType.map { ($0.id, "\(Localize.catalogTitle(name: $0.title, type: $0.catalog.type)) · \($0.addon.manifest.name)") },
-                        selected: current?.id ?? "") { selectedCatalogID = $0 }
-            }
-            if let options = current?.catalog.genreOptions, !options.isEmpty {
-                let required = current?.catalog.requiredExtras.contains { $0.name == ExtraName.genre } ?? false
-                let items = (required ? [] : [("", "Tous")]) + options.map { ($0, Localize.genre($0)) }
-                chipRow(items: items, selected: effectiveGenre ?? "") { genre = $0.isEmpty ? nil : $0 }
+    // MARK: En-tête : titre, sélecteur à trois choix, menu déroulant
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 26) {
+            Text(ContentTypeLabel.label(for: type))
+                .font(.screenTitle)
+            HStack(spacing: 30) {
+                if kinds.count > 1 { segments }
+                if !filterOptions.isEmpty { filterMenu }
+                Spacer(minLength: 0)
             }
         }
+        .padding(.horizontal, Theme.horizontalMargin)
+        .focusSection()
     }
 
-    private func chipRow(items: [(String, String)], selected: String, onSelect: @escaping (String) -> Void) -> some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 18) {
-                ForEach(items, id: \.0) { item in
-                    Button { onSelect(item.0) } label: {
+    /// Sélecteur segmenté : un seul choix actif, clairement marqué.
+    private var segments: some View {
+        HStack(spacing: 6) {
+            ForEach(kinds) { k in
+                Button { kind = k } label: { Text(k.label) }
+                    .buttonStyle(SegmentButtonStyle(selected: k == kind))
+                    .accessibilityAddTraits(k == kind ? .isSelected : [])
+            }
+        }
+        .padding(8)
+        .background(
+            Capsule().fill(.ultraThinMaterial)
+                .overlay(Capsule().fill(Theme.backgroundDeep.opacity(0.3)))
+                .overlay(Capsule().strokeBorder(Theme.stroke, lineWidth: 1))
+        )
+    }
+
+    private var filterMenu: some View {
+        let isYear = kind == .new
+        let items: [(String, String)] = (filterRequired ? [] : [("", isYear ? "Toutes" : "Tous")])
+            + filterOptions.map { ($0, isYear ? $0 : Localize.genre($0)) }
+        let selected = effectiveFilter ?? ""
+        let selectedLabel = items.first { $0.0 == selected }?.1 ?? (isYear ? "Toutes" : "Tous")
+        return Menu {
+            ForEach(items, id: \.0) { item in
+                Button {
+                    filter = item.0.isEmpty ? nil : item.0
+                } label: {
+                    if item.0 == selected {
+                        Label(item.1, systemImage: "checkmark")
+                    } else {
                         Text(item.1)
                     }
-                    .buttonStyle(PillButtonStyle(prominent: item.0 == selected, selected: item.0 == selected))
                 }
             }
-            .padding(.horizontal, Theme.horizontalMargin)
-            .padding(.vertical, 14)
+        } label: {
+            HStack(spacing: 14) {
+                Text("\(isYear ? "Année" : "Genre") : \(selectedLabel)")
+                Image(systemName: "chevron.down").font(.system(size: 20, weight: .bold))
+            }
         }
-        .scrollClipDisabled()
-        .focusSection()
+        .buttonStyle(PillButtonStyle())
+        .accessibilityIdentifier("discover.filter")
+    }
+}
+
+/// Élément du sélecteur segmenté : choix actif en blanc plein, focus agrandi.
+struct SegmentButtonStyle: ButtonStyle {
+    let selected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        SegmentBody(configuration: configuration, selected: selected)
+    }
+
+    private struct SegmentBody: View {
+        let configuration: ButtonStyleConfiguration
+        let selected: Bool
+        @Environment(\.isFocused) private var isFocused
+
+        var body: some View {
+            configuration.label
+                .font(.manrope(26, .heavy))
+                .lineLimit(1)
+                .padding(.horizontal, 38)
+                .padding(.vertical, 18)
+                .foregroundStyle(selected || isFocused ? Theme.onFocus : Theme.textSecondary)
+                .background(Capsule().fill(isFocused ? Theme.focus : (selected ? Color.white.opacity(0.85) : Color.clear)))
+                .scaleEffect(isFocused ? 1.08 : 1)
+                .shadow(color: .black.opacity(isFocused ? 0.4 : 0), radius: 18, y: 8)
+                .animation(.spring(response: 0.28, dampingFraction: 0.8), value: isFocused)
+        }
     }
 }
 
