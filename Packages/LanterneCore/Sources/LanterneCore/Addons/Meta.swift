@@ -195,6 +195,7 @@ public struct MetaItem: Sendable, Hashable, Codable, Identifiable {
         if m.genres.isEmpty { m.genres = genres }
         if m.cast.isEmpty { m.cast = cast }
         if m.directors.isEmpty { m.directors = directors }
+        if m.trailerYouTubeIDs.isEmpty { m.trailerYouTubeIDs = trailerYouTubeIDs }
         return m
     }
 }

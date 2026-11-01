@@ -44,6 +44,23 @@ final class HomeModel {
         }
     }
 
+    @ObservationIgnored private var trailerChecked: Set<String> = []
+
+    /// Fiche avec ses bandes-annonces (les catalogues ne les donnent pas toujours).
+    func withTrailer(_ meta: MetaItem, aggregator: AddonAggregator, addons: [AddonDescriptor]) async -> MetaItem {
+        if TrailerLink.firstValidID(in: meta) != nil { return meta }
+        if let rich = enriched[meta.id], TrailerLink.firstValidID(in: rich) != nil { return rich }
+        guard !trailerChecked.contains(meta.id) else { return meta }
+        trailerChecked.insert(meta.id)
+        let detail = try? await withDeadline(seconds: 6) {
+            try await aggregator.meta(type: meta.type, id: meta.id, addons: addons)
+        }
+        guard let detail = detail.flatMap({ $0 }) else { return meta }
+        let merged = (enriched[meta.id] ?? meta).merged(withDetail: detail)
+        enriched[meta.id] = merged
+        return merged
+    }
+
     /// Version complète d'un contenu (attend au plus ~3 s si elle n'est pas encore là).
     func resolve(_ meta: MetaItem, aggregator: AddonAggregator, addons: [AddonDescriptor]) async -> MetaItem {
         if Self.isRich(meta) { return meta }
@@ -92,14 +109,16 @@ struct HomeView: View {
     /// Contenu affiché dans le bandeau (celui qui a le focus, après un court délai).
     @State private var featured: MetaItem?
     @State private var candidate: MetaItem?
+    @State private var trailerURL: URL?
+    @State private var trailerPlaying = false
 
     private var shown: MetaItem? { (featured ?? home.hero).map { home.enriched[$0.id] ?? $0 } }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            BillboardBackdrop(meta: shown)
+            BillboardBackdrop(meta: shown, trailerURL: trailerURL, onTrailerPlaying: { trailerPlaying = $0 })
             VStack(alignment: .leading, spacing: 0) {
-                BillboardInfo(meta: shown)
+                BillboardInfo(meta: shown, dimmed: trailerPlaying)
                     .frame(height: 470, alignment: .bottomLeading)
                     .padding(.horizontal, Theme.horizontalMargin)
                     .padding(.bottom, 18)
@@ -137,6 +156,18 @@ struct HomeView: View {
             guard !Task.isCancelled else { return }
             featured = full
         }
+        // Bande-annonce du titre mis en avant, après quelques secondes d'arrêt dessus.
+        .task(id: trailerKey) {
+            trailerURL = nil
+            guard trailerKey != nil, let meta = shown else { return }
+            try? await Task.sleep(nanoseconds: UInt64(max(1, model.settings.trailers.delay) * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            let full = await home.withTrailer(meta, aggregator: model.aggregator, addons: model.addons)
+            guard !Task.isCancelled else { return }
+            trailerURL = TrailerService.url(for: full, settings: model.settings)
+        }
+        .task(id: trailerPrefetchKey) { prefetchTrailers() }
+        .onDisappear { trailerURL = nil }
     }
 
     @ViewBuilder private var rows: some View {
@@ -166,6 +197,22 @@ struct HomeView: View {
 
     private func configure() {
         home.configure(addons: model.addons, settings: model.settings, aggregator: model.aggregator)
+    }
+
+    private var trailerKey: String? {
+        guard model.settings.trailers.onHome, model.settings.trailers.server != nil, model.playback == nil else { return nil }
+        return shown?.id
+    }
+
+    private var trailerPrefetchKey: String {
+        "\(home.rows.first?.items.count ?? 0)|\(home.enriched.count)|\(model.settings.trailers.serverURL)"
+    }
+
+    /// Prépare sur le NAS les bandes-annonces les plus probables : en cours, puis première rangée.
+    private func prefetchTrailers() {
+        let continuing = model.continueWatching.compactMap { home.enriched[$0.id] }
+        let firstRow = home.rows.first?.items.prefix(10) ?? []
+        TrailerService.prefetch(continuing + Array(firstRow), settings: model.settings)
     }
 
     private func prefetch() {

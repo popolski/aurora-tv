@@ -6,6 +6,7 @@ struct DetailView: View {
     @Environment(Ambient.self) private var ambient
     @State private var detail: DetailModel
     @Namespace private var focusNamespace
+    @State private var trailerURL: URL?
 
     init(preview: MetaItem) {
         _detail = State(initialValue: DetailModel(preview: preview))
@@ -33,9 +34,23 @@ struct DetailView: View {
         .focusScope(focusNamespace)
         .ignoresSafeArea(edges: .top)
         .task { detail.load(app: app) }
+        // Bande-annonce muette après quelques secondes ; coupée dès qu'on lance la lecture.
+        .task(id: trailerCandidate) {
+            trailerURL = nil
+            guard let candidate = trailerCandidate else { return }
+            try? await Task.sleep(nanoseconds: UInt64(max(1, app.settings.trailers.delay) * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            trailerURL = candidate
+        }
+        .onDisappear { trailerURL = nil }
         .onChange(of: app.libraryRevision) { _, _ in
             Task { await detail.refreshLibrary(app: app) }
         }
+    }
+
+    private var trailerCandidate: URL? {
+        guard app.settings.trailers.onDetail, app.playback == nil else { return nil }
+        return TrailerService.url(for: meta, settings: app.settings)
     }
 
     // MARK: Fond : l'image du contenu teinte tout l'écran
@@ -44,6 +59,9 @@ struct DetailView: View {
         ZStack {
             RemoteImage(url: meta.background ?? meta.poster, maxPixel: 1920,
                         placeholder: { Color.clear }, onLoaded: { ambient.update(from: $0) })
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+            TrailerBackdrop(url: trailerURL)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
             LinearGradient(colors: [Theme.backgroundDeep.opacity(0.8), ambient.tint.opacity(0.35), .clear],

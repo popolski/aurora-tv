@@ -204,6 +204,7 @@ public struct AppSettings: Sendable, Codable, Hashable {
     public var sources = SourcePreferences()
     public var languages = LanguagePreferences()
     public var playback = PlaybackPreferences()
+    public var trailers = TrailerPreferences()
     /// Masquer les addons/catalogues « adultes ».
     public var hideAdultContent: Bool = true
     /// Catalogues masqués de l'accueil (identifiants `CatalogRef.id`).
@@ -213,7 +214,7 @@ public struct AppSettings: Sendable, Codable, Hashable {
 
     public init() {}
 
-    enum CodingKeys: String, CodingKey { case sources, languages, playback, hideAdultContent, hiddenHomeCatalogs, homeCatalogOrder }
+    enum CodingKeys: String, CodingKey { case sources, languages, playback, trailers, hideAdultContent, hiddenHomeCatalogs, homeCatalogOrder }
 
     /// Décodage tolérant : un réglage ajouté dans une version ultérieure ne
     /// doit jamais faire perdre les autres.
@@ -222,6 +223,7 @@ public struct AppSettings: Sendable, Codable, Hashable {
         sources = c.value(.sources, default: SourcePreferences())
         languages = c.value(.languages, default: LanguagePreferences())
         playback = c.value(.playback, default: PlaybackPreferences())
+        trailers = c.value(.trailers, default: TrailerPreferences())
         hideAdultContent = c.value(.hideAdultContent, default: true)
         hiddenHomeCatalogs = c.value(.hiddenHomeCatalogs, default: [String]())
         homeCatalogOrder = c.value(.homeCatalogOrder, default: [String]())

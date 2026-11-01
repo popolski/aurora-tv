@@ -45,6 +45,19 @@ jobs:
           path: core-tests.log
           retention-days: 14
 
+  trailer-server:
+    name: Service bandes-annonces (tests Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tests (yt-dlp simulé)
+        working-directory: trailer-server
+        run: python -m unittest -v test_server
+
   app:
     name: Application tvOS (IPA)
     runs-on: xcode-27

@@ -91,6 +91,8 @@ struct BackdropCard: View {
 struct BillboardBackdrop: View {
     @Environment(Ambient.self) private var ambient
     let meta: MetaItem?
+    var trailerURL: URL?
+    var onTrailerPlaying: (Bool) -> Void = { _ in }
 
     var body: some View {
         ZStack {
@@ -98,6 +100,9 @@ struct BillboardBackdrop: View {
             CrossfadeImage(url: meta?.background ?? meta?.poster, maxPixel: 1920, duration: 0.6,
                            onLoaded: { ambient.update(from: $0) })
                 .blur(radius: meta?.background == nil ? 40 : 0)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+            TrailerBackdrop(url: trailerURL, onPlayingChange: onTrailerPlaying)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
             // Voile teinté : lisibilité du texte à gauche et des rangées en bas.
@@ -115,6 +120,8 @@ struct BillboardBackdrop: View {
 /// Informations du bandeau (non focalisables) : logo ou titre, puces, résumé.
 struct BillboardInfo: View {
     let meta: MetaItem?
+    /// Bande-annonce en cours : le résumé s'efface pour laisser voir l'image.
+    var dimmed = false
 
     /// Gabarit fixe (logo/titre, puces, résumé sur 3 lignes réservées) : le bloc
     /// ne change jamais de hauteur d'un titre à l'autre, donc rien ne saute.
@@ -145,6 +152,8 @@ struct BillboardInfo: View {
                 .lineLimit(3, reservesSpace: true)
                 .frame(width: 920, alignment: .topLeading)
                 .contentTransition(.opacity)
+                .opacity(dimmed ? 0 : 1)
+                .animation(.easeInOut(duration: 0.8), value: dimmed)
         }
         .animation(.easeInOut(duration: 0.35), value: meta?.id)
         .frame(maxWidth: .infinity, alignment: .bottomLeading)

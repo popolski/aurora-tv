@@ -46,6 +46,11 @@ struct SettingsView: View {
                 NavigationLink { SourceSettingsView() } label: {
                     SettingsRow(icon: "list.bullet.rectangle", title: "Sources", value: app.settings.sources.sortMode.label)
                 }
+                NavigationLink { TrailerSettingsView() } label: {
+                    SettingsRow(icon: "film.stack", title: "Bandes-annonces",
+                                value: app.settings.trailers.server == nil ? "Désactivées" : "Service du NAS")
+                }
+                .accessibilityIdentifier("settings.trailers")
             }
             Section("Assistance") {
                 NavigationLink { DiagnosticsView() } label: {
@@ -139,6 +144,70 @@ struct PlaybackSettingsView: View {
         }
         .navigationTitle("Lecteur")
         .onAppear { serverDraft = app.settings.playback.streamingServerURL }
+    }
+}
+
+// MARK: - Bandes-annonces
+
+struct TrailerSettingsView: View {
+    @Environment(AppModel.self) private var app
+    @State private var serverDraft = ""
+    @State private var checkResult: String?
+    @State private var checking = false
+
+    var body: some View {
+        @Bindable var app = app
+        List {
+            Section {
+                TextField("http://192.168.1.20:8787", text: $serverDraft)
+                    .textContentType(.URL)
+                    .onSubmit { save() }
+                if app.settings.trailers.server != nil {
+                    Button(checking ? "Test en cours…" : "Tester la connexion") { check() }
+                        .disabled(checking)
+                    Button("Retirer le service", role: .destructive) {
+                        app.settings.trailers.serverURL = ""
+                        serverDraft = ""
+                        checkResult = nil
+                    }
+                }
+                if let checkResult {
+                    Text(checkResult).foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Service aurora-trailers : \(app.settings.trailers.serverURL.isEmpty ? "aucun" : app.settings.trailers.serverURL)")
+            } footer: {
+                Text("Les addons ne donnent que des liens YouTube, que l'Apple TV ne lit pas. Le service aurora-trailers, installé sur votre NAS (dossier trailer-server du projet), prépare les bandes-annonces et les sert sur le réseau local. Saisissez son adresse puis validez.")
+            }
+            Section {
+                Toggle("Sur les fiches", isOn: $app.settings.trailers.onDetail)
+                Toggle("Dans le bandeau de l'accueil", isOn: $app.settings.trailers.onHome)
+                Picker("Lancement après", selection: $app.settings.trailers.delay) {
+                    ForEach([2.0, 3, 5, 8], id: \.self) { Text("\(Int($0)) s").tag($0) }
+                }
+            } footer: {
+                Text("Toujours sans le son. L'image s'affiche d'abord ; la bande-annonce apparaît en fondu quand elle est prête. La première fois, le NAS met quelques secondes à la préparer.")
+            }
+        }
+        .navigationTitle("Bandes-annonces")
+        .onAppear { serverDraft = app.settings.trailers.serverURL }
+    }
+
+    private func save() {
+        app.settings.trailers.serverURL = serverDraft.trimmingCharacters(in: .whitespaces)
+        checkResult = nil
+        if app.settings.trailers.server != nil { check() }
+        else if !serverDraft.isEmpty { checkResult = "Adresse invalide : elle doit commencer par http:// suivi de l'adresse du NAS et du port." }
+    }
+
+    private func check() {
+        guard let server = app.settings.trailers.server else { return }
+        checking = true
+        Task {
+            let result = await TrailerService.check(server: server)
+            checkResult = result
+            checking = false
+        }
     }
 }
 

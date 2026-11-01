@@ -53,6 +53,20 @@ lancée après quelques secondes, sans le son.
    Vimeo) — couverture faible.
 3. Sans vidéo : Top Shelf avec images et logos seulement (aucune dépendance douteuse).
 
+### Décision (01/11/2026) : option 1
+
+L'utilisateur a choisi le service auto-hébergé sur le NAS. État :
+
+- **Étape 1, faite (build 19)** : service `trailer-server/` (yt-dlp, cache, plages HTTP,
+  Docker) ; bande-annonce muette en fond sur les fiches et dans le bandeau de l'accueil,
+  après un délai réglable ; préparation anticipée des bandes-annonces probables ; réglages
+  *Réglages › Bandes-annonces*. Testé : service avec yt-dlp simulé (tests Python), conversion
+  ffmpeg d'un MP4 fragmenté. Non testé : téléchargement réel depuis YouTube (bloqué dans
+  l'environnement de développement), lecture sur l'Apple TV.
+- **Étape 2, à faire** : extension Top Shelf (carrousel des dernières sorties, logo incrusté
+  dans l'image, `previewVideoURL` vers le service du NAS). Point à trancher : l'extension doit
+  connaître l'adresse du NAS (App Group, ou adresse fixe), voir contraintes ci-dessous.
+
 ### Contraintes de distribution
 
 - Une extension Top Shelf est un second exécutable signé : un identifiant d'application de plus
@@ -65,6 +79,6 @@ lancée après quelques secondes, sans le son.
 
 ## Améliorations envisagées (non commencées)
 
-Image de fond animée sur la fiche, bande-annonce, « Now Playing » système (Siri, autres
+Image de fond animée sur la fiche, « Now Playing » système (Siri, autres
 télécommandes), rendu libass complet (si nécessaire), profils multiples, mise à jour OTA via
 source atvloadly, Top Shelf dynamique.
