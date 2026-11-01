@@ -62,8 +62,8 @@ L'utilisateur a choisi le service auto-hébergé sur le NAS. État :
   après un délai réglable ; préparation anticipée des bandes-annonces probables ; réglages
   *Réglages › Bandes-annonces*. Testé : service avec yt-dlp simulé (tests Python), conversion
   ffmpeg d'un MP4 fragmenté. Validé sur l'appareil : service installé sur le NAS (DS224+), téléchargement
-  réel depuis YouTube et bande-annonce affichée sur une fiche (build 19). À confirmer :
-  bandeau de l'accueil.
+  réel depuis YouTube et bandes-annonces affichées sur une fiche et dans le bandeau de
+  l'accueil (build 19).
 - **Étape 2, à faire** : extension Top Shelf (carrousel des dernières sorties, logo incrusté
   dans l'image, `previewVideoURL` vers le service du NAS). Point à trancher : l'extension doit
   connaître l'adresse du NAS (App Group, ou adresse fixe), voir contraintes ci-dessous.

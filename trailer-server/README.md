@@ -1,11 +1,11 @@
 # aurora-trailers
 
 Petit service à installer sur le NAS : il fournit à l'app Aurora les bandes-annonces
-lues en fond, sans le son, sur les fiches et dans le bandeau de l'accueil.
+lues en fond, sans le son, sur les fiches et dans le bandeau de l'accueil, ou en plein écran avec le son à la demande.
 
 Les addons Stremio ne donnent que des identifiants YouTube, que l'Apple TV ne sait pas
 lire directement. Le service télécharge la piste vidéo de la bande-annonce avec
-[yt-dlp](https://github.com/yt-dlp/yt-dlp) (H.264, 1080p au plus, sans le son), la garde
+[yt-dlp](https://github.com/yt-dlp/yt-dlp) (H.264 et AAC, 1080p au plus), la garde
 en cache et la sert à l'Apple TV. La première demande d'une bande-annonce prend quelques
 secondes ; ensuite elle part immédiatement.
 

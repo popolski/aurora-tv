@@ -41,3 +41,29 @@ struct TrailerTests {
         #expect(TrailerLink.firstValidID(in: meta) == "dQw4w9WgXcQ")
     }
 }
+
+@Suite("Sorties en salle")
+struct CinemaStatusTests {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    @Test func recentMovieIsInTheaters() {
+        let meta = MetaItem(id: "tt1", type: "movie", name: "X", released: now.addingTimeInterval(-20 * 86_400))
+        #expect(meta.cinemaStatus(now: now) == .inTheaters)
+    }
+
+    @Test func olderMovieIsNot() {
+        let meta = MetaItem(id: "tt1", type: "movie", name: "X", released: now.addingTimeInterval(-90 * 86_400))
+        #expect(meta.cinemaStatus(now: now) == nil)
+    }
+
+    @Test func futureMovieIsUpcoming() {
+        let date = now.addingTimeInterval(10 * 86_400)
+        let meta = MetaItem(id: "tt1", type: "movie", name: "X", released: date)
+        #expect(meta.cinemaStatus(now: now) == .upcoming(date))
+    }
+
+    @Test func seriesAndUndatedAreIgnored() {
+        #expect(MetaItem(id: "tt1", type: "series", name: "X", released: now).cinemaStatus(now: now) == nil)
+        #expect(MetaItem(id: "tt1", type: "movie", name: "X").cinemaStatus(now: now) == nil)
+    }
+}

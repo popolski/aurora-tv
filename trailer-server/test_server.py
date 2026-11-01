@@ -105,6 +105,19 @@ class ServiceTests(unittest.TestCase):
         with self.get("/health") as r:
             self.assertTrue(json.loads(r.read())["ok"])
 
+    def test_old_video_only_files_are_dropped(self):
+        directory = os.path.join(self.tmp.name, "old")
+        os.makedirs(directory)
+        old = os.path.join(directory, "bbbbbbbbbbb.mp4")
+        open(old, "wb").close()
+        cache = server.Cache(directory, max_mb=10)
+        self.assertFalse(os.path.exists(old))
+        self.assertTrue(cache.path("bbbbbbbbbbb").endswith("bbbbbbbbbbb.av.mp4"))
+
+    def test_format_needs_ffmpeg_to_merge(self):
+        self.assertIn("+ba", server.video_format(1080, True))
+        self.assertNotIn("+ba", server.video_format(1080, False))
+
     def test_eviction_keeps_cache_under_limit(self):
         cache = server.Cache(os.path.join(self.tmp.name, "small"), max_mb=0)
         p = cache.path("aaaaaaaaaaa")

@@ -173,9 +173,19 @@ struct MetaChips: View {
         return out
     }
 
+    /// « Au cinéma » (estimation d'après la date de sortie) ou date de sortie en salle à venir.
+    private var cinema: String? {
+        switch meta.cinemaStatus() {
+        case .inTheaters: return "Au cinéma"
+        case .upcoming(let date): return "Au cinéma le \(date.formatted(.dateTime.day().month(.abbreviated)))"
+        case nil: return nil
+        }
+    }
+
     var body: some View {
         HStack(spacing: 10) {
             ForEach(items, id: \.self) { Chip(text: $0) }
+            if let cinema { Chip(text: cinema, systemImage: "popcorn", tint: Theme.accent) }
         }
         .foregroundStyle(Theme.textPrimary)
     }

@@ -69,6 +69,8 @@ final class AppModel {
     /// Incrémenté à chaque changement de bibliothèque (pour rafraîchir les fiches).
     var libraryRevision = 0
     var playback: PlaybackContext?
+    /// Bande-annonce affichée en plein écran (la bande-annonce de fond se met en pause).
+    var isTrailerPresented = false
     var settings: AppSettings {
         didSet {
             guard settings != oldValue else { return }

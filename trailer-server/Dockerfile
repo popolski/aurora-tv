@@ -1,7 +1,7 @@
 # aurora-trailers : bandes-annonces pour l'app Aurora (Apple TV).
 FROM python:3.12-slim
 
-# ffmpeg : remise en forme des fichiers (MP4 classique, sans piste audio).
+# ffmpeg : assemblage image + son et remise en forme (MP4 classique, index en tête).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
  && rm -rf /var/lib/apt/lists/*

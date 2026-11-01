@@ -2,9 +2,9 @@
 """aurora-trailers : bandes-annonces pour l'app Aurora (Apple TV), à héberger sur le NAS.
 
 Les addons Stremio ne donnent que des identifiants YouTube, que l'Apple TV ne peut
-pas lire directement. Ce service télécharge la piste vidéo de la bande-annonce
-avec yt-dlp (1080p maximum, H.264, sans le son : l'app la lit en sourdine), la
-garde en cache et la sert en HTTP avec prise en charge des plages (Range).
+pas lire directement. Ce service télécharge la bande-annonce avec yt-dlp (1080p
+maximum, H.264 + AAC ; l'app la lit sans le son en fond, avec le son à la demande),
+la garde en cache et la sert en HTTP avec prise en charge des plages (Range).
 
 Points d'entrée :
   GET  /health                 état du service (JSON)
@@ -27,6 +27,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 TRAILER_PATH_RE = re.compile(r"^/trailer/([A-Za-z0-9_-]{11})\.mp4$")
+# Fichiers du cache : « <id>.av.mp4 » (image + son). Les anciens « <id>.mp4 » (image seule,
+# première version du service) sont supprimés au démarrage.
+OLD_FILE_RE = re.compile(r"^[A-Za-z0-9_-]{11}\.mp4$")
 
 CACHE_DIR = os.environ.get("CACHE_DIR", "/cache")
 CACHE_MAX_MB = int(os.environ.get("CACHE_MAX_MB", "4000"))
@@ -67,11 +70,14 @@ def parse_range(header, size):
     return start, min(end, size - 1)
 
 
-def video_format(max_height):
-    # Piste vidéo seule (l'app coupe le son) en H.264, lisible par l'Apple TV.
-    return (f"bv*[vcodec^=avc1][height<={max_height}][ext=mp4]"
-            f"/bv*[vcodec^=avc1][height<=720]"
-            f"/b[ext=mp4][height<={max_height}]")
+def video_format(max_height, can_merge):
+    """H.264 + AAC, lisibles par l'Apple TV. Sans ffmpeg, pas d'assemblage possible :
+    on se contente d'un fichier déjà complet (souvent 360p)."""
+    single = f"b[ext=mp4][vcodec^=avc1][height<={max_height}]/b[ext=mp4]"
+    if not can_merge:
+        return single
+    return (f"bv*[vcodec^=avc1][height<={max_height}][ext=mp4]+ba[ext=m4a]"
+            f"/bv*[vcodec^=avc1][height<=720]+ba[ext=m4a]/{single}")
 
 
 class Cache:
@@ -80,13 +86,19 @@ class Cache:
         self.max_bytes = max_mb * 1024 * 1024
         self.work = os.path.join(directory, "tmp")
         os.makedirs(self.work, exist_ok=True)
+        for name in os.listdir(directory):
+            if OLD_FILE_RE.match(name):
+                try:
+                    os.remove(os.path.join(directory, name))
+                except OSError:
+                    pass
         self.lock = threading.Lock()
         self.pending = {}   # id -> threading.Event
         self.failures = {}  # id -> horodatage de l'échec
         self.slots = threading.Semaphore(MAX_PARALLEL)
 
     def path(self, yt_id):
-        return os.path.join(self.directory, f"{yt_id}.mp4")
+        return os.path.join(self.directory, f"{yt_id}.av.mp4")
 
     def cached(self, yt_id):
         p = self.path(yt_id)
@@ -136,9 +148,13 @@ class Cache:
         stem = os.path.join(self.work, yt_id)
         for leftover in self._work_files(yt_id):
             os.remove(leftover)
+        can_merge = shutil.which("ffmpeg") is not None
         cmd = ["yt-dlp", "--no-playlist", "--no-progress", "--quiet", "--no-warnings",
-               "--max-filesize", "300M", "-f", video_format(MAX_HEIGHT),
-               "-o", stem + ".%(ext)s", "--", f"https://www.youtube.com/watch?v={yt_id}"]
+               "--max-filesize", "300M", "-f", video_format(MAX_HEIGHT, can_merge),
+               "-o", stem + ".%(ext)s"]
+        if can_merge:
+            cmd += ["--merge-output-format", "mp4"]
+        cmd += ["--", f"https://www.youtube.com/watch?v={yt_id}"]
         try:
             subprocess.run(cmd, check=True, timeout=DOWNLOAD_TIMEOUT,
                            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
@@ -170,11 +186,11 @@ class Cache:
 
     @staticmethod
     def _remux(source, target):
-        """MP4 classique, index en tête, sans piste audio (si ffmpeg est présent)."""
+        """MP4 classique, index en tête (si ffmpeg est présent)."""
         if shutil.which("ffmpeg") is None:
             return False
         cmd = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", source,
-               "-map", "0:v:0", "-c", "copy", "-an", "-movflags", "+faststart", "-f", "mp4", target]
+               "-map", "0:v:0", "-map", "0:a:0?", "-c", "copy", "-movflags", "+faststart", "-f", "mp4", target]
         try:
             subprocess.run(cmd, check=True, timeout=120, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return True
@@ -261,6 +277,7 @@ def make_handler(cache):
                 entries = cache.entries()
                 self._json(HTTPStatus.OK, {
                     "ok": True,
+                    "audio": True,
                     "ytdlp": ytdlp_version(),
                     "ffmpeg": shutil.which("ffmpeg") is not None,
                     "cached": len(entries),

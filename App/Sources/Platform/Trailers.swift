@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import AVKit
 import LanterneCore
 
 /// Accès au service de bandes-annonces du NAS (voir `trailer-server/`).
@@ -39,7 +40,7 @@ enum TrailerService {
 
     /// Résultat lisible du test de connexion (Réglages).
     nonisolated static func check(server: URL) async -> String {
-        struct Health: Decodable { var ok: Bool?; var ytdlp: String?; var ffmpeg: Bool?; var cached: Int?; var cacheMB: Double? }
+        struct Health: Decodable { var ok: Bool?; var audio: Bool?; var ytdlp: String?; var ffmpeg: Bool?; var cached: Int?; var cacheMB: Double? }
         do {
             let (data, response) = try await URLSession.shared.data(for: URLRequest(url: TrailerLink.healthURL(server: server), timeoutInterval: 15))
             guard (response as? HTTPURLResponse)?.statusCode == 200,
@@ -47,10 +48,88 @@ enum TrailerService {
                 return "Réponse inattendue : est-ce bien le service aurora-trailers ?"
             }
             guard let version = health.ytdlp else { return "Service joignable, mais yt-dlp est absent du NAS." }
+            guard health.audio == true else {
+                return "Connecté, mais le service du NAS est une ancienne version (bandes-annonces sans le son) : mettez à jour le dossier trailer-server et reconstruisez."
+            }
             return "Connecté · yt-dlp \(version) · \(health.cached ?? 0) bande(s)-annonce(s) en cache (\(Int(health.cacheMB ?? 0)) Mo)"
         } catch {
             return "Service injoignable : \(error.localizedDescription)"
         }
+    }
+}
+
+/// Bande-annonce en plein écran, avec le son, dans le lecteur système (Menu pour fermer).
+@MainActor
+enum TrailerPresenter {
+    private static var session: TrailerSession?
+
+    static func present(_ url: URL, title: String, app: AppModel) {
+        // Filet de sécurité : une session dont le lecteur n'est plus affiché est terminée.
+        if let current = session, !current.isOnScreen { current.finish() }
+        guard session == nil, app.playback == nil, let top = topViewController() else { return }
+        let item = AVPlayerItem(url: url)
+        let titleItem = AVMutableMetadataItem()
+        titleItem.identifier = .commonIdentifierTitle
+        titleItem.value = "\(title) · Bande-annonce" as NSString
+        titleItem.extendedLanguageTag = "und"
+        item.externalMetadata = [titleItem]
+        let controller = AVPlayerViewController()
+        controller.player = AVPlayer(playerItem: item)
+        let newSession = TrailerSession(controller: controller) { [weak app] in
+            app?.isTrailerPresented = false
+            session = nil
+        }
+        controller.delegate = newSession
+        session = newSession
+        app.isTrailerPresented = true
+        top.present(controller, animated: true) { controller.player?.play() }
+    }
+
+    private static func topViewController() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow) ?? scenes.first?.windows.first
+        var top = window?.rootViewController
+        while let presented = top?.presentedViewController { top = presented }
+        return top
+    }
+}
+
+/// Suit une bande-annonce plein écran : fermeture automatique à la fin, nettoyage à la fermeture.
+@MainActor
+final class TrailerSession: NSObject, AVPlayerViewControllerDelegate {
+    private weak var controller: AVPlayerViewController?
+    private var onFinish: (() -> Void)?
+
+    init(controller: AVPlayerViewController, onFinish: @escaping () -> Void) {
+        self.controller = controller
+        self.onFinish = onFinish
+        super.init()
+        NotificationCenter.default.addObserver(self, selector: #selector(itemDidEnd(_:)),
+                                               name: AVPlayerItem.didPlayToEndTimeNotification,
+                                               object: controller.player?.currentItem)
+    }
+
+    nonisolated @objc private func itemDidEnd(_ notification: Notification) {
+        Task { @MainActor in self.close(dismiss: true) }
+    }
+
+    nonisolated func playerViewControllerDidEndDismissalTransition(_ playerViewController: AVPlayerViewController) {
+        Task { @MainActor in self.close(dismiss: false) }
+    }
+
+    var isOnScreen: Bool { controller?.presentingViewController != nil }
+
+    func finish() { close(dismiss: false) }
+
+    private func close(dismiss: Bool) {
+        guard let onFinish else { return }
+        self.onFinish = nil
+        NotificationCenter.default.removeObserver(self)
+        controller?.player?.pause()
+        if dismiss, let controller, controller.presentingViewController != nil {
+            controller.dismiss(animated: true)
+        }
+        onFinish()
     }
 }
 

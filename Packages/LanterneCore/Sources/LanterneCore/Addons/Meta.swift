@@ -312,3 +312,22 @@ public struct MetaVideo: Sendable, Hashable, Codable, Identifiable {
         return released <= now
     }
 }
+
+/// Sortie en salle, estimée d'après la date de sortie fournie par l'addon.
+public enum CinemaStatus: Sendable, Equatable {
+    /// Sorti il y a moins de `window` jours : probablement encore à l'affiche.
+    case inTheaters
+    /// Sortie annoncée à cette date.
+    case upcoming(Date)
+}
+
+extension MetaItem {
+    /// Estimation seulement : les addons ne disent pas si un film est encore projeté.
+    /// Un film sorti depuis moins de 60 jours est considéré comme « au cinéma » ; un film
+    /// sorti directement en streaming peut donc être signalé à tort.
+    public func cinemaStatus(now: Date = Date(), window: TimeInterval = 60 * 86_400) -> CinemaStatus? {
+        guard type == ContentType.movie, let released else { return nil }
+        if released > now { return .upcoming(released) }
+        return now.timeIntervalSince(released) <= window ? .inTheaters : nil
+    }
+}

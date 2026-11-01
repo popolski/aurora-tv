@@ -259,14 +259,22 @@ struct Badge: View {
 /// Puce d'information translucide (genre, saison, note…).
 struct Chip: View {
     let text: String
+    var systemImage: String?
+    /// Teinte discrète (contour et texte) pour une information à signaler.
+    var tint: Color?
+
     var body: some View {
-        Text(text)
-            .font(.manrope(20, .bold))
-            .lineLimit(1)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 8)
-            .background(Capsule().fill(Color.white.opacity(0.16)))
-            .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
+        HStack(spacing: 8) {
+            if let systemImage { Image(systemName: systemImage).font(.system(size: 17, weight: .bold)) }
+            Text(text)
+        }
+        .font(.manrope(20, .bold))
+        .lineLimit(1)
+        .foregroundStyle(tint ?? Theme.textPrimary)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 8)
+        .background(Capsule().fill(Color.white.opacity(tint == nil ? 0.16 : 0.08)))
+        .overlay(Capsule().strokeBorder((tint ?? Color.white).opacity(tint == nil ? 0.22 : 0.55), lineWidth: 1))
     }
 }
 

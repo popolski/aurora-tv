@@ -7,6 +7,10 @@ struct DetailView: View {
     @State private var detail: DetailModel
     @Namespace private var focusNamespace
     @State private var trailerURL: URL?
+    @FocusState private var focusedAction: SecondaryAction?
+
+    /// Boutons ronds : leur rôle s'affiche en légende quand ils ont le focus.
+    private enum SecondaryAction: Hashable { case trailer, library, watched }
 
     init(preview: MetaItem) {
         _detail = State(initialValue: DetailModel(preview: preview))
@@ -49,7 +53,7 @@ struct DetailView: View {
     }
 
     private var trailerCandidate: URL? {
-        guard app.settings.trailers.onDetail, app.playback == nil else { return nil }
+        guard app.settings.trailers.onDetail, app.playback == nil, !app.isTrailerPresented else { return nil }
         return TrailerService.url(for: meta, settings: app.settings)
     }
 
@@ -116,49 +120,83 @@ struct DetailView: View {
     }
 
     @ViewBuilder private var actions: some View {
-        HStack(spacing: 20) {
-            if let videoID = detail.targetVideoID {
-                NavigationLink(value: Route.sources(sourcesRoute(videoID: videoID, video: detail.targetVideo,
-                                                                 start: detail.resumePosition))) {
-                    Label {
-                        if let resume = detail.resumePosition {
-                            Text("\(playLabel) · \(TimeFormat.clock(resume))")
-                        } else {
-                            Text(playLabel)
-                        }
-                    } icon: { Image(systemName: "play.fill") }
-                }
-                .buttonStyle(PillButtonStyle(prominent: true))
-                .prefersDefaultFocus(in: focusNamespace)
-                .accessibilityIdentifier("detail.play")
-
-                if detail.resumePosition != nil {
-                    NavigationLink(value: Route.sources(sourcesRoute(videoID: videoID, video: detail.targetVideo, start: nil))) {
-                        Label("Depuis le début", systemImage: "arrow.counterclockwise")
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 20) {
+                if let videoID = detail.targetVideoID {
+                    NavigationLink(value: Route.sources(sourcesRoute(videoID: videoID, video: detail.targetVideo,
+                                                                     start: detail.resumePosition))) {
+                        Label {
+                            if let resume = detail.resumePosition {
+                                Text("\(playLabel) · \(TimeFormat.clock(resume))")
+                            } else {
+                                Text(playLabel)
+                            }
+                        } icon: { Image(systemName: "play.fill") }
                     }
-                    .buttonStyle(PillButtonStyle())
+                    .buttonStyle(PillButtonStyle(prominent: true))
+                    .prefersDefaultFocus(in: focusNamespace)
+                    .accessibilityIdentifier("detail.play")
+
+                    if detail.resumePosition != nil {
+                        NavigationLink(value: Route.sources(sourcesRoute(videoID: videoID, video: detail.targetVideo, start: nil))) {
+                            Label("Depuis le début", systemImage: "arrow.counterclockwise")
+                        }
+                        .buttonStyle(PillButtonStyle())
+                    }
                 }
-            }
 
-            Button {
-                detail.toggleLibrary(app: app)
-            } label: {
-                Image(systemName: detail.isInLibrary ? "checkmark" : "plus")
-            }
-            .buttonStyle(CircleButtonStyle())
-            .accessibilityLabel(Text(detail.isInLibrary ? "Retirer de ma liste" : "Ajouter à ma liste"))
-            .accessibilityIdentifier("detail.library")
+                if let trailer = TrailerService.url(for: meta, settings: app.settings) {
+                    Button {
+                        trailerURL = nil
+                        TrailerPresenter.present(trailer, title: meta.name, app: app)
+                    } label: {
+                        Image(systemName: "film")
+                    }
+                    .buttonStyle(CircleButtonStyle())
+                    .focused($focusedAction, equals: .trailer)
+                    .accessibilityLabel(Text("Bande-annonce"))
+                    .accessibilityIdentifier("detail.trailer")
+                }
 
-            if !detail.isSeries {
-                let watched = detail.libraryItem?.isWatched ?? false
                 Button {
-                    detail.setWatched(!watched, video: nil, app: app)
+                    detail.toggleLibrary(app: app)
                 } label: {
-                    Image(systemName: watched ? "eye.fill" : "eye")
+                    Image(systemName: detail.isInLibrary ? "checkmark" : "plus")
                 }
                 .buttonStyle(CircleButtonStyle())
-                .accessibilityLabel(Text(watched ? "Marquer comme non vu" : "Marquer comme vu"))
+                .focused($focusedAction, equals: .library)
+                .accessibilityLabel(Text(caption(for: .library)))
+                .accessibilityIdentifier("detail.library")
+
+                if !detail.isSeries {
+                    let watched = detail.libraryItem?.isWatched ?? false
+                    Button {
+                        detail.setWatched(!watched, video: nil, app: app)
+                    } label: {
+                        Image(systemName: watched ? "eye.fill" : "eye")
+                    }
+                    .buttonStyle(CircleButtonStyle())
+                    .focused($focusedAction, equals: .watched)
+                    .accessibilityLabel(Text(caption(for: .watched)))
+                }
             }
+            // Légende du bouton rond qui a le focus (hauteur réservée : rien ne bouge).
+            Text(focusedAction.map(caption(for:)) ?? " ")
+                .font(.manrope(21, .bold))
+                .foregroundStyle(Theme.textSecondary)
+                .frame(height: 28, alignment: .leading)
+                .animation(.easeOut(duration: 0.15), value: focusedAction)
+        }
+    }
+
+    private func caption(for action: SecondaryAction) -> String {
+        switch action {
+        case .trailer:
+            return "Voir la bande-annonce"
+        case .library:
+            return detail.isInLibrary ? "Dans ma liste · retirer" : "Ajouter à ma liste"
+        case .watched:
+            return (detail.libraryItem?.isWatched ?? false) ? "Déjà vu · marquer comme non vu" : "Marquer comme vu"
         }
     }
 
