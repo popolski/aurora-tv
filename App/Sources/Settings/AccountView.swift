@@ -10,8 +10,8 @@ struct AccountView: View {
         List {
             if let session = app.session {
                 Section {
-                    LabeledContent("Compte", value: session.user.email.isEmpty ? "Connecté" : session.user.email)
-                    LabeledContent("Synchronisation", value: syncText)
+                    InfoRow(label: "Compte", value: session.user.email.isEmpty ? "Connecté" : session.user.email)
+                    InfoRow(label: "Synchronisation", value: syncText)
                     Button("Synchroniser maintenant") { Task { await app.account.syncAll() } }
                         .disabled(app.syncState == .syncing)
                     Button("Se déconnecter", role: .destructive) { confirmLogout = true }

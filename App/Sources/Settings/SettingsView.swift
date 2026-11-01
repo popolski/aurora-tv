@@ -6,6 +6,16 @@ struct SettingsView: View {
 
     var body: some View {
         List {
+            Section {
+                NavigationLink {
+                    DiagnosticsView()
+                } label: {
+                    SettingsRow(icon: "play.tv", title: "Tester le lecteur", value: "Clips de test, journaux")
+                }
+                .accessibilityIdentifier("settings.diagnostics")
+            } footer: {
+                Text("À faire en premier sur une nouvelle installation : vérifie l'image, le son, la synchronisation et les sous-titres sans dépendre d'aucun addon.")
+            }
             Section("Compte et contenus") {
                 NavigationLink {
                     AccountView()
@@ -39,9 +49,8 @@ struct SettingsView: View {
             }
             Section("Assistance") {
                 NavigationLink { DiagnosticsView() } label: {
-                    SettingsRow(icon: "stethoscope", title: "Diagnostics", value: "Test du lecteur, journaux")
+                    SettingsRow(icon: "stethoscope", title: "Diagnostics", value: "Journaux, stockage, version")
                 }
-                .accessibilityIdentifier("settings.diagnostics")
                 NavigationLink { AboutView() } label: {
                     SettingsRow(icon: "info.circle", title: "À propos", value: AppInfo.versionString)
                 }
@@ -62,6 +71,21 @@ struct SettingsRow: View {
             Text(title)
             Spacer()
             if let value { Text(value).foregroundStyle(.secondary).lineLimit(1) }
+        }
+    }
+}
+
+/// Ligne d'information non interactive : libellé à gauche, valeur à droite, sur une seule ligne.
+/// (`LabeledContent` s'affichait décalé d'une ligne dans les listes tvOS.)
+struct InfoRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 30) {
+            Text(label)
+            Spacer(minLength: 20)
+            Text(value).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
         }
     }
 }

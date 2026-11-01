@@ -42,7 +42,7 @@ struct DiagnosticsView: View {
             }
 
             Section("Stockage") {
-                LabeledContent("Réglages et progression (persistant)", value: ByteCountFormatter.string(fromByteCount: Int64(footprint), countStyle: .file))
+                InfoRow(label: "Réglages et progression (persistant)", value: ByteCountFormatter.string(fromByteCount: Int64(footprint), countStyle: .file))
                 Button("Vider les caches (images, réponses d'addons)") {
                     Task {
                         await ImageLoader.shared.clearMemory()
@@ -53,8 +53,8 @@ struct DiagnosticsView: View {
             }
 
             Section("Version") {
-                LabeledContent("Application", value: AppInfo.versionString)
-                LabeledContent("Moteur de lecture", value: app.settings.playback.engine.label)
+                InfoRow(label: "Application", value: AppInfo.versionString)
+                InfoRow(label: "Moteur de lecture", value: app.settings.playback.engine.label)
             }
         }
         .navigationTitle("Diagnostics")

@@ -36,9 +36,10 @@ atvloadly les re-signe avec l'application.
 3. Lancer Lanterne sur l'Apple TV. Premier test conseillé : Réglages › Diagnostics › Tester le
    lecteur.
 
-Alternative : publier une version (`git tag v0.1.0 && git push --tags`) crée une *Release* GitHub
-contenant l'IPA. atvloadly sait suivre une source « GitHub releases » et proposer les mises à jour,
-**si l'URL de l'IPA lui est accessible** (dépôt public, ou téléchargement manuel puis import).
+Plus simple : chaque build réussi de `main` publie une **Release GitHub** `build-<n>` contenant
+l'IPA (dépôt public). Dans atvloadly, utiliser l'URL directe de l'IPA
+(`https://github.com/popolski/lanterne-tv/releases/download/build-<n>/Lanterne-<version>-<n>-unsigned.ipa`)
+ou suivre les Releases du dépôt. Les pushes de tags `v*` publient aussi une Release.
 
 ## Mises à jour sans perte de données
 
