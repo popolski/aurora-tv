@@ -187,8 +187,10 @@ jobs:
           retention-days: 14
 
   release:
-    name: Publication (tags v*)
-    if: startsWith(github.ref, 'refs/tags/v')
+    name: Publication (Release GitHub)
+    # Chaque build réussi de main (et chaque tag v*) publie une Release contenant l'IPA :
+    # URL publique stable pour l'installation via atvloadly (mode « URL » ou source GitHub).
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     needs: [core-tests, app]
     runs-on: ubuntu-latest
     permissions:
@@ -202,7 +204,18 @@ jobs:
       - name: Release GitHub
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.app.outputs.version }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" dist/*.ipa dist/SHA256SUMS.txt \
-            --repo "${GITHUB_REPOSITORY}" --title "Lanterne ${GITHUB_REF_NAME}" \
-            --notes "IPA non signée pour atvloadly. Voir docs/DEPLOYMENT.md."
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="$GITHUB_REF_NAME"; TITLE="Lanterne $GITHUB_REF_NAME"
+          else
+            TAG="build-$GITHUB_RUN_NUMBER"; TITLE="Lanterne $VERSION (build $GITHUB_RUN_NUMBER)"
+          fi
+          cat > notes.md <<NOTES
+          IPA **non signée** pour atvloadly (signature par votre Apple ID à l'installation).
+          Commit : $GITHUB_SHA
+          Statut : compilée et vérifiée par la CI ; qualification sur Apple TV : voir docs/QA-DEVICE-CHECKLIST.md.
+          NOTES
+          gh release create "$TAG" dist/*.ipa dist/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$TITLE" --notes-file notes.md --latest
+          echo "Release : https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"
