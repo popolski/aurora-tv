@@ -29,6 +29,40 @@ Ordre de travail recommandé après la première compilation verte :
 | Purge du cache par tvOS | bibliothèque locale | faible | copie de secours `UserDefaults` + synchro Stremio |
 | Dolby Vision sur téléviseur non compatible | image | selon matériel | option d'assertion désactivée par défaut, à qualifier |
 
+## Demandes notées (01/11/2026) — bandes-annonces et Top Shelf
+
+Demande : bandes-annonces lues en fond, sans le son, sur les fiches ; carrousel des dernières
+sorties sur l'écran d'accueil de l'Apple TV, titre dans la typographie du film, bande-annonce
+lancée après quelques secondes, sans le son.
+
+### Faisabilité
+
+| Élément | Faisable ? | Détail |
+|---|---|---|
+| Lecture muette en boucle sur la fiche (et le bandeau d'accueil) | ✅ techniquement simple | `AVPlayer` muet en couche de fond, démarrage après ~3 s de focus, arrêt dès qu'on quitte ; fondu depuis l'image de fond |
+| Carrousel sur l'écran d'accueil tvOS (Top Shelf) | ✅ | extension `TVTopShelfContentProvider`, style `TVTopShelfCarouselContent` : image plein écran, titre, résumé, durée, genres, boutons Lire/Fiche (liens profonds), et `previewVideoURL` que **tvOS lance lui-même, sans le son, après quelques secondes** |
+| Titre « dans la typo du film » sur le Top Shelf | 🟡 partiel | le système affiche le titre avec sa propre police ; possibilité : incruster le logo du film (fourni par les addons de métadonnées) directement dans l'image du carrousel, à vérifier visuellement |
+| **Source des bandes-annonces** | ⚠️ **point bloquant** | Cinemeta et TMDB ne fournissent que des identifiants **YouTube**. Aucune API officielle ne donne de flux vidéo direct (MP4/HLS) pour YouTube ; extraire le flux contourne les conditions d'utilisation de YouTube et casse régulièrement. Les bandes-annonces Apple (trailers.apple.com) n'existent plus. |
+
+### Options pour la source (à décider)
+
+1. Service d'extraction auto-hébergé sur le NAS (du type yt-dlp → URL directe) appelé par
+   Lanterne : fonctionne techniquement, fragile, contraire aux conditions de YouTube — à décider
+   par l'utilisateur, non activé par défaut.
+2. N'utiliser que les bandes-annonces disponibles en vidéo directe (rares : certains addons ou
+   Vimeo) — couverture faible.
+3. Sans vidéo : Top Shelf avec images et logos seulement (aucune dépendance douteuse).
+
+### Contraintes de distribution
+
+- Une extension Top Shelf est un second exécutable signé : un identifiant d'application de plus
+  sur l'Apple ID (limite des comptes gratuits : 10 identifiants par semaine). atvloadly conserve
+  les extensions par défaut ; à vérifier sur l'appareil.
+- Partager des données entre l'app et l'extension demande un groupe d'applications (App Group),
+  capacité pas toujours disponible en signature gratuite ; alternative : l'extension interroge
+  elle-même le catalogue (Cinemeta « dernières sorties »).
+- Le Top Shelf n'apparaît que si Lanterne est dans la rangée du haut de l'écran d'accueil.
+
 ## Améliorations envisagées (non commencées)
 
 Image de fond animée sur la fiche, bande-annonce, « Now Playing » système (Siri, autres
