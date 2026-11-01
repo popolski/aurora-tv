@@ -102,3 +102,43 @@ struct RemoteImage<Placeholder: View>: View {
         }
     }
 }
+
+/// Image qui garde l'image affichée tant que la suivante n'est pas prête, puis
+/// enchaîne en fondu : aucun « trou » ni saut quand l'adresse change.
+struct CrossfadeImage: View {
+    let url: URL?
+    let maxPixel: Int
+    var contentMode: ContentMode = .fill
+    var alignment: Alignment = .center
+    var duration: Double = 0.45
+    var onLoaded: ((UIImage) -> Void)?
+
+    @State private var current: UIImage?
+    @State private var currentURL: URL?
+
+    var body: some View {
+        ZStack(alignment: alignment) {
+            if let current {
+                Image(uiImage: current)
+                    .resizable()
+                    .aspectRatio(contentMode: contentMode)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
+                    .id(currentURL)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: duration), value: currentURL)
+        .task(id: url) {
+            guard let url else {
+                current = nil
+                currentURL = nil
+                return
+            }
+            guard url != currentURL else { return }
+            guard let image = await ImageLoader.shared.image(for: url, maxPixel: maxPixel), !Task.isCancelled else { return }
+            current = image
+            currentURL = url
+            onLoaded?(image)
+        }
+    }
+}

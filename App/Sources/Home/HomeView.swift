@@ -58,14 +58,17 @@ struct HomeView: View {
                     LazyVStack(alignment: .leading, spacing: 26) {
                         rows
                     }
+                    // Chaque rangée s'aligne en haut de la zone : position constante, pas de saut.
+                    .scrollTargetLayout()
                     .padding(.top, 24)
                     .padding(.bottom, 60)
                 }
+                .scrollTargetBehavior(.viewAligned)
                 // Masque : les rangées qui remontent disparaissent en fondu au lieu de
                 // passer sous le résumé du bandeau (constaté sur l'appareil, build 10).
                 .mask(
                     LinearGradient(stops: [.init(color: .clear, location: 0),
-                                           .init(color: .black, location: 0.05),
+                                           .init(color: .black, location: 0.1),
                                            .init(color: .black, location: 1)],
                                    startPoint: .top, endPoint: .bottom)
                 )
@@ -77,7 +80,7 @@ struct HomeView: View {
         // Le bandeau suit le focus après une courte pause (pas de clignotement en défilement rapide).
         .task(id: candidate?.id) {
             guard let candidate else { return }
-            try? await Task.sleep(nanoseconds: 280_000_000)
+            try? await Task.sleep(nanoseconds: 350_000_000)
             guard !Task.isCancelled else { return }
             featured = candidate
             await enrich(candidate)

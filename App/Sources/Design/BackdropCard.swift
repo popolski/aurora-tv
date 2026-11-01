@@ -94,27 +94,12 @@ struct BillboardBackdrop: View {
 
     var body: some View {
         ZStack {
-            if let meta {
-                Group {
-                    if let background = meta.background {
-                        RemoteImage(url: background, maxPixel: 1920, placeholder: { Color.clear },
-                                    onLoaded: { ambient.update(from: $0) })
-                    } else if let poster = meta.poster {
-                        // Affiche seule : version floutée en fond, nette à droite.
-                        ZStack(alignment: .trailing) {
-                            RemoteImage(url: poster, maxPixel: 600, placeholder: { Color.clear },
-                                        onLoaded: { ambient.update(from: $0) })
-                                .blur(radius: 50).opacity(0.7)
-                            RemoteImage(url: poster, maxPixel: 900) { Color.clear }
-                                .frame(width: 500, height: 750)
-                                .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-                                .padding(.trailing, 150)
-                        }
-                    }
-                }
-                .id(meta.id)
-                .transition(.opacity)
-            }
+            // Même vue d'image d'un titre à l'autre : fondu enchaîné, sans trou ni saut.
+            CrossfadeImage(url: meta?.background ?? meta?.poster, maxPixel: 1920, duration: 0.6,
+                           onLoaded: { ambient.update(from: $0) })
+                .blur(radius: meta?.background == nil ? 40 : 0)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
             // Voile teinté : lisibilité du texte à gauche et des rangées en bas.
             LinearGradient(colors: [Theme.backgroundDeep.opacity(0.85), ambient.tint.opacity(0.35), .clear],
                            startPoint: .leading, endPoint: .trailing)
@@ -123,7 +108,6 @@ struct BillboardBackdrop: View {
                                    .init(color: Theme.backgroundDeep.opacity(0.92), location: 1)],
                            startPoint: .top, endPoint: .bottom)
         }
-        .animation(.easeInOut(duration: 0.5), value: meta?.id)
         .ignoresSafeArea()
     }
 }
@@ -132,31 +116,36 @@ struct BillboardBackdrop: View {
 struct BillboardInfo: View {
     let meta: MetaItem?
 
+    /// Gabarit fixe (logo/titre, puces, résumé sur 3 lignes réservées) : le bloc
+    /// ne change jamais de hauteur d'un titre à l'autre, donc rien ne saute.
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            if let meta {
-                if let logo = meta.logo {
-                    RemoteImage(url: logo, maxPixel: 900, contentMode: .fit) {
-                        Text(meta.name).font(.heroTitle).foregroundStyle(Theme.textPrimary).lineLimit(2)
-                    }
-                    .frame(maxWidth: 640, maxHeight: 170, alignment: .bottomLeading)
-                } else {
-                    Text(meta.name).font(.heroTitle).foregroundStyle(Theme.textPrimary).lineLimit(2)
-                        .minimumScaleFactor(0.6)
+            ZStack(alignment: .bottomLeading) {
+                if meta?.logo == nil, let name = meta?.name {
+                    Text(name)
+                        .font(.heroTitle)
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.5)
                         .shadow(color: .black.opacity(0.4), radius: 10)
+                        .transition(.opacity)
                 }
-                MetaChips(meta: meta)
-                if let description = meta.description {
-                    Text(description)
-                        .font(.bodyLarge)
-                        .foregroundStyle(Theme.textSecondary)
-                        .lineLimit(3)
-                        .frame(maxWidth: 900, alignment: .leading)
-                }
+                CrossfadeImage(url: meta?.logo, maxPixel: 900, contentMode: .fit, alignment: .bottomLeading, duration: 0.35)
             }
+            .frame(width: 760, height: 170, alignment: .bottomLeading)
+
+            ZStack(alignment: .leading) {
+                if let meta { MetaChips(meta: meta) }
+            }
+            .frame(height: 46, alignment: .leading)
+
+            Text(meta?.description ?? " ")
+                .font(.bodyLarge)
+                .foregroundStyle(Theme.textSecondary)
+                .lineLimit(3, reservesSpace: true)
+                .frame(width: 920, alignment: .topLeading)
+                .contentTransition(.opacity)
         }
-        .id(meta?.id)
-        .transition(.opacity)
         .animation(.easeInOut(duration: 0.35), value: meta?.id)
         .frame(maxWidth: .infinity, alignment: .bottomLeading)
     }
