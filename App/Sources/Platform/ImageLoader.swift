@@ -91,9 +91,11 @@ struct RemoteImage<Placeholder: View>: View {
         }
         .task(id: url) {
             guard let url else { image = nil; return }
-            if loadedURL != url { image = nil }
+            // L'image en place reste affichée jusqu'à ce que la nouvelle soit prête
+            // (ex. affiche remplacée par l'image de fond préchargée) : pas de flash.
             let loaded = await ImageLoader.shared.image(for: url, maxPixel: maxPixel)
             guard !Task.isCancelled else { return }
+            if loaded == nil, image != nil, loadedURL != nil, loadedURL != url { return }
             withAnimation(.easeOut(duration: 0.25)) {
                 image = loaded
                 loadedURL = url

@@ -27,8 +27,6 @@ enum Theme {
     static let horizontalMargin: CGFloat = 110
     static let rowSpacing: CGFloat = 40
     static let cornerRadius: CGFloat = 26
-    /// Hauteur réservée en bas pour la capsule de navigation.
-    static let dockClearance: CGFloat = 150
 
     enum Poster {
         static let width: CGFloat = 240

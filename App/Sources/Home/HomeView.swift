@@ -5,7 +5,57 @@ import LanterneCore
 @Observable
 final class HomeModel {
     private(set) var rows: [CatalogRowModel] = []
+    /// Fiches complètes des éléments de bibliothèque (qui n'ont que nom + affiche).
+    private(set) var enriched: [String: MetaItem] = [:]
     @ObservationIgnored private var cache: [String: CatalogRowModel] = [:]
+    @ObservationIgnored private var pending: Set<String> = []
+    @ObservationIgnored private var prefetchTask: Task<Void, Never>?
+
+    private static func isRich(_ meta: MetaItem) -> Bool { meta.background != nil && meta.description != nil }
+
+    /// Précharge les fiches complètes (4 en parallèle) pour que le bandeau n'ait
+    /// jamais à afficher un état intermédiaire.
+    func prefetch(_ items: [MetaItem], aggregator: AddonAggregator, addons: [AddonDescriptor]) {
+        let todo = items.filter { !Self.isRich($0) && enriched[$0.id] == nil && !pending.contains($0.id) }
+        guard !todo.isEmpty, !addons.isEmpty else { return }
+        todo.forEach { pending.insert($0.id) }
+        prefetchTask = Task { [weak self] in
+            for start in stride(from: 0, to: todo.count, by: 4) {
+                let batch = Array(todo[start..<min(start + 4, todo.count)])
+                let results = await withTaskGroup(of: (String, MetaItem?).self) { group in
+                    for meta in batch {
+                        group.addTask {
+                            let detail = try? await withDeadline(seconds: 8) {
+                                try await aggregator.meta(type: meta.type, id: meta.id, addons: addons)
+                            }
+                            return (meta.id, detail.flatMap { $0 }.map { meta.merged(withDetail: $0) })
+                        }
+                    }
+                    var out: [(String, MetaItem?)] = []
+                    for await r in group { out.append(r) }
+                    return out
+                }
+                guard let self, !Task.isCancelled else { return }
+                for (id, meta) in results {
+                    self.pending.remove(id)
+                    if let meta { self.enriched[id] = meta }
+                }
+            }
+        }
+    }
+
+    /// Version complète d'un contenu (attend au plus ~3 s si elle n'est pas encore là).
+    func resolve(_ meta: MetaItem, aggregator: AddonAggregator, addons: [AddonDescriptor]) async -> MetaItem {
+        if Self.isRich(meta) { return meta }
+        if let rich = enriched[meta.id] { return rich }
+        let detail = try? await withDeadline(seconds: 3) {
+            try await aggregator.meta(type: meta.type, id: meta.id, addons: addons)
+        }
+        guard let detail = detail.flatMap({ $0 }) else { return meta }
+        let merged = meta.merged(withDetail: detail)
+        enriched[meta.id] = merged
+        return merged
+    }
 
     /// Reconstruit les rangées quand les addons ou les réglages changent,
     /// en réutilisant les rangées déjà chargées.
@@ -42,9 +92,8 @@ struct HomeView: View {
     /// Contenu affiché dans le bandeau (celui qui a le focus, après un court délai).
     @State private var featured: MetaItem?
     @State private var candidate: MetaItem?
-    @State private var enriched: [String: MetaItem] = [:]
 
-    private var shown: MetaItem? { (featured ?? home.hero).map { enriched[$0.id] ?? $0 } }
+    private var shown: MetaItem? { (featured ?? home.hero).map { home.enriched[$0.id] ?? $0 } }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -74,16 +123,19 @@ struct HomeView: View {
                 )
             }
         }
-        .onAppear { configure() }
-        .onChange(of: model.addons) { _, _ in configure() }
+        .onAppear { configure(); prefetch() }
+        .onChange(of: model.addons) { _, _ in configure(); prefetch() }
         .onChange(of: model.settings) { _, _ in configure() }
-        // Le bandeau suit le focus après une courte pause (pas de clignotement en défilement rapide).
+        .onChange(of: model.libraryRevision) { _, _ in prefetch() }
+        // Le bandeau suit le focus après une courte pause, et ne change qu'une fois la
+        // fiche complète disponible : un seul fondu, jamais d'état intermédiaire.
         .task(id: candidate?.id) {
             guard let candidate else { return }
-            try? await Task.sleep(nanoseconds: 350_000_000)
+            try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
-            featured = candidate
-            await enrich(candidate)
+            let full = await home.resolve(candidate, aggregator: model.aggregator, addons: model.addons)
+            guard !Task.isCancelled else { return }
+            featured = full
         }
     }
 
@@ -97,13 +149,14 @@ struct HomeView: View {
         }
         if !model.continueWatching.isEmpty {
             ShelfRow(title: "Continuer à regarder", items: model.continueWatching, cardHeight: BackdropCard.height) { item in
-                ContinueWatchingBackdrop(item: item) { candidate = item.previewMeta }
+                ContinueWatchingBackdrop(item: item, meta: home.enriched[item.id]) { candidate = item.previewMeta }
             }
         }
         if !model.libraryItems.isEmpty {
             ShelfRow(title: "Ma liste", items: Array(model.libraryItems.prefix(30)), cardHeight: BackdropCard.height) { item in
-                BackdropCard(title: item.name, imageURL: nil, fallbackURL: item.poster, route: .meta(item.previewMeta),
-                             onFocus: { candidate = item.previewMeta })
+                let rich = home.enriched[item.id]
+                BackdropCard(title: item.name, imageURL: rich?.background, fallbackURL: item.poster, logoURL: rich?.logo,
+                             route: .meta(rich ?? item.previewMeta), onFocus: { candidate = item.previewMeta })
             }
         }
         ForEach(home.rows) { row in
@@ -115,11 +168,9 @@ struct HomeView: View {
         home.configure(addons: model.addons, settings: model.settings, aggregator: model.aggregator)
     }
 
-    /// Complète un aperçu pauvre (élément de bibliothèque : pas d'image de fond ni de résumé).
-    private func enrich(_ meta: MetaItem) async {
-        guard meta.background == nil || meta.description == nil, enriched[meta.id] == nil else { return }
-        guard let detail = try? await model.aggregator.meta(type: meta.type, id: meta.id, addons: model.addons) else { return }
-        enriched[meta.id] = meta.merged(withDetail: detail)
+    private func prefetch() {
+        let items = (model.continueWatching + model.libraryItems.prefix(24)).map(\.previewMeta)
+        home.prefetch(items, aggregator: model.aggregator, addons: model.addons)
     }
 }
 
@@ -142,11 +193,14 @@ struct CatalogShelf: View {
 struct ContinueWatchingBackdrop: View {
     @Environment(AppModel.self) private var model
     let item: LibraryItem
+    /// Fiche complète préchargée (image de fond, logo), si disponible.
+    var meta: MetaItem?
     var onFocus: () -> Void = {}
 
     var body: some View {
-        BackdropCard(title: item.name, imageURL: nil, fallbackURL: item.poster, subtitle: ContinueWatchingCard.subtitle(for: item),
-                     progress: item.state.progress, route: .meta(item.previewMeta), onFocus: onFocus)
+        BackdropCard(title: item.name, imageURL: meta?.background, fallbackURL: item.poster, logoURL: meta?.logo,
+                     subtitle: ContinueWatchingCard.subtitle(for: item),
+                     progress: item.state.progress, route: .meta(meta ?? item.previewMeta), onFocus: onFocus)
             .contextMenu {
                 Button("Retirer de « Continuer à regarder »", role: .destructive) {
                     Task { await model.library.dismissFromContinueWatching(item.id) }

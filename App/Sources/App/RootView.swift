@@ -34,57 +34,33 @@ nonisolated enum RootTab: Hashable, CaseIterable, Identifiable {
         case .settings: "Réglages"
         }
     }
-
-    /// Onglets affichés en icône seule dans la capsule.
-    var iconOnly: String? {
-        switch self {
-        case .search: "magnifyingglass"
-        case .settings: "gearshape"
-        default: nil
-        }
-    }
 }
 
-/// Racine : contenu de l'onglet + capsule de navigation flottante en bas.
+/// Racine : barre d'onglets native tvOS, en haut de l'écran.
 ///
-/// Conventions tvOS conservées : la capsule change d'onglet au focus ; Menu
-/// depuis le contenu ramène à la capsule ; Menu depuis la capsule quitte l'app.
+/// Comportement système : la barre change d'onglet au focus, Menu depuis le
+/// contenu y ramène, Menu depuis la barre quitte l'app ; elle s'efface quand
+/// on descend dans le contenu et sur les écrans poussés (fiche, sources).
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @State private var tab: RootTab = .home
-    @State private var visited: Set<RootTab> = [.home]
     @State private var paths: [RootTab: NavigationPath] = [:]
-    @FocusState private var dockFocus: RootTab?
-
-    private var atTabRoot: Bool { (paths[tab]?.count ?? 0) == 0 }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            // Les onglets visités restent en mémoire (positions et chargements conservés).
-            ForEach(RootTab.allCases.filter { visited.contains($0) }) { t in
-                NavigationRoot(path: binding(for: t)) {
-                    tabRoot(t)
-                        // Réserve la place de la capsule : le dernier élément n'est jamais masqué.
-                        .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: Theme.dockClearance - 40) }
-                }
-                    .opacity(t == tab ? 1 : 0)
-                    .disabled(t != tab)
-                    .accessibilityHidden(t != tab)
+        TabView(selection: $tab) {
+            ForEach([RootTab.home, .movies, .series, .library, .settings]) { t in
+                Tab(t.label, value: t) { root(t) }
             }
-            if atTabRoot {
-                dock
-                    .padding(.bottom, 34)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            Tab(RootTab.search.label, systemImage: "magnifyingglass", value: RootTab.search, role: .search) {
+                root(.search)
             }
         }
         .background(AmbientBackground())
-        .animation(.easeInOut(duration: 0.25), value: atTabRoot)
-        .onExitCommand(perform: atTabRoot && dockFocus == nil ? { dockFocus = tab } : nil)
-        .onChange(of: dockFocus) { _, focused in
-            guard let focused else { return }
-            visited.insert(focused)
-            tab = focused
-        }
+    }
+
+    private func root(_ t: RootTab) -> some View {
+        NavigationRoot(path: binding(for: t)) { tabRoot(t) }
+            .accessibilityIdentifier("tab.\(t)")
     }
 
     @ViewBuilder private func tabRoot(_ t: RootTab) -> some View {
@@ -100,60 +76,6 @@ struct RootView: View {
 
     private func binding(for t: RootTab) -> Binding<NavigationPath> {
         Binding(get: { paths[t] ?? NavigationPath() }, set: { paths[t] = $0 })
-    }
-
-    private var dock: some View {
-        HStack(spacing: 6) {
-            ForEach(RootTab.allCases) { t in
-                Button {
-                    visited.insert(t)
-                    tab = t
-                } label: {
-                    if let icon = t.iconOnly {
-                        Image(systemName: icon).accessibilityLabel(Text(t.label))
-                    } else {
-                        Text(t.label)
-                    }
-                }
-                .buttonStyle(DockItemStyle(selected: t == tab))
-                .focused($dockFocus, equals: t)
-                .accessibilityIdentifier("dock.\(t)")
-            }
-        }
-        .padding(10)
-        .background(
-            Capsule().fill(.ultraThinMaterial)
-                .overlay(Capsule().fill(Theme.backgroundDeep.opacity(0.35)))
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
-        )
-        .shadow(color: .black.opacity(0.45), radius: 30, y: 16)
-        .focusSection()
-    }
-}
-
-/// Élément de la capsule : onglet courant en blanc, focus agrandi.
-struct DockItemStyle: ButtonStyle {
-    let selected: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        DockBody(configuration: configuration, selected: selected)
-    }
-
-    private struct DockBody: View {
-        let configuration: ButtonStyleConfiguration
-        let selected: Bool
-        @Environment(\.isFocused) private var isFocused
-
-        var body: some View {
-            configuration.label
-                .font(.manrope(23, .heavy))
-                .padding(.horizontal, 30)
-                .padding(.vertical, 16)
-                .foregroundStyle(selected || isFocused ? Theme.onFocus : Theme.textSecondary)
-                .background(Capsule().fill(selected || isFocused ? Theme.focus : Color.clear))
-                .scaleEffect(isFocused ? 1.1 : 1)
-                .animation(.spring(response: 0.28, dampingFraction: 0.8), value: isFocused)
-        }
     }
 }
 
@@ -175,6 +97,8 @@ struct NavigationRoot<Content: View>: View {
                         }
                     }
                     .screenBackground()
+                    // Écrans poussés : plein écran, sans la barre d'onglets.
+                    .toolbar(.hidden, for: .tabBar)
                 }
         }
     }

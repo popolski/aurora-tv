@@ -35,10 +35,33 @@ final class LanterneUITests: XCTestCase {
         }
     }
 
+    private var tabBarHasFocus: Bool {
+        app.tabBars.buttons.matching(NSPredicate(format: "hasFocus == true")).firstMatch.exists
+    }
+
+    /// Descend dans le contenu de l'onglet (quitte la barre d'onglets du haut).
+    private func focusContent() {
+        var n = 0
+        while tabBarHasFocus && n < 4 { press(.down); n += 1 }
+    }
+
+    /// Sélectionne un onglet de la barre du haut puis entre dans son contenu.
+    private func goToTab(_ name: String) {
+        var n = 0
+        while !tabBarHasFocus && n < 8 { press(.up); n += 1 }
+        press(.left, times: 7)
+        let target = app.tabBars.buttons[name]
+        n = 0
+        while !target.hasFocus && n < 8 { press(.right); n += 1 }
+        XCTAssertTrue(target.hasFocus, "onglet « \(name) » introuvable")
+        Thread.sleep(forTimeInterval: 0.8)
+        focusContent()
+    }
+
     func testHomeShowsCatalogAndFocusMoves() {
         launch()
         XCTAssertTrue(app.staticTexts["Populaires"].waitForExistence(timeout: 15), "rangée de catalogue absente")
-        press(.down, times: 2)
+        focusContent()
         let first = focusedLabel()
         press(.right)
         let second = focusedLabel()
@@ -49,7 +72,7 @@ final class LanterneUITests: XCTestCase {
     func testDetailBackRestoresFocus() {
         launch()
         XCTAssertTrue(app.staticTexts["Populaires"].waitForExistence(timeout: 15))
-        press(.down, times: 2)
+        focusContent()
         press(.right)
         let before = focusedLabel()
         press(.select)
@@ -62,9 +85,7 @@ final class LanterneUITests: XCTestCase {
     func testPlayerFailureCanBeClosedAndNavigationContinues() {
         launch()
         XCTAssertTrue(app.staticTexts["Populaires"].waitForExistence(timeout: 15))
-        // Menu latéral : on passe d'abord dans le contenu.
-        press(.right)
-        press(.down, times: 2)
+        focusContent()
         press(.select)
         let play = app.buttons["detail.play"]
         XCTAssertTrue(play.waitForExistence(timeout: 10))
@@ -91,11 +112,7 @@ final class LanterneUITests: XCTestCase {
     func testLocalTestClipReachesPlayingInSimulator() {
         launch()
         XCTAssertTrue(app.staticTexts["Populaires"].waitForExistence(timeout: 15))
-        // Menu latéral : gauche pour l'ouvrir, Réglages est la 5e entrée, puis le contenu.
-        press(.left, times: 2)
-        press(.down, times: 4)
-        press(.select)
-        press(.right)
+        goToTab("Réglages")
         let diagnostics = app.buttons["settings.diagnostics"]
         XCTAssertTrue(diagnostics.waitForExistence(timeout: 10))
         var guardCount = 0
