@@ -55,7 +55,7 @@ final class SystemPlaybackEngine: PlaybackEngine {
         audibleGroup = try? await asset.loadMediaSelectionGroup(for: .audible)
         legibleGroup = try? await asset.loadMediaSelectionGroup(for: .legible)
         if let start = request.startPosition, start > 0 {
-            player.seek(to: CMTime(seconds: start, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+            player.seek(to: CMTime(seconds: start, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) { _ in }
         }
         // Langue audio préférée si l'asset propose plusieurs options.
         if let group = audibleGroup {
@@ -137,7 +137,7 @@ final class SystemPlaybackEngine: PlaybackEngine {
     func seek(to seconds: TimeInterval) async {
         player.seek(to: CMTime(seconds: max(0, seconds), preferredTimescale: 600),
                           toleranceBefore: CMTime(seconds: 0.5, preferredTimescale: 600),
-                          toleranceAfter: CMTime(seconds: 0.5, preferredTimescale: 600))
+                          toleranceAfter: CMTime(seconds: 0.5, preferredTimescale: 600)) { _ in }
     }
 
     func selectAudio(_ id: Int) {
