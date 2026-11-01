@@ -17,9 +17,10 @@ addons installés par l'utilisateur. Il n'embarque aucun moteur torrent.
 | Protocole addon (manifestes, catalogues, fiches, flux, sous-titres) | ✅ | ✅ | ✅ tests unitaires (réponses simulées) | ⏳ |
 | Compte Stremio (e-mail, code QR), synchro addons/bibliothèque | ✅ | ✅ | ✅ simulé (84 tests du cœur) | 🟡 connexion + synchro OK sur « Chambre » (build 6, 01/11/2026) ; bibliothèque à vérifier |
 | Smart Sources (analyse, tri, lisibilité) | ✅ | ✅ | ✅ | ⏳ |
-| Bibliothèque, progression, reprise, épisode suivant | ✅ | ✅ | ✅ | ⏳ |
-| Lecteur (AetherEngine + AVPlayer), jalons, chien de garde | ✅ | ✅ | ⏳ tests d'interface sur simulateur (indicatifs) | 🟡 clips de test embarqués signalés fonctionnels (build 6) ; télécommande, changement de piste audio et sous-titres intégrés OK sur les clips (build 8) ; sources réelles à qualifier |
-| CI GitHub Actions → IPA non signée + vérification | ✅ | ✅ | — | ✅ installée via atvloadly (builds 6 et 8) |
+| Bibliothèque, progression, reprise, épisode suivant | ✅ | ✅ | ✅ | 🟡 reprise, synchro et proposition d'épisode suivant OK sur un vrai contenu (build 8) ; encart pendant le générique à confirmer |
+| Lecteur (AetherEngine + AVPlayer), jalons, chien de garde | ✅ | ✅ | ⏳ tests d'interface sur simulateur (indicatifs) | 🟡 clips de test embarqués signalés fonctionnels (build 6) ; télécommande, changement de piste audio et sous-titres intégrés OK sur les clips (build 8) ; lecture d'un vrai film OK (build 8) ; avance/retour rapide maintenu et accéléré OK sur la Siri Remote (build 18) ; touches ⏪/⏩ d'une télécommande de TV non vérifiées ; sources réelles à qualifier plus largement |
+| Interface « Aurore » (accueil, barre d'onglets en haut, nom Aurora, icône) | ✅ | ✅ | 🟡 3 tests d'interface sur 4 (simulateur) | 🟡 accueil fluide, menu en haut et icône OK (build 17) ; menus déroulants Films/Séries à confirmer (build 18) |
+| CI GitHub Actions → IPA non signée + vérification | ✅ | ✅ | — | ✅ installée via atvloadly (builds 6, 8, 17 et 18 ; mises à jour sans perte de données) |
 
 ⏳ = pas encore exécuté ; 🟡 = validé partiellement sur l'appareil, d'après le retour de
 l'utilisateur. Rien n'est déclaré « fonctionnel » sans exécution réelle.
