@@ -1,7 +1,11 @@
 # Lancement : docker compose up -d --build   (dans ce dossier, sur le NAS)
 services:
   aurora-trailers:
-    build: .
+    build:
+      context: .
+      args:
+        # Pour mettre yt-dlp à jour : changer cette date, puis reconstruire le projet.
+        YTDLP_REFRESH: "2026-11-01"
     container_name: aurora-trailers
     ports:
       - "8787:8787"   # réseau local uniquement : ne pas rediriger ce port depuis la box

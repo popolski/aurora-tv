@@ -26,12 +26,16 @@ secondes ; ensuite elle part immédiatement.
 
 ## Mise à jour de yt-dlp
 
-YouTube change régulièrement ; si les bandes-annonces ne se chargent plus, reconstruire
-l'image pour prendre la dernière version de yt-dlp :
+YouTube change régulièrement ; si les bandes-annonces ne se chargent plus, il faut la
+dernière version de yt-dlp :
 
-```bash
-docker compose build --pull --no-cache && docker compose up -d
-```
+1. Dans `compose.yaml`, changer la date de `YTDLP_REFRESH` (par exemple la date du jour).
+2. Reconstruire : Container Manager › Projet › aurora-trailers › *Action › Construire*,
+   ou en SSH : `sudo docker compose up -d --build`.
+
+Seule l'étape yt-dlp est refaite (environ une minute). Éviter `--no-cache` : cela referait
+aussi l'installation de ffmpeg, qui a pris près de 30 minutes sur un DS224+ lors de la
+première installation (téléchargements Debian lents depuis le NAS).
 
 ## Réglages (variables d'environnement)
 

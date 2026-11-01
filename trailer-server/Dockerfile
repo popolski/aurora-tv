@@ -10,8 +10,11 @@ RUN apt-get update \
 COPY --from=denoland/deno:bin-2.1.4 /deno /usr/local/bin/deno
 
 # yt-dlp volontairement non figé : YouTube change souvent, une version récente
-# est nécessaire. Reconstruire l'image pour mettre à jour (voir README).
-RUN pip install --no-cache-dir --upgrade "yt-dlp[default]"
+# est nécessaire. Changer YTDLP_REFRESH (compose.yaml) puis reconstruire ne
+# refait que cette étape ; les étapes lourdes au-dessus restent en cache.
+ARG YTDLP_REFRESH=initial
+RUN echo "mise à jour yt-dlp : ${YTDLP_REFRESH}" \
+ && pip install --no-cache-dir --upgrade "yt-dlp[default]"
 
 RUN useradd --uid 1000 --create-home aurora \
  && mkdir -p /cache && chown aurora /cache
