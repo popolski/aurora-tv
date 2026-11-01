@@ -81,6 +81,25 @@ else
 fi
 
 say ""
+say "### Extensions"
+if [[ -d "$APP/PlugIns" ]]; then
+  while IFS= read -r ext; do
+    name="$(basename "$ext" .appex)"
+    eplist="$ext/Info.plist"
+    eexec="$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$eplist" 2>/dev/null || echo "$name")"
+    eid="$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$eplist" 2>/dev/null || echo "?")"
+    epoint="$(/usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPointIdentifier" "$eplist" 2>/dev/null || echo "?")"
+    ever="$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$eplist" 2>/dev/null || echo "?")"
+    [[ "$eid" == "$BUNDLE_ID".* ]] && ok "$name : identifiant $eid" || fail "$name : identifiant $eid hors de $BUNDLE_ID"
+    [[ "$ever" == "$BUILD" ]] && ok "$name : version $ever (identique à l'app)" || fail "$name : version $ever ≠ $BUILD"
+    ok "$name : point d'extension $epoint"
+    check_macho "$ext/$eexec" "$name.appex"
+  done < <(find "$APP/PlugIns" -maxdepth 1 -name "*.appex" -type d | sort)
+else
+  say "- (aucune)"
+fi
+
+say ""
 say "### Ressources"
 for f in TestMedia/test-h264-aac.mp4 TestMedia/test-hevc10-multi.mkv TestMedia/test-h264-dts.mkv Assets.car; do
   [[ -e "$APP/$f" ]] && ok "$f" || fail "$f manquant"

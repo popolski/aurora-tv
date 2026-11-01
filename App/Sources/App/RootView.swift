@@ -56,6 +56,26 @@ struct RootView: View {
             }
         }
         .background(AmbientBackground())
+        .onOpenURL { url in open(url) }
+    }
+
+    /// Lien du Top Shelf : fiche du contenu, ou directement ses sources (« Lire »).
+    private func open(_ url: URL) {
+        guard let link = DeepLink(url: url) else {
+            LogChannel("app").warning("lien ignoré (format inattendu)")
+            return
+        }
+        let preview = MetaItem(id: link.id, type: link.type, name: link.name ?? "")
+        var path = NavigationPath()
+        path.append(Route.meta(preview))
+        if link.action == .play, link.type == ContentType.movie {
+            let item = model.continueWatching.first { $0.id == link.id }
+            let resume = item.map { TimeInterval($0.state.timeOffset) / 1000 }.flatMap { $0 > 30 ? $0 : nil }
+            path.append(Route.sources(SourcesRoute(meta: preview, videoID: link.id, video: nil, startPosition: resume,
+                                                   autoPlay: model.settings.sources.autoPlay)))
+        }
+        tab = .home
+        paths[.home] = path
     }
 
     private func root(_ t: RootTab) -> some View {

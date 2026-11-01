@@ -17,3 +17,4 @@ Packages/LanterneCore/.swiftpm/
 *.cer
 __pycache__/
 trailer-server/cache/
+App/TopShelf/Info.plist

@@ -59,6 +59,14 @@ cp "$WORK/profile.mobileprovision" "$APP/embedded.mobileprovision"
 find "$APP" -depth \( -name "*.framework" -o -name "*.dylib" \) -print0 | while IFS= read -r -d '' item; do
   codesign --force --sign "$IDENTITY" --keychain "$KEYCHAIN" --timestamp=none "$item"
 done
+# Extension Top Shelf : elle demanderait son propre profil (identifiant .topshelf).
+# Ce script ne le gère pas : elle est signée avec le même certificat, sans profil.
+if [[ -d "$APP/PlugIns" ]]; then
+  echo "::warning::extension(s) dans PlugIns/ signée(s) sans profil dédié : le Top Shelf peut ne pas fonctionner avec cette IPA"
+  find "$APP/PlugIns" -maxdepth 1 -name "*.appex" -print0 | while IFS= read -r -d '' ext; do
+    codesign --force --sign "$IDENTITY" --keychain "$KEYCHAIN" --timestamp=none "$ext"
+  done
+fi
 codesign --force --sign "$IDENTITY" --keychain "$KEYCHAIN" --entitlements "$WORK/entitlements.plist" --timestamp=none "$APP"
 codesign --verify --deep --strict "$APP"
 

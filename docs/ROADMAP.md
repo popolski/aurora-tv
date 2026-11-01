@@ -64,9 +64,16 @@ L'utilisateur a choisi le service auto-hébergé sur le NAS. État :
   ffmpeg d'un MP4 fragmenté. Validé sur l'appareil : service installé sur le NAS (DS224+), téléchargement
   réel depuis YouTube et bandes-annonces affichées sur une fiche et dans le bandeau de
   l'accueil (build 19).
-- **Étape 2, à faire** : extension Top Shelf (carrousel des dernières sorties, logo incrusté
-  dans l'image, `previewVideoURL` vers le service du NAS). Point à trancher : l'extension doit
-  connaître l'adresse du NAS (App Group, ou adresse fixe), voir contraintes ci-dessous.
+- **Étape 2, en cours (build 23)** : extension Top Shelf `AuroraTopShelf` : carrousel des
+  10 dernières sorties de films (Cinemeta, année en cours puis précédente), image plein
+  écran, titre, résumé, genres, durée, réalisation, distribution, boutons Lire / Plus d'infos
+  (liens `aurora://`), bande-annonce muette lancée par tvOS (`previewVideoURL` vers le NAS).
+  L'adresse du NAS passe par un groupe d'apps dont le nom réel est lu dans le profil de
+  provisionnement (atvloadly peut le renommer) ; sans groupe utilisable, carrousel en images
+  seules. Pseudo-signature ad hoc (`scripts/fakesign.sh`) pour inscrire les droits avant
+  la re-signature par atvloadly. Le titre est affiché dans la police du système (le logo
+  du film n'est pas incrusté). À valider sur l'appareil : installation par atvloadly avec
+  un Apple ID gratuit, affichage du carrousel, bandes-annonces.
 
 ### Contraintes de distribution
 

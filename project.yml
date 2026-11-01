@@ -51,6 +51,8 @@ targets:
       - package: LanterneCore
       - package: AetherEngine
         product: AetherEngine
+      # Extension Top Shelf (carrousel de l'écran d'accueil), intégrée dans PlugIns/.
+      - target: AuroraTopShelf
     info:
       path: App/Info.plist
       properties:
@@ -70,6 +72,10 @@ targets:
           - Fonts/Manrope-SemiBold.ttf
           - Fonts/Manrope-Bold.ttf
           - Fonts/Manrope-ExtraBold.ttf
+        # Liens ouverts par le Top Shelf : aurora://meta/<type>/<id>, aurora://play/<type>/<id>.
+        CFBundleURLTypes:
+          - CFBundleURLName: io.github.popolski.lanterne
+            CFBundleURLSchemes: [aurora]
         NSLocalNetworkUsageDescription: "Aurora contacte les addons et le serveur de streaming hébergés sur votre réseau local (NAS)."
         # Les addons Stremio sont choisis par l'utilisateur et certains servent
         # leurs médias en HTTP. La validation TLS reste active pour tout HTTPS ;
@@ -87,6 +93,38 @@ targets:
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         SWIFT_EMIT_LOC_STRINGS: YES
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+        # Groupe d'apps partagé avec l'extension Top Shelf (droits appliqués par
+        # scripts/fakesign.sh, puis par la signature d'atvloadly).
+        CODE_SIGN_ENTITLEMENTS: App/Lanterne.entitlements
+
+  AuroraTopShelf:
+    type: app-extension
+    platform: tvOS
+    sources:
+      - path: App/TopShelf
+        excludes: ["*.entitlements"]
+    dependencies:
+      - package: LanterneCore
+    info:
+      path: App/TopShelf/Info.plist
+      properties:
+        CFBundleDisplayName: Aurora
+        CFBundleDevelopmentRegion: fr
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.tv-top-shelf
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ContentProvider
+        # Bandes-annonces servies en HTTP par le NAS (réseau local).
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.popolski.lanterne.topshelf
+        PRODUCT_NAME: AuroraTopShelf
+        TARGETED_DEVICE_FAMILY: "3"
+        CODE_SIGN_ENTITLEMENTS: App/TopShelf/TopShelf.entitlements
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
 
   LanterneUITests:
     type: bundle.ui-testing

@@ -75,6 +75,7 @@ final class AppModel {
         didSet {
             guard settings != oldValue else { return }
             defaults.encode(settings, forKey: Self.settingsKey)
+            if !isUITest { TopShelfBridge.publish(settings) }
         }
     }
 
@@ -90,6 +91,7 @@ final class AppModel {
         self.defaults = defaults
         self.isUITest = isUITest
         self.settings = defaults.decode(AppSettings.self, forKey: Self.settingsKey) ?? AppSettings()
+        if !isUITest { TopShelfBridge.publish(settings, force: true) }
     }
 
     static func make() -> AppModel {
