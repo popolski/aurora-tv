@@ -158,13 +158,10 @@ final class PlayerViewController: UIViewController {
             return
         }
         if session.needsInteractiveOverlay {
-            // Menu dans une surcouche : ferme le panneau, ou le lecteur sur un écran d'erreur/fin.
-            if session.panel != nil {
-                session.panel = nil
-                updateFocusTarget()
-            } else {
-                session.close()
-            }
+            // Menu dans une surcouche : ferme le panneau/l'encart (retour au film),
+            // ou le lecteur sur un écran d'erreur/fin.
+            session.handleOverlayExit()
+            updateFocusTarget()
             return
         }
         switch press.type {

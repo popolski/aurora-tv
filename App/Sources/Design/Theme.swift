@@ -40,14 +40,18 @@ extension Font {
 /// Bouton « pilule » : texte + icône, mise en avant ambrée au focus.
 struct PillButtonStyle: ButtonStyle {
     var prominent = false
+    /// Option sélectionnée (onglet, filtre) : texte ambré hors focus. Le texte
+    /// ne doit pas fixer sa propre couleur, sinon il devient illisible au focus.
+    var selected = false
 
     func makeBody(configuration: Configuration) -> some View {
-        PillBody(configuration: configuration, prominent: prominent)
+        PillBody(configuration: configuration, prominent: prominent, selected: selected)
     }
 
     private struct PillBody: View {
         let configuration: ButtonStyleConfiguration
         let prominent: Bool
+        let selected: Bool
         @Environment(\.isFocused) private var isFocused
 
         var body: some View {
@@ -55,7 +59,7 @@ struct PillButtonStyle: ButtonStyle {
                 .font(.system(size: 27, weight: .semibold))
                 .padding(.horizontal, 34)
                 .padding(.vertical, 18)
-                .foregroundStyle(isFocused ? Color.black : Theme.textPrimary)
+                .foregroundStyle(isFocused ? Color.black : (selected ? Theme.accent : Theme.textPrimary))
                 .background(
                     Capsule().fill(isFocused ? Theme.accent : (prominent ? Theme.surfaceRaised : Theme.surface.opacity(0.85)))
                 )

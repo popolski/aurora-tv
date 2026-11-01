@@ -28,6 +28,8 @@ final class PlayerSession {
     private(set) var engineName = ""
     private(set) var nextEpisode: MetaVideo?
     private(set) var nextCountdown: Int?
+    /// Encart « Épisode suivant » affiché pendant le générique (avant la fin du fichier).
+    private(set) var upNext: MetaVideo?
     private(set) var scrubTarget: TimeInterval?
     private(set) var subtitleDelay: TimeInterval
     /// Préférences d'affichage des sous-titres (la surcouche est hors de l'environnement SwiftUI).
@@ -59,6 +61,7 @@ final class PlayerSession {
     @ObservationIgnored private var externalAdded = false
     @ObservationIgnored private var streamRemembered = false
     @ObservationIgnored private var endHandled = false
+    @ObservationIgnored private var upNextDismissed = false
     @ObservationIgnored private var closed = false
     @ObservationIgnored private var loggedMilestone: PlaybackMilestone?
     @ObservationIgnored private let log = LogChannel("player")
@@ -86,7 +89,7 @@ final class PlayerSession {
 
     /// La surcouche doit recevoir le focus (panneau, erreur, fin).
     var needsInteractiveOverlay: Bool {
-        if panel != nil { return true }
+        if panel != nil || upNext != nil { return true }
         switch status {
         case .failed, .ended, .noPicture: return true
         case .starting, .active: return false
@@ -122,6 +125,8 @@ final class PlayerSession {
         endHandled = false
         nextCountdown = nil
         nextEpisode = nil
+        upNext = nil
+        upNextDismissed = false
         lastPosition = nil
         playedSinceRecord = 0
         lastRecord = Date()
@@ -237,6 +242,7 @@ final class PlayerSession {
             }
         }
         watchdog(now: now, s: s)
+        checkUpNext(s)
         accumulateProgress(now: now, s: s)
         autoHideChrome(now: now, s: s)
         if scrubTarget != nil, now.timeIntervalSince(lastScrubActivity) > 8 { cancelScrub() }
@@ -401,6 +407,7 @@ final class PlayerSession {
         recordProgress()
         let next = context.localTest == nil ? NextEpisode.after(videoID: context.videoID, in: context.meta.videos) : nil
         nextEpisode = next
+        upNext = nil
         if context.localTest == nil {
             let ref = LibraryMetaRef(context.meta)
             let s = snapshot
@@ -413,8 +420,49 @@ final class PlayerSession {
         if next != nil, app.settings.playback.autoPlayNextEpisode { startCountdown() }
     }
 
-    private func startCountdown() {
-        nextCountdown = 10
+    /// Affiche l'encart « Épisode suivant » quand le générique commence
+    /// (délai réglable avant la fin du fichier), sans attendre la fin.
+    private func checkUpNext(_ s: EngineSnapshot) {
+        guard upNext == nil, !upNextDismissed, !endHandled, status == .active, context.localTest == nil,
+              s.phase == .playing, s.duration > 120 else { return }
+        let lead = max(10, app.settings.playback.nextEpisodeLeadTime)
+        guard s.duration - s.position <= lead,
+              let next = NextEpisode.after(videoID: context.videoID, in: context.meta.videos) else { return }
+        nextEpisode = next
+        upNext = next
+        panel = nil
+        log.info("encart épisode suivant (\(Int(s.duration - s.position)) s avant la fin) : \(next.id)")
+        onFocusContextChange?()
+        if app.settings.playback.autoPlayNextEpisode { startCountdown(seconds: 15) }
+    }
+
+    /// « Regarder le générique » : masque l'encart, la lecture continue.
+    func dismissUpNext() {
+        guard upNext != nil else { return }
+        upNext = nil
+        upNextDismissed = true
+        nextCountdown = nil
+        auxTask?.cancel()
+        onFocusContextChange?()
+    }
+
+    /// Menu dans une surcouche SwiftUI : ferme le panneau ou l'encart et revient
+    /// au film ; sur un écran d'erreur ou de fin, ferme le lecteur.
+    func handleOverlayExit() {
+        if panel != nil {
+            panel = nil
+        } else if upNext != nil {
+            dismissUpNext()
+        } else {
+            switch status {
+            case .failed, .ended, .noPicture: close()
+            case .starting, .active: break
+            }
+        }
+    }
+
+    private func startCountdown(seconds: Int = 10) {
+        nextCountdown = seconds
         auxTask?.cancel()
         auxTask = Task { [weak self] in
             while let self, let n = self.nextCountdown, n > 0 {
@@ -435,6 +483,7 @@ final class PlayerSession {
     func playNext() {
         guard let next = nextEpisode else { return }
         nextCountdown = nil
+        upNext = nil
         status = .starting("Recherche de sources pour \(next.episodeCode ?? next.title)…")
         onFocusContextChange?()
         let addons = app.addons

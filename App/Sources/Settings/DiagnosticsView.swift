@@ -106,7 +106,7 @@ struct LogsView: View {
                 HStack(spacing: 18) {
                     ForEach([LogLevel.debug, .info, .warning, .error], id: \.self) { level in
                         Button(level.label) { minimum = level; reload() }
-                            .buttonStyle(PillButtonStyle(prominent: minimum == level))
+                            .buttonStyle(PillButtonStyle(prominent: minimum == level, selected: minimum == level))
                     }
                     Button("Actualiser") { reload() }.buttonStyle(PillButtonStyle())
                     Button("Effacer") { LogStore.shared.clear(); reload() }.buttonStyle(PillButtonStyle())

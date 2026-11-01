@@ -167,9 +167,8 @@ struct DetailView: View {
                                 detail.selectedSeason = season
                             } label: {
                                 Text(season == 0 ? "Bonus" : "Saison \(season)")
-                                    .foregroundStyle(season == (detail.selectedSeason ?? meta.seasons.first) ? Theme.accent : Theme.textPrimary)
                             }
-                            .buttonStyle(PillButtonStyle())
+                            .buttonStyle(PillButtonStyle(selected: season == (detail.selectedSeason ?? meta.seasons.first)))
                         }
                     }
                     .padding(.horizontal, Theme.horizontalMargin)

@@ -88,9 +88,9 @@ struct DiscoverView: View {
             HStack(spacing: 18) {
                 ForEach(items, id: \.0) { item in
                     Button { onSelect(item.0) } label: {
-                        Text(item.1).foregroundStyle(item.0 == selected ? Theme.accent : Theme.textPrimary)
+                        Text(item.1)
                     }
-                    .buttonStyle(PillButtonStyle(prominent: item.0 == selected))
+                    .buttonStyle(PillButtonStyle(prominent: item.0 == selected, selected: item.0 == selected))
                 }
             }
             .padding(.horizontal, Theme.horizontalMargin)

@@ -35,9 +35,9 @@ struct LibraryView: View {
                 HStack(spacing: 18) {
                     ForEach(LibrarySection.allCases) { s in
                         Button { section = s } label: {
-                            Text(s.label).foregroundStyle(s == section ? Theme.accent : Theme.textPrimary)
+                            Text(s.label)
                         }
-                        .buttonStyle(PillButtonStyle(prominent: s == section))
+                        .buttonStyle(PillButtonStyle(prominent: s == section, selected: s == section))
                     }
                     Spacer()
                     syncLabel

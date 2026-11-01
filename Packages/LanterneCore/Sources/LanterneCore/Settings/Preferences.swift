@@ -168,13 +168,15 @@ public struct PlaybackPreferences: Sendable, Codable, Hashable {
     public var skipInterval: Double = 10
     /// Lire automatiquement l'épisode suivant.
     public var autoPlayNextEpisode: Bool = true
+    /// Délai avant la fin du fichier où l'encart « Épisode suivant » apparaît (générique).
+    public var nextEpisodeLeadTime: Double = 60
     /// URL du serveur de streaming Stremio (torrents), ex. `http://192.168.1.20:11470`.
     public var streamingServerURL: String = ""
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
-        case engine, matchContent, panelSupportsDolbyVision, skipInterval, autoPlayNextEpisode, streamingServerURL
+        case engine, matchContent, panelSupportsDolbyVision, skipInterval, autoPlayNextEpisode, nextEpisodeLeadTime, streamingServerURL
     }
 
     public init(from decoder: any Decoder) throws {
@@ -185,6 +187,7 @@ public struct PlaybackPreferences: Sendable, Codable, Hashable {
         panelSupportsDolbyVision = c.value(.panelSupportsDolbyVision, default: d.panelSupportsDolbyVision)
         skipInterval = c.value(.skipInterval, default: d.skipInterval)
         autoPlayNextEpisode = c.value(.autoPlayNextEpisode, default: d.autoPlayNextEpisode)
+        nextEpisodeLeadTime = c.value(.nextEpisodeLeadTime, default: d.nextEpisodeLeadTime)
         streamingServerURL = c.value(.streamingServerURL, default: d.streamingServerURL)
     }
 

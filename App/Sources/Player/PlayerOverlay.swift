@@ -16,6 +16,12 @@ struct PlayerOverlay: View {
             if let panel = session.panel {
                 PlayerPanel(session: session, initial: panel)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if let next = session.upNext {
+                UpNextCard(session: session, next: next)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, 80)
+                    .padding(.bottom, 90)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
             }
             // Jalon atteint, exposé aux tests d'interface (quasi invisible).
             Text(session.milestones.highest?.label ?? "aucun")
@@ -26,7 +32,10 @@ struct PlayerOverlay: View {
         }
         .animation(.easeInOut(duration: 0.25), value: session.chromeVisible)
         .animation(.easeInOut(duration: 0.25), value: session.panel)
+        .animation(.easeInOut(duration: 0.3), value: session.upNext?.id)
         .ignoresSafeArea()
+        // Menu dans la surcouche : revient au film (panneau, encart) au lieu de fermer le lecteur.
+        .onExitCommand { session.handleOverlayExit() }
     }
 
     @ViewBuilder private var statusLayer: some View {
@@ -220,6 +229,53 @@ private struct EndCard: View {
     }
 }
 
+// MARK: - Épisode suivant (pendant le générique)
+
+private struct UpNextCard: View {
+    let session: PlayerSession
+    let next: MetaVideo
+    @FocusState private var playFocused: Bool
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 26) {
+            RemoteImage(url: next.thumbnail, maxPixel: 560) {
+                ZStack {
+                    Theme.surfaceRaised
+                    Image(systemName: "play.rectangle").font(.system(size: 40)).foregroundStyle(Theme.textTertiary)
+                }
+            }
+            .frame(width: 280, height: 158)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Épisode suivant").font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.accent)
+                Text([next.episodeCode, next.title.isEmpty ? nil : next.title].compactMap { $0 }.joined(separator: " · "))
+                    .font(.system(size: 28, weight: .bold)).foregroundStyle(.white).lineLimit(2)
+                HStack(spacing: 16) {
+                    Button {
+                        session.playNext()
+                    } label: {
+                        Label(session.nextCountdown.map { "Lire (\($0) s)" } ?? "Lire", systemImage: "play.fill")
+                    }
+                    .buttonStyle(PillButtonStyle(prominent: true))
+                    .focused($playFocused)
+                    Button("Générique") { session.dismissUpNext() }
+                        .buttonStyle(PillButtonStyle())
+                }
+                .focusSection()
+            }
+            .frame(maxWidth: 520, alignment: .leading)
+        }
+        .padding(28)
+        .background(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Color.black.opacity(0.45)))
+        )
+        .onAppear { playFocused = true }
+    }
+}
+
 // MARK: - Panneau
 
 private struct PlayerPanel: View {
@@ -267,7 +323,7 @@ private struct PlayerPanel: View {
 
     private func tabButton(_ title: String, _ value: PlayerSession.Panel) -> some View {
         Button(title) { tab = value }
-            .buttonStyle(PillButtonStyle(prominent: tab == value))
+            .buttonStyle(PillButtonStyle(prominent: tab == value, selected: tab == value))
     }
 }
 

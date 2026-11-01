@@ -117,6 +117,9 @@ struct PlaybackSettingsView: View {
                     ForEach([5.0, 10, 15, 30, 60], id: \.self) { Text("\(Int($0)) s").tag($0) }
                 }
                 Toggle("Épisode suivant automatique", isOn: $app.settings.playback.autoPlayNextEpisode)
+                Picker("Encart « Épisode suivant »", selection: $app.settings.playback.nextEpisodeLeadTime) {
+                    ForEach([30.0, 45, 60, 90, 120, 180], id: \.self) { Text("\(Int($0)) s avant la fin").tag($0) }
+                }
             }
             Section {
                 TextField("http://192.168.1.20:11470", text: $serverDraft)
