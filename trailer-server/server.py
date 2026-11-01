@@ -337,7 +337,14 @@ def make_handler(cache):
 
 
 def main():
-    cache = Cache(CACHE_DIR, CACHE_MAX_MB)
+    try:
+        cache = Cache(CACHE_DIR, CACHE_MAX_MB)
+    except PermissionError:
+        log(f"impossible d'écrire dans {CACHE_DIR} : le dossier monté n'est pas accessible en écriture "
+            f"pour l'utilisateur du conteneur (uid {os.getuid()}). Utilisez le volume Docker nommé "
+            f"de compose.yaml (« trailers-cache:/cache ») plutôt qu'un dossier partagé du NAS.")
+        time.sleep(60)  # évite une boucle de redémarrage trop rapide
+        return 1
     version = ytdlp_version()
     log(f"aurora-trailers sur le port {PORT}, cache {CACHE_DIR} ({CACHE_MAX_MB} Mo max), "
         f"yt-dlp {version or 'absent'}, ffmpeg {'présent' if shutil.which('ffmpeg') else 'absent'}")
