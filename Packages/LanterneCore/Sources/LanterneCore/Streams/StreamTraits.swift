@@ -189,7 +189,7 @@ public enum StreamTraitsParser {
         try! NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
     }
 
-    nonisolated(unsafe) private static let patterns: [String: NSRegularExpression] = [
+    private static let patterns: [String: NSRegularExpression] = [
         "2160": rx("\(b)(2160p|4k|uhd)\(e)"),
         "1440": rx("\(b)1440p\(e)"),
         "1080": rx("\(b)(1080p|1080i|fhd)\(e)"),

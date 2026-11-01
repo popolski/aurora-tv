@@ -9,7 +9,7 @@ import Foundation
 public enum Redactor {
     public static let mask = "‹…›"
 
-    nonisolated(unsafe) private static let keyValuePatterns: [NSRegularExpression] = {
+    private static let keyValuePatterns: [NSRegularExpression] = {
         let keys = "authKey|auth_key|password|passwd|token|access_token|refresh_token|apikey|api_key|secret|session"
         let patterns = [
             // "authKey":"valeur"  /  "password": "valeur"
@@ -22,7 +22,7 @@ public enum Redactor {
         return patterns.compactMap { try? NSRegularExpression(pattern: $0, options: [.caseInsensitive]) }
     }()
 
-    nonisolated(unsafe) private static let urlPattern: NSRegularExpression = {
+    private static let urlPattern: NSRegularExpression = {
         // swiftlint:disable:next force_try
         try! NSRegularExpression(pattern: "https?://[^\\s\"'<>]+", options: [.caseInsensitive])
     }()

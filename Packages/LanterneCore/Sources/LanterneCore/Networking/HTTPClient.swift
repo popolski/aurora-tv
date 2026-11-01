@@ -100,7 +100,7 @@ public final class URLSessionHTTPClient: HTTPClient {
         urlRequest.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         for (k, v) in request.headers { urlRequest.setValue(v, forHTTPHeaderField: k) }
 
-        return try await withDeadline(seconds: request.timeout) { [session] in
+        return try await withDeadline(seconds: request.timeout) { [session, urlRequest] in
             do {
                 let (bytes, response) = try await session.bytes(for: urlRequest)
                 guard let http = response as? HTTPURLResponse else { throw NetworkError.transport("réponse non HTTP") }
