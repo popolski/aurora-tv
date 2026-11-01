@@ -10,11 +10,12 @@ services:
     ports:
       - "8787:8787"   # réseau local uniquement : ne pas rediriger ce port depuis la box
     volumes:
-      - ./cache:/cache
+      # Stockage géré par Docker : créé automatiquement, avec les bons droits.
+      - trailers-cache:/cache
     environment:
       CACHE_MAX_MB: "4000"   # taille maximale du cache (les moins vues sont supprimées)
       MAX_HEIGHT: "1080"
-    # Sur Synology, si le dossier cache n'est pas accessible en écriture,
-    # décommentez et mettez l'UID:GID de votre utilisateur (commande « id »).
-    # user: "1026:100"
     restart: unless-stopped
+
+volumes:
+  trailers-cache:
