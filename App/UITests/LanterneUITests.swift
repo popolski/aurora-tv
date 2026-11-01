@@ -62,6 +62,8 @@ final class LanterneUITests: XCTestCase {
     func testPlayerFailureCanBeClosedAndNavigationContinues() {
         launch()
         XCTAssertTrue(app.staticTexts["Populaires"].waitForExistence(timeout: 15))
+        // Menu latéral : on passe d'abord dans le contenu.
+        press(.right)
         press(.down, times: 2)
         press(.select)
         let play = app.buttons["detail.play"]
@@ -89,10 +91,11 @@ final class LanterneUITests: XCTestCase {
     func testLocalTestClipReachesPlayingInSimulator() {
         launch()
         XCTAssertTrue(app.staticTexts["Populaires"].waitForExistence(timeout: 15))
-        // Onglet Réglages (dernier onglet) puis Diagnostics.
-        press(.up, times: 2)
-        press(.right, times: 4)
-        press(.down)
+        // Menu latéral : gauche pour l'ouvrir, Réglages est la 5e entrée, puis le contenu.
+        press(.left, times: 2)
+        press(.down, times: 4)
+        press(.select)
+        press(.right)
         let diagnostics = app.buttons["settings.diagnostics"]
         XCTAssertTrue(diagnostics.waitForExistence(timeout: 10))
         var guardCount = 0
