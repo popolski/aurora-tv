@@ -75,7 +75,11 @@ struct RemoteImage<Placeholder: View>: View {
 
     var body: some View {
         ZStack {
-            placeholder()
+            // Le remplaçant disparaît une fois l'image chargée : indispensable pour
+            // les logos transparents (sinon le titre texte reste visible dessous).
+            if image == nil {
+                placeholder()
+            }
             if let image {
                 Image(uiImage: image)
                     .resizable()
