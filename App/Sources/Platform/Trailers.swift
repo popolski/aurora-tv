@@ -109,7 +109,7 @@ final class TrailerSession: NSObject, AVPlayerViewControllerDelegate {
                                                object: controller.player?.currentItem)
     }
 
-    nonisolated @objc private func itemDidEnd(_ notification: Notification) {
+    @objc nonisolated private func itemDidEnd(_ notification: Notification) {
         Task { @MainActor in self.close(dismiss: true) }
     }
 
