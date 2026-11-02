@@ -50,7 +50,7 @@ actor LogoCheck {
         let letters = (request.results ?? [])
             .compactMap { $0.topCandidates(1).first }
             .filter { $0.confidence >= 0.6 }
-            .map(\\.string)
+            .map(\.string)
             .joined()
             .unicodeScalars.filter { $0.properties.isAlphabetic }
         return letters.count >= 3 && !TitleLocalizer.needsLocalization(String(String.UnicodeScalarView(letters)))
