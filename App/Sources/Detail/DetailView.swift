@@ -290,9 +290,17 @@ struct DetailView: View {
                                     .id(video.id)
                             }
                         }
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 6)
+                        .padding(.vertical, 16)
+                        .padding(.horizontal, 12)
                     }
+                    // La liste reste dans le panneau (constaté au build 32 : les épisodes remontaient
+                    // par-dessus l'en-tête) ; fondu discret en haut et en bas.
+                    .clipped()
+                    .mask(
+                        LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.04),
+                                               .init(color: .black, location: 0.96), .init(color: .clear, location: 1)],
+                                       startPoint: .top, endPoint: .bottom)
+                    )
                     .onAppear {
                         if let target = detail.targetVideo?.id { proxy.scrollTo(target, anchor: .top) }
                     }

@@ -113,6 +113,10 @@ struct HomeView: View {
     @State private var trailerPlaying = false
     /// Titre dont la bande-annonce vient de se terminer d'elle-même (pas interrompue).
     @State private var trailerEndedFor: String?
+    /// Carte qui a le focus (« rangée|id »), et la dernière, pour la retrouver en revenant sur l'onglet.
+    @FocusState private var focusedCard: String?
+    @State private var lastFocusedCard: String?
+    @State private var appearedAt = Date()
 
     private var shown: MetaItem? { (featured ?? home.hero).map { home.enriched[$0.id] ?? $0 } }
 
@@ -139,6 +143,8 @@ struct HomeView: View {
                     .padding(.bottom, 60)
                 }
                 .scrollTargetBehavior(.viewAligned)
+                // En revenant sur l'onglet : le focus reprend sur la dernière carte choisie.
+                .defaultFocus($focusedCard, lastFocusedCard)
                 // Masque : les rangées qui remontent disparaissent en fondu au lieu de
                 // passer sous le résumé du bandeau (constaté sur l'appareil, build 10).
                 .mask(
@@ -149,7 +155,8 @@ struct HomeView: View {
                 )
             }
         }
-        .onAppear { configure(); prefetch() }
+        .onAppear { appearedAt = Date(); configure(); prefetch() }
+        .onChange(of: focusedCard) { _, card in if let card { lastFocusedCard = card } }
         .onChange(of: model.addons) { _, _ in configure(); prefetch() }
         .onChange(of: model.settings) { _, _ in configure() }
         .onChange(of: model.libraryRevision) { _, _ in prefetch() }
@@ -206,7 +213,8 @@ struct HomeView: View {
         }
         if !model.continueWatching.isEmpty {
             ShelfRow(title: "Continuer à regarder", items: model.continueWatching, cardHeight: BackdropCard.height) { item in
-                ContinueWatchingBackdrop(item: item, meta: home.enriched[item.id]) { candidate = item.previewMeta }
+                ContinueWatchingBackdrop(item: item, meta: home.enriched[item.id]) { focusChanged(item.previewMeta) }
+                    .focused($focusedCard, equals: "cw|\(item.id)")
             }
         }
         if !thisWeek.isEmpty {
@@ -216,7 +224,8 @@ struct HomeView: View {
                              subtitle: [entry.video.episodeCode, EpisodeCalendar.dayLabel(for: entry.released).capitalizedFirst]
                                 .compactMap { $0 }.joined(separator: " · "),
                              badge: entry.released > Date() ? nil : "Disponible",
-                             route: .meta(entry.series), onFocus: { candidate = entry.series })
+                             route: .meta(entry.series), onFocus: { focusChanged(entry.series) })
+                    .focused($focusedCard, equals: "week|\(entry.id)")
             }
         }
         if !model.libraryItems.isEmpty {
@@ -225,16 +234,25 @@ struct HomeView: View {
                 BackdropCard(title: item.name, imageURL: rich?.background, fallbackURL: item.poster, logoURL: rich?.logo,
                              inCinema: rich?.isInCinema ?? false, rating: rich?.imdbRating,
                              badge: rich.map { EpisodeCalendar.hasNewEpisode(series: $0, item: item) } == true ? "Nouvel épisode" : nil,
-                             route: .meta(rich ?? item.previewMeta), onFocus: { candidate = item.previewMeta })
+                             route: .meta(rich ?? item.previewMeta), onFocus: { focusChanged(item.previewMeta) })
+                    .focused($focusedCard, equals: "list|\(item.id)")
             }
         }
         ForEach(home.rows) { row in
-            CatalogShelf(row: row) { meta in candidate = meta }
+            CatalogShelf(row: row, focus: $focusedCard) { meta in focusChanged(meta) }
         }
     }
 
     private func configure() {
         home.configure(addons: model.addons, settings: model.settings, aggregator: model.aggregator)
+    }
+
+    /// Focus sur une carte : le bandeau la suit. Le placement automatique du focus à
+    /// l'arrivée sur l'onglet (tvOS) n'est pas un choix de l'utilisateur : ignoré, le
+    /// bandeau garde son titre et continue de défiler (constaté au build 32).
+    private func focusChanged(_ meta: MetaItem) {
+        guard Date().timeIntervalSince(appearedAt) > 0.8 else { return }
+        candidate = meta
     }
 
     /// Épisodes de la semaine des séries de la bibliothèque (fiches préchargées).
@@ -284,6 +302,7 @@ struct HomeView: View {
 struct CatalogShelf: View {
     @Environment(AppModel.self) private var model
     let row: CatalogRowModel
+    var focus: FocusState<String?>.Binding
     var onFocus: (MetaItem) -> Void = { _ in }
 
     var body: some View {
@@ -292,6 +311,7 @@ struct CatalogShelf: View {
             BackdropCard(title: meta.name, imageURL: meta.background, fallbackURL: meta.poster, logoURL: meta.logo,
                          inCinema: meta.isInCinema, rating: meta.imdbRating, route: .meta(meta), onFocus: { onFocus(meta) })
                 .opacity(model.isDimmed(meta) ? 0.45 : 1)
+                .focused(focus, equals: "\(row.id)|\(meta.id)")
         }
         .onAppear { row.loadIfNeeded() }
     }
