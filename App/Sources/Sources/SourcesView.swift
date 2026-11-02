@@ -7,6 +7,8 @@ struct SourcesView: View {
     @State private var unplayableMessage: String?
     @State private var filter = SourceFilter()
     @Namespace private var focusNamespace
+    @FocusState private var focusedSource: String?
+    @State private var didAutoFocus = false
 
     init(request: SourcesRoute) {
         _model = State(initialValue: SourcesModel(request: request))
@@ -30,6 +32,13 @@ struct SourcesView: View {
         .screenBackground()
         // Le focus arrive sur la première source (et non sur les filtres) : OK lance la lecture.
         .focusScope(focusNamespace)
+        // Les sources arrivent après l'ouverture de l'écran : le focus est alors placé
+        // une fois sur la première, pour que OK lance la lecture (et non un filtre).
+        .onChange(of: filter.apply(ranked).first?.id) { _, first in
+            guard !didAutoFocus, let first else { return }
+            didAutoFocus = true
+            focusedSource = first
+        }
         .task { model.load(app: app) }
         .onDisappear { model.cancel() }
         .onChange(of: model.isFinished) { _, finished in
@@ -140,6 +149,7 @@ struct SourcesView: View {
                     }
                     .buttonStyle(RowButtonStyle())
                     .prefersDefaultFocus(index == 0, in: focusNamespace)
+                    .focused($focusedSource, equals: source.id)
                     .accessibilityIdentifier("source.\(index)")
                 }
                 if !model.isFinished {

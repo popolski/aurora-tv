@@ -97,8 +97,12 @@ final class LanterneUITests: XCTestCase {
         let play = app.buttons["detail.play"]
         XCTAssertTrue(play.waitForExistence(timeout: 10))
         press(.select)  // « Lire » a le focus par défaut
-        let source = app.buttons["source.0"]
+        let source = app.descendants(matching: .any)["source.0"]
         XCTAssertTrue(source.waitForExistence(timeout: 15), "la liste des sources doit apparaître")
+        Thread.sleep(forTimeInterval: 1)
+        // Relevé du focus avant le clic (diagnostic en cas d'échec ; le focus peut être porté par la cellule).
+        print("focus avant lecture : \(focusedLabel())")
+        attachScreenshot("sources-avant-lecture")
         press(.select)
         // La source de test pointe vers une adresse injoignable : écran d'erreur attendu.
         let close = app.buttons["Fermer"]
