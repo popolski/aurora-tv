@@ -60,7 +60,8 @@ struct DiagnosticsView: View {
                           values: SharedContainer.commonGroup(app: groups.app, extension: groups.extension).map { [$0] } ?? []).focusable()
                 if let status = TopShelfStatus.load(from: SharedContainer.defaults()) {
                     InfoRow(label: "Dernière mise à jour", value: status.date.formatted(date: .abbreviated, time: .shortened)).focusable()
-                    InfoRow(label: "Films · bandes-annonces", value: "\(status.items) · \(status.trailers)").focusable()
+                    InfoRow(label: "Étape atteinte", value: status.phase ?? "terminé").focusable()
+                    InfoRow(label: "Films · bandes-annonces · titres", value: "\(status.items) · \(status.trailers) · \(status.titledImages ?? 0)").focusable()
                     InfoRow(label: "Adresse du NAS reçue", value: status.serverKnown ? "oui" : "non").focusable()
                 } else {
                     InfoRow(label: "Compte rendu du carrousel", value: "aucun (groupe non partagé, ou pas encore rafraîchi)").focusable()

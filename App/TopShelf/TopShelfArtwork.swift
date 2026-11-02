@@ -15,19 +15,37 @@ enum TopShelfArtwork {
     static let width = 1920
     static let height = 1080
 
+    private static let inProgressKey = "topshelf.artwork.inProgress"
+    private static let disabledUntilKey = "topshelf.artwork.disabledUntil"
+
     /// Adresse locale de l'image composée de chaque film (si elle a pu être faite à temps).
-    static func images(for metas: [MetaItem], deadline: TimeInterval) async -> [String: URL] {
+    ///
+    /// Une image à la fois : l'extension dispose de très peu de mémoire, et tvOS l'arrête
+    /// sans prévenir si elle en demande trop (constaté au build 28 : carrousel vide).
+    /// Si un passage précédent a été interrompu pendant cette étape, la composition est
+    /// suspendue 24 h et le carrousel garde les images d'origine.
+    static func images(for metas: [MetaItem], deadline: TimeInterval, shared: UserDefaults?) async -> [String: URL] {
         guard let directory = directory() else { return [:] }
-        let images = await withTaskGroup(of: (String, URL?).self) { group in
-            for meta in metas {
-                group.addTask {
-                    let url = try? await withDeadline(seconds: deadline) { await image(for: meta, in: directory) }
-                    return (meta.id, url.flatMap { $0 })
-                }
-            }
-            var out: [String: URL] = [:]
-            for await (id, url) in group { if let url { out[id] = url } }
-            return out
+        let now = Date()
+        if let until = shared?.object(forKey: disabledUntilKey) as? Date, until > now { return [:] }
+        if shared?.bool(forKey: inProgressKey) == true {
+            shared?.set(now.addingTimeInterval(24 * 3600), forKey: disabledUntilKey)
+            shared?.set(false, forKey: inProgressKey)
+            shared?.synchronize()
+            return [:]
+        }
+        shared?.set(true, forKey: inProgressKey)
+        shared?.synchronize()
+        defer {
+            shared?.set(false, forKey: inProgressKey)
+            shared?.synchronize()
+        }
+        var images: [String: URL] = [:]
+        for meta in metas {
+            let remaining = deadline - Date().timeIntervalSince(now)
+            guard remaining > 0.5 else { break }
+            let url = try? await withDeadline(seconds: remaining) { await image(for: meta, in: directory) }
+            if let url = url.flatMap({ $0 }) { images[meta.id] = url }
         }
         cleanup(directory, keeping: Set(images.values.map(\.lastPathComponent)))
         return images
@@ -49,7 +67,7 @@ enum TopShelfArtwork {
         guard let backgroundData = await TopShelfLoader.fetch(backgroundURL),
               let background = decode(backgroundData, maxPixel: 1920) else { return nil }
         var logo: CGImage?
-        if let logoURL = meta.logo, let data = await TopShelfLoader.fetch(logoURL) { logo = decode(data, maxPixel: 1200) }
+        if let logoURL = meta.logo, let data = await TopShelfLoader.fetch(logoURL) { logo = decode(data, maxPixel: 800) }
         guard let jpeg = render(background: background, logo: logo, title: meta.name) else { return nil }
         do {
             try jpeg.write(to: file, options: .atomic)

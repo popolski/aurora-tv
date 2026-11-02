@@ -99,11 +99,18 @@ public struct TopShelfStatus: Codable, Sendable, Equatable {
     public var serverKnown: Bool
     public var items: Int
     public var trailers: Int
+    /// Étape atteinte : « catalogue », « images » ou « terminé ». Si le système arrête
+    /// l'extension (mémoire, délai), le compte rendu reste bloqué sur l'étape en cours.
+    public var phase: String?
+    /// Images avec titre incrusté réellement fournies.
+    public var titledImages: Int?
 
     public static let key = "topshelf.status.v1"
 
-    public init(date: Date = Date(), groupID: String, serverKnown: Bool, items: Int, trailers: Int) {
+    public init(date: Date = Date(), groupID: String, serverKnown: Bool, items: Int, trailers: Int,
+                phase: String? = nil, titledImages: Int? = nil) {
         self.date = date; self.groupID = groupID; self.serverKnown = serverKnown; self.items = items; self.trailers = trailers
+        self.phase = phase; self.titledImages = titledImages
     }
 
     public static func load(from defaults: UserDefaults?) -> TopShelfStatus? {

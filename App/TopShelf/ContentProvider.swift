@@ -14,15 +14,23 @@ final class ContentProvider: TVTopShelfContentProvider {
     nonisolated(nonsending) override func loadTopShelfContent() async -> (any TVTopShelfContent)? {
         let shared = SharedContainer.defaults()
         let config = TopShelfConfig.load(from: shared)
+        let server = config?.server
+        let group = SharedContainer.groupID()
+        func report(_ phase: String, items: Int = 0, trailers: Int = 0, titled: Int = 0) {
+            TopShelfStatus(groupID: group, serverKnown: server != nil, items: items, trailers: trailers,
+                           phase: phase, titledImages: titled).save(to: shared)
+            shared?.synchronize()
+        }
+        report("catalogue")
         // tvOS abandonne une extension trop lente : 10 s pour les données (détails facultatifs),
         // puis 7 s pour composer les images avec le titre (sinon image d'origine).
         let metas = await TopShelfLoader.latestMovies(limit: 10, deadline: 10)
-        let artwork = await TopShelfArtwork.images(for: metas, deadline: 7)
-        let server = config?.server
+        report("images", items: metas.count)
+        let artwork = await TopShelfArtwork.images(for: metas, deadline: 7, shared: shared)
         let items = metas.map { Self.item(for: $0, server: server, artwork: artwork[$0.id]) }
         // Compte rendu lisible par l'app (Réglages › Diagnostics) si le groupe est partagé.
-        TopShelfStatus(groupID: SharedContainer.groupID(), serverKnown: server != nil, items: items.count,
-                       trailers: items.filter { $0.previewVideoURL != nil }.count).save(to: shared)
+        report("terminé", items: items.count, trailers: items.filter { $0.previewVideoURL != nil }.count,
+               titled: artwork.count)
         guard !items.isEmpty else { return nil }  // tvOS garde alors l'image statique
         if let server { TopShelfLoader.prefetchTrailers(metas, server: server) }
         return TVTopShelfCarouselContent(style: .details, items: items)
