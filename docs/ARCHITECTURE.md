@@ -4,24 +4,32 @@
 
 ```
 ┌──────────────────────── App (tvOS, SwiftUI + UIKit) ─────────────────────────┐
-│  RootView (onglets) ─ NavigationStack ─ Route(.meta/.catalog/.sources)        │
-│  Home · Explorer · Recherche · Bibliothèque · Réglages · Fiche · Sources      │
+│  RootView (barre d'onglets en haut) ─ NavigationStack par onglet ─ Route      │
+│  Accueil · Films · Séries · Ma liste · Réglages · Recherche · Fiche · Sources │
 │  AppModel (@Observable, MainActor) : état observé + accès aux services        │
 │  Player : PlayerViewController (UIKit, télécommande) + PlayerSession          │
-│           └─ PlaybackEngine ── AetherPlaybackEngine | SystemPlaybackEngine    │
-│  Platform : ImageLoader, journaux (fichier/os_log), client HTTP de test       │
+│           ├─ PlaybackEngine ── AetherPlaybackEngine | SystemPlaybackEngine    │
+│           └─ RemoteCommands (touches ⏪/⏩, « À l'écran »)                     │
+│  Platform : ImageLoader, LogoCheck (Vision), Trailers (NAS), TopShelfBridge,  │
+│             journaux, clients HTTP de test et de démonstration                │
+├──────────────── Extension Top Shelf (TVServices, AuroraTopShelf) ────────────┤
+│  ContentProvider : dernières sorties Cinemeta, extraits et images du NAS      │
 └───────────────────────────────┬──────────────────────────────────────────────┘
                                 │ async/await, actors
 ┌───────────────────────── LanterneCore (SwiftPM, sans UI) ────────────────────┐
-│  Addons : modèles du protocole, URL, AddonClient (cache, limites), Aggregator │
-│           AddonRegistry (actor : addons installés, trousseau + cache)         │
-│  Account : StremioAPI (non officielle), AccountService (actor : session, sync) │
-│  Library : LibraryItem (format Stremio), LibraryStore (actor), WatchedBitField│
-│  Streams : StreamTraits (annoncé), Playability, SourceRanker                  │
-│  Playback : TrackSelector, PlaybackMilestoneTracker                           │
+│  Addons : protocole, URL, AddonClient (cache, limites), Aggregator, Registry  │
+│  Account : StremioAPI (non officielle), AccountService (session, synchro)     │
+│  Library : LibraryItem (format Stremio), LibraryStore, WatchedBitField,       │
+│            EpisodeCalendar (« Cette semaine », nouvel épisode)                │
+│  Streams : StreamTraits, Playability, SourceRanker, SourceFilter              │
+│  Playback : TrackSelector, PlaybackMilestoneTracker, SkipTimesClient          │
+│  Reviews (Wikidata) · Titles (TitleLocalizer, Wikidata) · Trailers (liens NAS)│
+│  TopShelf (groupe d'apps, configuration, flux, liens aurora://)               │
 │  Settings, Persistence (UserDefaults/fichier/trousseau), Networking, Log      │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
+
+Pour les raisons de ces choix et l'historique des décisions, voir [TECHNICAL.md](TECHNICAL.md).
 
 **Principe :** toute la logique testable (protocole, tri, bibliothèque, jalons, sélection de
 pistes, réglages) est dans `LanterneCore`, compilée et testée sur macOS avec `swift test`. L'app

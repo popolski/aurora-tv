@@ -1,9 +1,9 @@
 # Moteur de lecture : comparaison et décision
 
-> Statut : décision d'architecture prise sur la base des documentations et du code source des
-> projets (lus le 1er novembre 2026). **Aucune des affirmations de performance ou de compatibilité
-> des tiers ci-dessous n'a été vérifiée sur une Apple TV par Lanterne.** La qualification réelle se
-> fait avec `docs/QA-DEVICE-CHECKLIST.md`.
+> Statut : décision d'architecture prise le 1er novembre 2026 sur la base des documentations et
+> du code source des projets, puis confrontée à l'Apple TV « Chambre » (Apple TV 4K 3e
+> génération, tvOS 27.2). Ce qui a été réellement constaté sur l'appareil est indiqué comme tel
+> dans le tableau des formats ; le reste est « attendu ». Procédure : `docs/QA-DEVICE-CHECKLIST.md`.
 
 ## Le vrai problème
 
@@ -88,17 +88,60 @@ procédure n'a pas été exécutée sur l'Apple TV « Chambre ».
 
 | Format | Attendu | Validé sur Apple TV |
 |---|---|---|
-| H.264, HEVC 8/10 bits (MP4, MKV) | ✅ décodage matériel | ⏳ |
+| H.264, HEVC 8/10 bits (MP4, MKV) | ✅ décodage matériel | ✅ clips de test H.264/MP4 et HEVC 10 bits/MKV (build 6) ; films réels (build 8) |
 | HDR10 / HLG | ✅ bascule d'écran | ⏳ |
 | Dolby Vision P5 / P8 | ✅ selon téléviseur | ⏳ |
 | AV1 | Logiciel (dav1d) sauf puce avec décodeur AV1 matériel ; l'Apple TV 4K 3e génération (A15) n'en a pas → 4K AV1 probablement trop lourd | ⏳ |
 | HLS | ✅ (AVPlayer direct) | ⏳ |
+| MP4 progressif HTTP (bandes-annonces du NAS) | ✅ AVPlayer | ✅ fond muet, plein écran avec le son, extraits du Top Shelf (builds 19 à 30) |
 | MPEG-DASH | Partiel : manifestes statiques seulement (moteur ≥ 7.48) | ⏳ |
-| AAC, AC-3, E-AC-3 (+Atmos) | ✅ copie du flux | ⏳ |
-| DTS, DTS-HD MA, TrueHD | ✅ décodés en PCM (tvOS n'accepte pas le DTS en bitstream) | ⏳ |
-| SRT, WebVTT, ASS (simplifié), PGS | ✅ surcouche Lanterne | ⏳ |
+| AAC, AC-3, E-AC-3 (+Atmos) | ✅ copie du flux | ✅ AAC et E-AC-3 sur le clip MKV, changement de piste audio (build 8) ; Atmos ⏳ |
+| DTS, DTS-HD MA, TrueHD | ✅ décodés en PCM (tvOS n'accepte pas le DTS en bitstream) | ✅ DTS sur le clip de test (build 6) ; DTS-HD MA et TrueHD ⏳ |
+| SRT, WebVTT, ASS (simplifié), PGS | ✅ surcouche Lanterne | ✅ SRT et ASS intégrés, SRT externe (build 8) ; PGS ⏳ |
 | Torrent / magnet | ❌ en natif — uniquement via un serveur de streaming Stremio externe | ⏳ |
 | YouTube, liens externes, archives | ❌ affichés comme non lisibles | — |
 
 Les trois clips embarqués (Réglages › Diagnostics › Tester le lecteur) couvrent H.264/AAC en MP4,
 HEVC 10 bits + E-AC-3/AAC + SRT/ASS en MKV, et H.264 + DTS en MKV.
+
+## Mise en œuvre dans Aurora
+
+### Organisation
+
+| Élément | Fichier | Rôle |
+|---|---|---|
+| `PlaybackEngine` | `App/Sources/Player/PlaybackEngine.swift` | abstraction commune : charger, lire, pause, déplacement, pistes, instantané d'état |
+| `AetherPlaybackEngine` | `…/AetherPlaybackEngine.swift` | moteur par défaut : options (en-têtes HTTP, adaptation de l'écran, Dolby Vision, langues), sous-titres externes |
+| `SystemPlaybackEngine` | `…/SystemPlaybackEngine.swift` | AVPlayer seul : repli et diagnostic |
+| `PlayerSession` | `…/PlayerSession.swift` | cerveau de la lecture : jalons, chien de garde, pistes par défaut, progression, épisode suivant, passer l'intro, défilement rapide, changement de source |
+| `PlayerViewController` | `…/PlayerViewController.swift` | UIKit : rendu, surcouches, télécommande (appuis, balayages, appui maintenu) |
+| `PlayerOverlay` | `…/PlayerOverlay.swift` | SwiftUI : barre de progression, heure de fin, panneau Audio/Sous-titres/Sources/Infos, encarts |
+| `RemoteCommands` | `…/RemoteCommands.swift` | `MPRemoteCommandCenter` : touches ⏪/⏩, suivant/précédent, lecture/pause, position ; infos « À l'écran » |
+| `PlaybackMilestoneTracker`, `TrackSelector`, `SkipTimesClient` | `Packages/LanterneCore/…/Playback/` | logique testée : jalons, choix des pistes, minutages d'intro |
+
+### Déroulé d'une lecture
+
+1. La fiche ouvre l'écran des sources (tri, filtres) ou lance la meilleure source si l'option est
+   active. `AppModel.play` présente le lecteur (UIKit, plein écran).
+2. `PlayerSession.start()` charge la source dans le moteur choisi (automatique = AetherEngine)
+   avec les préférences : langues audio, adaptation de l'écran, Dolby Vision déclaré ou non.
+3. Une boucle à 4 Hz lit l'état du moteur : jalons, chien de garde « pas d'image », pistes par
+   défaut (audio français, sous-titres français si l'audio ne l'est pas), passages à sauter,
+   encart d'épisode suivant, progression (enregistrée toutes les 15 s et à chaque pause).
+4. Les minutages d'intro (TheIntroDB, ou AniSkip pour les animés Kitsu) sont demandés une fois la
+   lecture établie, sans retarder le démarrage.
+5. Fin, erreur ou Menu : `close()` idempotent → progression finale, arrêt du moteur, mise en
+   veille réautorisée, envoi des changements au compte Stremio.
+
+### Décisions d'ergonomie (et ce qui les a motivées)
+
+| Décision | Motif |
+|---|---|
+| Lecteur présenté par UIKit, pas par SwiftUI | build 6 : avec `fullScreenCover`, la télécommande n'atteignait pas le lecteur |
+| Vue de capture de la télécommande **sœur** des surcouches | sinon le panneau des pistes ne peut pas prendre le focus |
+| Menu : panneau → interface → sortie | build 8 : Menu dans le panneau quittait le film |
+| Saut au relâchement, défilement accéléré à l'appui maintenu (×8 → ×128) | demande après le build 17 ; la vidéo n'est pas accélérée : la cible avance et la lecture reprend au relâchement, ce qui marche avec les deux moteurs |
+| Touches ⏪/⏩ via `MPRemoteCommandCenter` | ces touches (télécommande de TV en HDMI-CEC, iPhone) n'arrivent pas comme des appuis |
+| Encart « Épisode suivant » au début du générique | demande au build 8 ; si TheIntroDB connaît le début du générique, l'encart apparaît à ce moment-là |
+| « Passer l'intro » : bouton plutôt que saut automatique par défaut | les minutages communautaires dépendent de la version du fichier |
+| Sous-titres dessinés par Aurora | rendu et réglages identiques quel que soit le moteur |

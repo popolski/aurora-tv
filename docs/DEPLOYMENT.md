@@ -98,6 +98,16 @@ Remarque atvloadly : il renomme les identifiants à la signature (constaté :
 d'apps `group.io.github.popolski.lanterne.938QZD3QMV…`). L'app ne suppose donc jamais
 ces noms : elle les lit dans les profils embarqués (voir `SharedContainer`).
 
+## Captures d'écran de la documentation
+
+Le workflow `.github/workflows/screenshots.yml` lance l'app sur le simulateur Apple TV en mode
+démonstration (`-uitest -demo` : films et séries inventés, images de `docs/demo-assets/`
+générées par `scripts/generate-demo-assets.py`), parcourt les écrans
+(`App/UITests/ScreenshotTests.swift`) et publie les captures (4K, PNG) sur la release
+`screenshots` (préversion, jamais « latest »). Il se déclenche à la main ou quand le test, le
+client de démonstration ou les images changent. Les copies réduites (JPEG 1920×1080) utilisées
+par le README et le guide sont dans `docs/screenshots/`.
+
 ## API d'atvloadly
 
 atvloadly expose une API HTTP (`POST /api/install`, `/healthcheck`, serveur MCP `/mcp`) **sans
