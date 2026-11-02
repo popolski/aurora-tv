@@ -23,6 +23,7 @@ addons installés par l'utilisateur. Il n'embarque aucun moteur torrent.
 | Bandes-annonces muettes (fiches, accueil) via le service NAS `trailer-server/` | ✅ | ✅ | ✅ service testé avec yt-dlp simulé ; YouTube non joignable depuis l'environnement de développement | 🟡 service installé sur le DS224+ (Docker, `/health` OK) ; bande-annonce affichée sur une fiche et dans le bandeau de l'accueil (build 19) ; bande-annonce à la demande avec le son OK (build 21) |
 | Carrousel Top Shelf (10 dernières sorties, titre incrusté par le NAS, extrait de 30 s) | ✅ | ✅ | ✅ cœur et service NAS (téléchargements simulés) | ✅ carrousel, titres, bandes-annonces et défilement OK (build 30, NAS DS224+) |
 | Passer l'intro (TheIntroDB), note IMDb, heure de fin, bandeau qui défile | ✅ | ✅ | ✅ client TheIntroDB testé avec réponses simulées | ✅ validé par l'utilisateur (build 31) |
+| Notes critiques (Wikidata), fiche série en deux colonnes, « Cette semaine », nouvel épisode, titres vus, AniSkip | ✅ | ✅ | ✅ clients testés avec réponses simulées ; 4/4 tests d'interface (simulateur) | ✅ validé par l'utilisateur (build 34) |
 | CI GitHub Actions → IPA non signée + vérification | ✅ | ✅ | — | ✅ installée via atvloadly (builds 6, 8, 17 et 18) |
 
 ⏳ = pas encore exécuté ; 🟡 = validé partiellement sur l'appareil, d'après le retour de
