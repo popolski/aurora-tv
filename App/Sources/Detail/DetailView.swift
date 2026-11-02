@@ -36,26 +36,13 @@ struct DetailView: View {
                         .padding(.trailing, 70)
                 }
             } else {
-                // Film : informations à gauche, sources directement à droite.
-                HStack(alignment: .top, spacing: 40) {
-                    VStack(alignment: .leading, spacing: 30) {
-                        header
-                        failure
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    Group {
-                        if detail.state != .loading, let videoID = detail.targetVideoID {
-                            MovieSourcesPanel(meta: meta, videoID: videoID, resume: detail.resumePosition)
-                                .id(videoID)
-                        } else {
-                            ShimmerBlock()
-                        }
-                    }
-                    .frame(width: 680)
-                    .padding(.top, 70)
-                    .padding(.bottom, 50)
-                    .padding(.trailing, 70)
+                // Film : informations sur la gauche, l'image du film reste visible à droite.
+                // (Sources dans un panneau : essayé au build 35, retiré à la demande de l'utilisateur.)
+                VStack(alignment: .leading, spacing: 30) {
+                    header
+                    failure
                 }
+                .frame(maxWidth: 1180, alignment: .leading)
             }
         }
         .focusScope(focusNamespace)

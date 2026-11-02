@@ -72,12 +72,21 @@ struct DiscoverView: View {
                 ScrollView(.vertical) {
                     if let row {
                         CatalogGrid(row: row, columnCount: 4, trailing: 10) { meta in focused = meta }
-                            .padding(.vertical, 20)
+                            .padding(.top, 20)
+                            .padding(.bottom, 120)
                     } else if app.isBootstrapped {
                         MessageView(systemImage: "square.grid.2x2", title: "Aucun catalogue à explorer",
                                     message: "Le catalogue Cinemeta n'est pas disponible. Vérifiez vos addons dans Réglages.")
                     }
                 }
+                // La grille va jusqu'au bas de l'écran et s'efface en fondu (build 35 : rangée coupée
+                // net au-dessus du bas, effet de « cadre »).
+                .mask(
+                    LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.86),
+                                           .init(color: .clear, location: 1)],
+                                   startPoint: .top, endPoint: .bottom)
+                )
+                .ignoresSafeArea(edges: .bottom)
                 // Panneau de détails : suit l'affiche qui a le focus.
                 DiscoverDetailPanel(meta: focused.map { details[$0.id] ?? $0 })
                     .frame(width: 560)
