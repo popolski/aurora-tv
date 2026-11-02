@@ -103,12 +103,12 @@ source atvloadly, Top Shelf dynamique.
 Ordre recommandé : 1, 2, 3, puis 4 et 6, puis le reste.
 
 1. ✅ Minuteur de mise en veille (fin de l'épisode ou du film, 15 à 90 min, fondu « Bonne
-   nuit » annulable par n'importe quelle touche) — implémenté (build 47), à valider sur
+   nuit » annulable par n'importe quelle touche) — implémenté (build 48), à valider sur
    l'appareil.
 2. ✅ « Êtes-vous toujours là ? » après N épisodes enchaînés sans interaction (3 par défaut,
-   réglable, 0 = jamais) — implémenté (build 47), à valider sur l'appareil.
+   réglable, 0 = jamais) — implémenté (build 48), à valider sur l'appareil.
 3. ✅ Synchroniser les sous-titres en choisissant la réplique entendue (lecture en pause,
-   répliques à ±30 s, AetherEngine et sous-titres texte) — implémenté (build 47), à valider
+   répliques à ±30 s, AetherEngine et sous-titres texte) — implémenté (build 48), à valider
    sur l'appareil.
 4. Épisode suivant préparé pendant le générique (sources cherchées à l'avance).
 5. Infos techniques du flux (résolution, codec, HDR, débit, images perdues, pairs).
