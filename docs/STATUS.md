@@ -25,6 +25,8 @@ Dernière mise à jour : 2 novembre 2026, build 42.
 | Titres et logos lisibles (Wikidata, Vision) | ✅ | ✅ | ✅ réponses simulées | ✅ (build 42) |
 | Bandes-annonces (fond muet, plein écran avec le son) via le service NAS | ✅ | ✅ | ✅ service testé avec yt-dlp simulé | ✅ (builds 19 et 21, NAS DS224+) |
 | Carrousel Top Shelf (dernières sorties, titres, extraits) | ✅ | ✅ | ✅ cœur et service NAS | ✅ (build 30) |
+| Minuteur de mise en veille, « Êtes-vous toujours là ? » | ✅ | ⏳ | ✅ logique (minuteur, compteur, réglage) | ⏳ |
+| Synchronisation des sous-titres par réplique entendue | ✅ | ⏳ | ✅ calcul du décalage et choix des répliques | ⏳ |
 | Films déjà vus estompés ou masqués | ✅ | ✅ | — | ✅ (build 34) |
 | CI GitHub Actions → IPA non signée vérifiée, installation par atvloadly | ✅ | ✅ | — | ✅ (une quarantaine de builds installés) |
 | Captures d'écran automatiques (mode démo) | ✅ | ✅ | ✅ simulateur | — |

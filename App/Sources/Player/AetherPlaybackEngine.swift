@@ -123,6 +123,17 @@ final class AetherPlaybackEngine: PlaybackEngine {
         return cues.filter { $0.startTime <= t && t < $0.endTime }.map(Self.display)
     }
 
+    func subtitleSyncLines() -> (now: TimeInterval, lines: [SubtitleSyncLine])? {
+        let now = engine.clock.sourceTime
+        guard now.isFinite else { return nil }
+        // Fichiers externes : liste complète ; pistes intégrées : fenêtre glissante du moteur.
+        let lines = cues.compactMap { cue -> SubtitleSyncLine? in
+            guard abs(cue.startTime - now) <= 45, let text = Self.plainText(cue) else { return nil }
+            return SubtitleSyncLine(id: cue.id, start: cue.startTime, text: text)
+        }
+        return (now, SubtitleSync.candidates(lines, now: now))
+    }
+
     func play() { engine.play() }
     func pause() { engine.pause() }
     func seek(to seconds: TimeInterval) async { await engine.seek(to: seconds) }
@@ -154,6 +165,14 @@ final class AetherPlaybackEngine: PlaybackEngine {
                         codec: t.codec.isEmpty ? nil : t.codec, channels: kind == .audio && t.channels > 0 ? t.channels : nil,
                         isDefault: t.isDefault, isForced: t.isForced, isExternal: t.isExternal,
                         isHearingImpaired: t.isHearingImpaired)
+    }
+
+    private static func plainText(_ cue: SubtitleCue) -> String? {
+        switch cue.body {
+        case .text(let text): return text
+        case .richText(let runs): return runs.map(\.text).joined()
+        case .image: return nil
+        }
     }
 
     private static func display(_ cue: SubtitleCue) -> DisplayCue {

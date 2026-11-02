@@ -37,6 +37,8 @@ final class PlayerViewController: UIViewController {
     private var holdTask: Task<Void, Never>?
     private var heldArrow: UIPress.PressType?
     private let skipInterval: TimeInterval
+    /// Appui qui a annulé la mise en veille : son relâchement est ignoré.
+    private var swallowedPress: UIPress.PressType?
 
     init(session: PlayerSession, skipInterval: TimeInterval) {
         self.session = session
@@ -144,6 +146,11 @@ final class PlayerViewController: UIViewController {
     }
 
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if let press = presses.first, session.cancelSleepFadeIfNeeded() {
+            swallowedPress = press.type
+            return
+        }
+        if presses.first?.type == swallowedPress { swallowedPress = nil }
         guard let press = presses.first, handles(press.type) else {
             super.pressesBegan(presses, with: event)
             return
@@ -179,6 +186,10 @@ final class PlayerViewController: UIViewController {
     }
 
     override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if let press = presses.first, press.type == swallowedPress {
+            swallowedPress = nil
+            return
+        }
         guard let press = presses.first, handles(press.type) else {
             super.pressesEnded(presses, with: event)
             return
@@ -232,6 +243,7 @@ final class PlayerViewController: UIViewController {
     }
 
     @objc private func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
+        if session.cancelSleepFadeIfNeeded() { return }
         guard !session.needsInteractiveOverlay, session.scrubTarget == nil else { return }
         if gesture.direction == .down {
             session.touch()

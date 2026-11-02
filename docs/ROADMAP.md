@@ -98,13 +98,18 @@ Image de fond animée sur la fiche, « Now Playing » système (Siri, autres
 télécommandes), rendu libass complet (si nécessaire), profils multiples, mise à jour OTA via
 source atvloadly, Top Shelf dynamique.
 
-## Idées en attente (proposées le 02/11/2026, à reprendre après la documentation)
+## Idées en attente (proposées le 02/11/2026)
 
 Ordre recommandé : 1, 2, 3, puis 4 et 6, puis le reste.
 
-1. Minuteur de sommeil (fin de l'épisode, 30/45/60 min, fondu de l'image).
-2. « Êtes-vous toujours là ? » après 2-3 épisodes enchaînés sans interaction.
-3. Synchroniser les sous-titres en choisissant la réplique entendue.
+1. ✅ Minuteur de mise en veille (fin de l'épisode ou du film, 15 à 90 min, fondu « Bonne
+   nuit » annulable par n'importe quelle touche) — implémenté (build 47), à valider sur
+   l'appareil.
+2. ✅ « Êtes-vous toujours là ? » après N épisodes enchaînés sans interaction (3 par défaut,
+   réglable, 0 = jamais) — implémenté (build 47), à valider sur l'appareil.
+3. ✅ Synchroniser les sous-titres en choisissant la réplique entendue (lecture en pause,
+   répliques à ±30 s, AetherEngine et sous-titres texte) — implémenté (build 47), à valider
+   sur l'appareil.
 4. Épisode suivant préparé pendant le générique (sources cherchées à l'avance).
 5. Infos techniques du flux (résolution, codec, HDR, débit, images perdues, pairs).
 6. Filmographie depuis les puces « Avec » / « Réalisation » (Wikidata).

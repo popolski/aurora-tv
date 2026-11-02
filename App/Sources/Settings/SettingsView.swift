@@ -122,6 +122,10 @@ struct PlaybackSettingsView: View {
                     ForEach([5.0, 10, 15, 30, 60], id: \.self) { Text("\(Int($0)) s").tag($0) }
                 }
                 Toggle("Épisode suivant automatique", isOn: $app.settings.playback.autoPlayNextEpisode)
+                Picker("« Êtes-vous toujours là ? »", selection: $app.settings.playback.stillWatchingAfter) {
+                    Text("Jamais").tag(0)
+                    ForEach([2, 3, 4, 5], id: \.self) { Text("Après \($0) épisodes").tag($0) }
+                }
                 Picker("Encart « Épisode suivant »", selection: $app.settings.playback.nextEpisodeLeadTime) {
                     ForEach([30.0, 45, 60, 90, 120, 180], id: \.self) { Text("\(Int($0)) s avant la fin").tag($0) }
                 }

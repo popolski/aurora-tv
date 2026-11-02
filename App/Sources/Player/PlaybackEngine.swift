@@ -89,6 +89,10 @@ protocol PlaybackEngine: AnyObject {
     func snapshot() -> EngineSnapshot
     /// Sous-titres à afficher à l'instant courant, décalage utilisateur appliqué.
     func currentCues(delay: TimeInterval) -> [DisplayCue]
+    /// Répliques texte connues autour de l'instant courant, pour la
+    /// synchronisation par réplique (`now` en horloge source, sans décalage).
+    /// `nil` si le moteur ne les expose pas.
+    func subtitleSyncLines() -> (now: TimeInterval, lines: [SubtitleSyncLine])?
 
     func play()
     func pause()

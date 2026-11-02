@@ -13,7 +13,10 @@ struct PlayerOverlay: View {
                     .transition(.opacity)
             }
             statusLayer
-            if let panel = session.panel {
+            if session.stillWatchingPrompt {
+                StillWatchingCard(session: session)
+                    .transition(.opacity)
+            } else if let panel = session.panel {
                 PlayerPanel(session: session, initial: panel)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             } else if let next = session.upNext {
@@ -29,6 +32,9 @@ struct PlayerOverlay: View {
                     .padding(.bottom, session.chromeVisible ? 190 : 90)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
+            if session.sleepFade > 0 {
+                SleepFadeLayer(progress: session.sleepFade)
+            }
             // Jalon atteint, exposé aux tests d'interface (quasi invisible).
             Text(session.milestones.highest?.label ?? "aucun")
                 .font(.system(size: 2))
@@ -40,6 +46,8 @@ struct PlayerOverlay: View {
         .animation(.easeInOut(duration: 0.25), value: session.panel)
         .animation(.easeInOut(duration: 0.3), value: session.upNext?.id)
         .animation(.easeInOut(duration: 0.3), value: session.activeSkip)
+        .animation(.easeInOut(duration: 0.3), value: session.stillWatchingPrompt)
+        .animation(.linear(duration: 0.25), value: session.sleepFade)
         .ignoresSafeArea()
         // Menu dans la surcouche : revient au film (panneau, encart) au lieu de fermer le lecteur.
         .onExitCommand { session.handleOverlayExit() }
@@ -63,7 +71,7 @@ struct PlayerOverlay: View {
             ProblemCard(icon: "exclamationmark.triangle", title: "Lecture impossible", message: message,
                         session: session, showWait: false)
         case .ended:
-            EndCard(session: session)
+            if !session.stillWatchingPrompt { EndCard(session: session) }
         }
     }
 }
@@ -86,6 +94,16 @@ private struct ChromeView: View {
                         }
                     }
                     .padding(.horizontal, 90).padding(.top, 60)
+                }
+                .overlay(alignment: .topTrailing) {
+                    if let status = session.sleepTimerStatus {
+                        Label(status, systemImage: "moon.zzz.fill")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 22).padding(.vertical, 12)
+                            .background(Capsule().fill(.black.opacity(0.45)))
+                            .padding(.trailing, 90).padding(.top, 60)
+                    }
                 }
             Spacer()
             LinearGradient(colors: [.clear, .black.opacity(0.85)], startPoint: .top, endPoint: .bottom)
@@ -245,6 +263,59 @@ private struct EndCard: View {
     }
 }
 
+// MARK: - Mise en veille, « toujours là ? »
+
+private struct SleepFadeLayer: View {
+    let progress: Double
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(min(1, progress * 1.1))
+            VStack(spacing: 16) {
+                Image(systemName: "moon.zzz.fill").font(.system(size: 54))
+                Text("Bonne nuit").font(.sectionTitle)
+                Text("Appuyez sur une touche pour continuer à regarder")
+                    .font(.meta).foregroundStyle(Theme.textSecondary)
+            }
+            .foregroundStyle(.white)
+            .opacity(min(1, progress * 3))
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}
+
+private struct StillWatchingCard: View {
+    let session: PlayerSession
+    @FocusState private var continueFocused: Bool
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.6)
+            VStack(spacing: 26) {
+                Text("Êtes-vous toujours là ?").font(.sectionTitle).foregroundStyle(.white)
+                if let next = session.nextEpisode {
+                    Text("Épisode suivant : " + [next.episodeCode, next.title.isEmpty ? nil : next.title].compactMap { $0 }.joined(separator: " · "))
+                        .font(.meta).foregroundStyle(Theme.textSecondary)
+                }
+                HStack(spacing: 22) {
+                    Button("Continuer à regarder") { session.continueWatching() }
+                        .buttonStyle(PillButtonStyle(prominent: true))
+                        .focused($continueFocused)
+                        .accessibilityIdentifier("player.stillWatching.continue")
+                    Button("Arrêter") { session.close() }
+                        .buttonStyle(PillButtonStyle())
+                }
+                .focusSection()
+            }
+            .padding(60)
+            .background(RoundedRectangle(cornerRadius: 30).fill(.black.opacity(0.8)))
+        }
+        .ignoresSafeArea()
+        .onAppear { continueFocused = true }
+    }
+}
+
 // MARK: - Épisode suivant (pendant le générique)
 
 /// « Passer l'intro » : bouton blanc en bas à droite ; le clic central de la
@@ -335,16 +406,19 @@ private struct PlayerPanel: View {
             Spacer()
             VStack(alignment: .leading, spacing: 26) {
                 HStack(spacing: 18) {
-                    tabButton("Audio et sous-titres", .tracks)
+                    tabButton("Audio et sous-titres", .tracks, alsoSelected: .subtitleSync)
                     if !session.playableAlternatives.isEmpty { tabButton("Sources", .sources) }
+                    tabButton("Minuteur", .timer)
                     tabButton("Informations", .info)
                 }
                 .focusSection()
                 ScrollView(.vertical) {
                     Group {
                         switch tab {
-                        case .tracks: TracksPanel(session: session)
+                        case .tracks: TracksPanel(session: session) { tab = .subtitleSync }
+                        case .subtitleSync: SubtitleSyncPanel(session: session) { tab = .tracks }
                         case .sources: SourcesPanel(session: session)
+                        case .timer: SleepTimerPanel(session: session)
                         case .info: InfoPanel(session: session)
                         }
                     }
@@ -362,16 +436,22 @@ private struct PlayerPanel: View {
             .padding(.horizontal, 60)
             .padding(.bottom, 40)
         }
+        .onChange(of: tab) { _, new in
+            if new == .subtitleSync { session.beginSubtitleSync() } else { session.endSubtitleSync() }
+        }
+        .onDisappear { session.endSubtitleSync() }
     }
 
-    private func tabButton(_ title: String, _ value: PlayerSession.Panel) -> some View {
-        Button(title) { tab = value }
-            .buttonStyle(PillButtonStyle(prominent: tab == value, selected: tab == value))
+    private func tabButton(_ title: String, _ value: PlayerSession.Panel, alsoSelected: PlayerSession.Panel? = nil) -> some View {
+        let on = tab == value || (alsoSelected != nil && tab == alsoSelected)
+        return Button(title) { tab = value }
+            .buttonStyle(PillButtonStyle(prominent: on, selected: on))
     }
 }
 
 private struct TracksPanel: View {
     let session: PlayerSession
+    let openSync: () -> Void
 
     var body: some View {
         let s = session.snapshot
@@ -411,10 +491,101 @@ private struct TracksPanel: View {
                 }
                 if session.engine.rendersSubtitlesItself {
                     Text("Non applicable avec le lecteur système.").font(.system(size: 19)).foregroundStyle(Theme.textTertiary)
+                } else if session.canSyncSubtitles {
+                    Button(action: openSync) {
+                        Label("Choisir la réplique entendue…", systemImage: "text.bubble")
+                    }
+                    .buttonStyle(PillButtonStyle(compact: true))
+                    .accessibilityIdentifier("player.syncSubtitles")
                 }
             }
             .focusSection()
         }
+    }
+}
+
+/// Synchronisation par réplique : la lecture est en pause ; la réplique
+/// choisie s'affichera à cet instant (le décalage est calculé et conservé).
+private struct SubtitleSyncPanel: View {
+    let session: PlayerSession
+    let back: () -> Void
+    @FocusState private var focused: Int?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 18) {
+                Button(action: back) { Label("Retour", systemImage: "chevron.left") }
+                    .buttonStyle(PillButtonStyle(compact: true))
+                Text("Lecture en pause. Choisissez la réplique que vous venez d'entendre : elle s'affichera à cet instant.")
+                    .font(.meta).foregroundStyle(Theme.textSecondary)
+            }
+            .focusSection()
+            if let window = session.subtitleSync {
+                if window.lines.isEmpty {
+                    Text("Aucune réplique disponible autour de ce moment (piste en image, ou passage sans dialogue). Utilisez les boutons ±0,25 s.")
+                        .font(.meta).foregroundStyle(Theme.textTertiary)
+                        .focusable()
+                } else {
+                    let current = SubtitleSync.current(in: window.lines, now: window.now, delay: session.subtitleDelay)
+                    ForEach(window.lines) { line in
+                        Button { session.applySubtitleSync(line) } label: {
+                            HStack(alignment: .firstTextBaseline, spacing: 20) {
+                                Text(relative(line, window.now))
+                                    .font(.system(size: 20, weight: .semibold).monospacedDigit())
+                                    .foregroundStyle(line.id == current?.id ? Theme.accent : Theme.textTertiary)
+                                    .frame(width: 150, alignment: .leading)
+                                Text(line.text).font(.system(size: 24, weight: .medium)).lineLimit(2)
+                                Spacer(minLength: 0)
+                            }
+                        }
+                        .buttonStyle(RowButtonStyle())
+                        .focused($focused, equals: line.id)
+                    }
+                    .onAppear { focused = current?.id }
+                }
+            } else {
+                Text("Les répliques de cette piste ne sont pas disponibles.")
+                    .font(.meta).foregroundStyle(Theme.textTertiary)
+                    .focusable()
+            }
+        }
+    }
+
+    /// Moment où la réplique s'affiche avec le décalage actuel, par rapport à maintenant.
+    private func relative(_ line: SubtitleSyncLine, _ now: TimeInterval) -> String {
+        let delta = Int((line.start + session.subtitleDelay - now).rounded())
+        if delta == 0 { return "à l'écran" }
+        return delta < 0 ? "il y a \(-delta) s" : "dans \(delta) s"
+    }
+}
+
+/// Minuteur de mise en veille : fondu au noir puis arrêt (progression enregistrée).
+private struct SleepTimerPanel: View {
+    let session: PlayerSession
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Arrêter la lecture automatiquement. L'image s'assombrit pendant quelques secondes avant l'arrêt : appuyez sur une touche pour continuer à regarder.")
+                .font(.meta).foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 14) {
+                option("Désactivé", nil)
+                option(SleepTimerChoice.endOfItem.label(isSeries: session.isSeries), .endOfItem)
+                ForEach(SleepTimerChoice.durations, id: \.self) { m in
+                    option(SleepTimerChoice.minutes(m).label(isSeries: session.isSeries), .minutes(m))
+                }
+            }
+            .focusSection()
+            if let status = session.sleepTimerStatus {
+                Label(status, systemImage: "moon.zzz.fill").font(.meta).foregroundStyle(Theme.accent)
+            }
+        }
+    }
+
+    private func option(_ title: String, _ choice: SleepTimerChoice?) -> some View {
+        let selected = session.sleepTimer == choice
+        return Button(title) { session.setSleepTimer(choice) }
+            .buttonStyle(PillButtonStyle(prominent: selected, selected: selected, compact: true))
     }
 }
 

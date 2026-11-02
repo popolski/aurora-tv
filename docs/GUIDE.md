@@ -146,6 +146,7 @@ Astuce : appui long sur une carte de « Continuer à regarder » pour la retirer
 | Audio, sous-titres, sources, infos | flèche ou balayage **vers le bas** |
 | Afficher l'interface | flèche vers le haut |
 | Fermer | **Menu** (ferme d'abord le panneau, puis l'interface, puis le lecteur) |
+| Annuler la mise en veille | n'importe quelle touche pendant le fondu « Bonne nuit » |
 
 - Les touches **⏪ / ⏩** d'une télécommande de téléviseur (HDMI-CEC) ou de l'iPhone
   fonctionnent aussi (appui simple : saut ; maintenu : défilement accéléré).
@@ -156,13 +157,35 @@ Astuce : appui long sur une carte de « Continuer à regarder » pour la retirer
 
 ![Audio et sous-titres](screenshots/11-pistes.jpg)
 
-Le panneau du bas comporte trois onglets :
+Le panneau du bas comporte quatre onglets :
 
 - **Audio et sous-titres** : piste audio (le français est choisi par défaut, puis l'anglais),
   sous-titres (en VO, les sous-titres français s'activent automatiquement) et décalage des
   sous-titres par pas de 0,25 s ; taille, position et fond se règlent dans Réglages › Langues ;
 - **Sources** : passer à une autre source sans quitter le lecteur ;
+- **Minuteur** : arrêter la lecture à la fin de l'épisode (ou du film), ou dans 15, 30, 45,
+  60 ou 90 minutes ;
 - **Informations** : moteur utilisé, caractéristiques détectées, jalons de démarrage.
+
+**Sous-titres décalés : choisir la réplique entendue.** Dans *Audio et sous-titres*, le bouton
+**« Choisir la réplique entendue… »** met la lecture en pause et liste les répliques proches
+(« il y a 4 s », « à l'écran », « dans 3 s »). Choisissez celle que vous venez d'entendre :
+Aurora calcule le décalage pour qu'elle s'affiche à cet instant, referme le panneau et reprend
+la lecture. Le décalage reste réglable finement par ±0,25 s et est conservé pour les lectures
+suivantes. Disponible avec AetherEngine pour les sous-titres texte (SRT, ASS, WebVTT) ; les
+sous-titres en image (PGS) n'ont pas de texte à proposer. Plage : ±30 s.
+
+**Minuteur de mise en veille.** Quand le temps est écoulé (ou au début du générique de fin si
+TheIntroDB le connaît, sinon dans les dernières secondes du fichier), l'image s'assombrit
+pendant 12 secondes avec « Bonne nuit » : **n'importe quelle touche** annule l'arrêt et le
+minuteur. Sinon la lecture s'arrête, la progression est enregistrée et l'Apple TV se met en
+veille selon ses propres réglages. Le minuteur reste actif d'un épisode à l'autre ; le temps
+restant s'affiche en haut à droite de l'interface.
+
+**« Êtes-vous toujours là ? »** Après 3 épisodes enchaînés automatiquement sans toucher la
+télécommande (réglable : 2 à 5, ou jamais), Aurora met en pause au lieu de lancer le suivant et
+demande **Continuer à regarder** ou **Arrêter**. Pendant la question, l'Apple TV peut de nouveau
+se mettre en veille. Menu referme la question et reste sur l'épisode en cours.
 
 Si une source ne s'affiche pas (aucune image après quelques secondes), Aurora le dit au lieu de
 rester sur un écran noir, et propose de réessayer avec le lecteur système.
@@ -208,6 +231,7 @@ connexion ») :
 | Lecteur | **Mon téléviseur affiche le Dolby Vision** | à n'activer que si c'est vrai |
 | Lecteur | **Saut gauche/droite** : 5 à 60 s | — |
 | Lecteur | **Épisode suivant automatique**, **encart « Épisode suivant »** (30 s à 3 min avant la fin) | — |
+| Lecteur | **« Êtes-vous toujours là ? »** : après 2, 3 (par défaut), 4 ou 5 épisodes enchaînés sans interaction, ou jamais | met en pause avant l'épisode suivant |
 | Lecteur | **Son : mode nuit et dialogues** | renvoie aux réglages de l'Apple TV (Vidéo et audio) |
 | Lecteur | **Bouton « Passer l'intro »**, **passer automatiquement** | minutages TheIntroDB / AniSkip |
 | Lecteur | **Serveur de streaming** | adresse du serveur Stremio pour les torrents |

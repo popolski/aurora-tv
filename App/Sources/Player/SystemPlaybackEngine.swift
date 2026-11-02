@@ -130,6 +130,7 @@ final class SystemPlaybackEngine: PlaybackEngine {
     }
 
     func currentCues(delay: TimeInterval) -> [DisplayCue] { [] }
+    func subtitleSyncLines() -> (now: TimeInterval, lines: [SubtitleSyncLine])? { nil }
 
     func play() { player.play() }
     func pause() { player.pause() }

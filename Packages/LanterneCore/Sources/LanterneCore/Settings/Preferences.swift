@@ -176,12 +176,15 @@ public struct PlaybackPreferences: Sendable, Codable, Hashable {
     public var skipButtons: Bool = true
     /// Sauter l'intro et le résumé sans attendre (minutages parfois décalés selon le fichier).
     public var autoSkipIntro: Bool = false
+    /// « Êtes-vous toujours là ? » après ce nombre d'épisodes enchaînés
+    /// automatiquement sans toucher la télécommande (0 = jamais).
+    public var stillWatchingAfter: Int = 3
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
         case engine, matchContent, panelSupportsDolbyVision, skipInterval, autoPlayNextEpisode, nextEpisodeLeadTime, streamingServerURL
-        case skipButtons, autoSkipIntro
+        case skipButtons, autoSkipIntro, stillWatchingAfter
     }
 
     public init(from decoder: any Decoder) throws {
@@ -196,6 +199,7 @@ public struct PlaybackPreferences: Sendable, Codable, Hashable {
         streamingServerURL = c.value(.streamingServerURL, default: d.streamingServerURL)
         skipButtons = c.value(.skipButtons, default: d.skipButtons)
         autoSkipIntro = c.value(.autoSkipIntro, default: d.autoSkipIntro)
+        stillWatchingAfter = max(0, c.value(.stillWatchingAfter, default: d.stillWatchingAfter))
     }
 
     public var streamingServer: URL? {

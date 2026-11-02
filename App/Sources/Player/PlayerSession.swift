@@ -18,7 +18,7 @@ final class PlayerSession {
         case ended
     }
 
-    enum Panel: Equatable { case tracks, sources, info }
+    enum Panel: Equatable { case tracks, subtitleSync, sources, timer, info }
 
     private(set) var context: PlaybackContext
     private(set) var snapshot = EngineSnapshot()
@@ -36,11 +36,24 @@ final class PlayerSession {
     /// Passage que l'on peut sauter maintenant (intro, résumé…) : bouton « Passer ».
     private(set) var activeSkip: SkipSegment?
     private(set) var subtitleDelay: TimeInterval
+    /// Minuteur de mise en veille (conservé d'un épisode à l'autre).
+    private(set) var sleepTimer: SleepTimerChoice?
+    private(set) var sleepDeadline: Date?
+    /// Fondu au noir avant l'arrêt (0 → 1) ; toute touche l'annule.
+    private(set) var sleepFade: Double = 0
+    /// « Êtes-vous toujours là ? » affiché (lecture en pause).
+    private(set) var stillWatchingPrompt = false
+    /// Synchronisation par réplique en cours : lecture en pause à `now`.
+    private(set) var subtitleSync: (now: TimeInterval, lines: [SubtitleSyncLine])?
     /// Préférences d'affichage des sous-titres (la surcouche est hors de l'environnement SwiftUI).
     let languagePrefs: LanguagePreferences
     var chromeVisible = true
     var panel: Panel? {
-        didSet { if panel != oldValue { onFocusContextChange?() } }
+        didSet {
+            guard panel != oldValue else { return }
+            if panel != .subtitleSync { endSubtitleSync() }
+            onFocusContextChange?()
+        }
     }
 
     @ObservationIgnored var onFocusContextChange: (() -> Void)?
@@ -74,6 +87,9 @@ final class PlayerSession {
     @ObservationIgnored private var upNextDismissed = false
     @ObservationIgnored private var closed = false
     @ObservationIgnored private var loggedMilestone: PlaybackMilestone?
+    @ObservationIgnored private var sleepFadeStart: Date?
+    @ObservationIgnored private var stillWatching: StillWatchingCounter
+    @ObservationIgnored private var resumeAfterSync = false
     @ObservationIgnored private let log = LogChannel("player")
 
     init(context: PlaybackContext, app: AppModel) {
@@ -81,6 +97,7 @@ final class PlayerSession {
         self.app = app
         self.subtitleDelay = app.settings.languages.subtitleDelay
         self.languagePrefs = app.settings.languages
+        self.stillWatching = StillWatchingCounter(limit: app.settings.playback.stillWatchingAfter)
         self.engine = Self.makeEngine(choice: app.settings.playback.engine)
         self.engineName = engine.displayName
     }
@@ -99,7 +116,7 @@ final class PlayerSession {
 
     /// La surcouche doit recevoir le focus (panneau, erreur, fin).
     var needsInteractiveOverlay: Bool {
-        if panel != nil || upNext != nil { return true }
+        if panel != nil || upNext != nil || stillWatchingPrompt { return true }
         switch status {
         case .failed, .ended, .noPicture: return true
         case .starting, .active: return false
@@ -140,6 +157,8 @@ final class PlayerSession {
         nextEpisode = nil
         upNext = nil
         upNextDismissed = false
+        stillWatchingPrompt = false
+        subtitleSync = nil
         skipSegments = []
         skipLoaded = false
         skipHandled = []
@@ -261,6 +280,8 @@ final class PlayerSession {
         watchdog(now: now, s: s)
         loadSkipSegmentsIfNeeded(s)
         updateSkip(s)
+        updateSleepTimer(now: now, s: s)
+        guard !closed else { return }
         checkUpNext(s)
         accumulateProgress(now: now, s: s)
         autoHideChrome(now: now, s: s)
@@ -322,7 +343,7 @@ final class PlayerSession {
     }
 
     private func autoHideChrome(now: Date, s: EngineSnapshot) {
-        guard chromeVisible, panel == nil, scrubTarget == nil, status == .active, s.phase == .playing else { return }
+        guard chromeVisible, panel == nil, sleepFadeStart == nil, scrubTarget == nil, status == .active, s.phase == .playing else { return }
         if now.timeIntervalSince(lastInteraction) > 5 { chromeVisible = false }
     }
 
@@ -364,7 +385,8 @@ final class PlayerSession {
 
     func touch() {
         lastInteraction = Date()
-        chromeVisible = true
+        stillWatching.userInteracted()
+        chromeVisible = sleepFadeStart == nil
     }
 
     func togglePlayPause() {
@@ -497,6 +519,10 @@ final class PlayerSession {
         }
         status = .ended
         log.info("fin de lecture\(next.map { " ; épisode suivant \($0.id)" } ?? "")")
+        if sleepTimer == .endOfItem || sleepFadeStart != nil {
+            finishSleep()
+            return
+        }
         onFocusContextChange?()
         if next != nil, app.settings.playback.autoPlayNextEpisode { startCountdown() }
     }
@@ -505,7 +531,7 @@ final class PlayerSession {
     /// (délai réglable avant la fin du fichier), sans attendre la fin.
     private func checkUpNext(_ s: EngineSnapshot) {
         guard upNext == nil, !upNextDismissed, !endHandled, status == .active, context.localTest == nil,
-              s.phase == .playing, s.duration > 120 else { return }
+              s.phase == .playing, s.duration > 120, sleepFadeStart == nil, sleepTimer != .endOfItem else { return }
         let lead = max(10, app.settings.playback.nextEpisodeLeadTime)
         // Début du générique connu (TheIntroDB) : l'encart apparaît dès qu'il commence.
         let creditsStart = skipSegments.first { $0.kind == .credits && $0.start > s.duration * 0.6 }?.start
@@ -552,7 +578,7 @@ final class PlayerSession {
         }
         if let current, app.settings.playback.autoSkipIntro, current.kind == .intro || current.kind == .recap {
             log.info("\(current.kind.rawValue) sauté automatiquement")
-            skip(current, duration: s.duration)
+            skip(current, duration: s.duration, byUser: false)
             return
         }
         let visible = app.settings.playback.skipButtons ? current : nil
@@ -562,7 +588,7 @@ final class PlayerSession {
     /// OK pendant un passage : saute à sa fin.
     func skipActive() {
         guard let segment = activeSkip else { return }
-        skip(segment, duration: snapshot.duration)
+        skip(segment, duration: snapshot.duration, byUser: true)
     }
 
     /// Menu pendant le bouton « Passer » : on regarde le passage, le bouton disparaît.
@@ -572,11 +598,11 @@ final class PlayerSession {
         activeSkip = nil
     }
 
-    private func skip(_ segment: SkipSegment, duration: TimeInterval) {
+    private func skip(_ segment: SkipSegment, duration: TimeInterval, byUser: Bool) {
         skipHandled.insert(segment.start)
         activeSkip = nil
         let target = min(segment.end ?? duration, max(0, duration - 0.5))
-        touch()
+        if byUser { touch() }
         seek(to: target)
     }
 
@@ -593,7 +619,9 @@ final class PlayerSession {
     /// Menu dans une surcouche SwiftUI : ferme le panneau ou l'encart et revient
     /// au film ; sur un écran d'erreur ou de fin, ferme le lecteur.
     func handleOverlayExit() {
-        if panel != nil {
+        if stillWatchingPrompt {
+            dismissStillWatching()
+        } else if panel != nil {
             panel = nil
         } else if upNext != nil {
             dismissUpNext()
@@ -615,7 +643,7 @@ final class PlayerSession {
                 self.nextCountdown = n - 1
             }
             guard let self, !Task.isCancelled, self.nextCountdown == 0 else { return }
-            self.playNext()
+            self.autoAdvance()
         }
     }
 
@@ -623,9 +651,27 @@ final class PlayerSession {
         nextCountdown = nil
     }
 
-    /// Recherche une source pour l'épisode suivant (même `bingeGroup` en priorité, comme Stremio).
+    /// « Lire » choisi par l'utilisateur : compte comme une action à la télécommande.
     func playNext() {
+        stillWatching.userInteracted()
+        startNextEpisode()
+    }
+
+    /// Fin du compte à rebours : enchaîne, sauf s'il faut d'abord demander
+    /// « Êtes-vous toujours là ? ».
+    private func autoAdvance() {
+        stillWatching.limit = app.settings.playback.stillWatchingAfter
+        if stillWatching.allowAutoAdvance() {
+            startNextEpisode()
+        } else {
+            showStillWatching()
+        }
+    }
+
+    /// Recherche une source pour l'épisode suivant (même `bingeGroup` en priorité, comme Stremio).
+    private func startNextEpisode() {
         guard let next = nextEpisode else { return }
+        stillWatchingPrompt = false
         nextCountdown = nil
         upNext = nil
         status = .starting("Recherche de sources pour \(next.episodeCode ?? next.title)…")
@@ -702,6 +748,144 @@ final class PlayerSession {
         guard status == .noPicture else { return }
         status = .active
         onFocusContextChange?()
+    }
+
+    // MARK: Êtes-vous toujours là ?
+
+    private func showStillWatching() {
+        log.info("« êtes-vous toujours là ? » après \(stillWatching.chained) épisodes enchaînés")
+        nextCountdown = nil
+        upNext = nil
+        panel = nil
+        engine.pause()
+        stillWatchingPrompt = true
+        chromeVisible = false
+        // Personne ne regarde peut-être : l'Apple TV peut de nouveau se mettre en veille.
+        UIApplication.shared.isIdleTimerDisabled = false
+        onFocusContextChange?()
+    }
+
+    func continueWatching() {
+        UIApplication.shared.isIdleTimerDisabled = true
+        playNext()
+    }
+
+    /// Menu sur la question : on reste sur l'épisode en cours, sans enchaîner.
+    func dismissStillWatching() {
+        guard stillWatchingPrompt else { return }
+        stillWatchingPrompt = false
+        stillWatching.userInteracted()
+        UIApplication.shared.isIdleTimerDisabled = true
+        upNextDismissed = true
+        if status == .active { engine.play() }
+        touch()
+        onFocusContextChange?()
+    }
+
+    // MARK: Minuteur de mise en veille
+
+    var sleepTimerStatus: String? {
+        SleepTimerChoice.status(sleepTimer, deadline: sleepDeadline, now: Date(), isSeries: isSeries)
+    }
+
+    var isSeries: Bool { context.meta.type == ContentType.series }
+
+    func setSleepTimer(_ choice: SleepTimerChoice?) {
+        sleepTimer = choice
+        sleepDeadline = choice?.deadline(from: Date())
+        resetSleepFade()
+        log.info("minuteur : \(choice?.label(isSeries: isSeries) ?? "désactivé")")
+        touch()
+    }
+
+    /// Toute touche pendant le fondu annule l'arrêt (et le minuteur).
+    /// Renvoie `true` si l'appui a servi à cela.
+    func cancelSleepFadeIfNeeded() -> Bool {
+        guard sleepFadeStart != nil else { return false }
+        log.info("mise en veille annulée")
+        sleepTimer = nil
+        sleepDeadline = nil
+        resetSleepFade()
+        touch()
+        return true
+    }
+
+    private func resetSleepFade() {
+        sleepFadeStart = nil
+        sleepFade = 0
+    }
+
+    private func updateSleepTimer(now: Date, s: EngineSnapshot) {
+        if let started = sleepFadeStart {
+            sleepFade = min(1, now.timeIntervalSince(started) / Self.sleepFadeDuration)
+            if sleepFade >= 1 { finishSleep() }
+            return
+        }
+        guard let timer = sleepTimer, status == .active, s.phase == .playing else { return }
+        let due: Bool
+        switch timer {
+        case .minutes:
+            due = sleepDeadline.map { now >= $0 } ?? false
+        case .endOfItem:
+            let creditsStart = skipSegments.first { $0.kind == .credits }?.start
+            due = SleepTimerChoice.endOfItemReached(position: s.position, duration: s.duration, creditsStart: creditsStart)
+        }
+        guard due else { return }
+        log.info("minuteur écoulé : fondu avant l'arrêt")
+        sleepFadeStart = now
+        panel = nil
+        upNext = nil
+        nextCountdown = nil
+        activeSkip = nil
+        if scrubTarget != nil { cancelScrub() }
+        chromeVisible = false
+        onFocusContextChange?()
+    }
+
+    static let sleepFadeDuration: TimeInterval = 12
+
+    /// Arrêt du minuteur : progression enregistrée, lecteur fermé ; l'Apple TV
+    /// se met ensuite en veille selon ses propres réglages.
+    private func finishSleep() {
+        log.info("minuteur : lecture arrêtée")
+        engine.pause()
+        sleepTimer = nil
+        sleepDeadline = nil
+        close()
+    }
+
+    // MARK: Synchronisation des sous-titres par réplique
+
+    var canSyncSubtitles: Bool {
+        !engine.rendersSubtitlesItself && snapshot.selectedSubtitleID != nil
+    }
+
+    /// Met en pause et fige les répliques proches : l'utilisateur choisit celle
+    /// qu'il vient d'entendre.
+    func beginSubtitleSync() {
+        guard subtitleSync == nil, let window = engine.subtitleSyncLines() else { return }
+        resumeAfterSync = snapshot.phase == .playing
+        if resumeAfterSync { engine.pause() }
+        subtitleSync = window
+        log.info("synchronisation par réplique : \(window.lines.count) répliques proposées")
+        touch()
+    }
+
+    func applySubtitleSync(_ line: SubtitleSyncLine) {
+        guard let window = subtitleSync else { return }
+        subtitleDelay = SubtitleSync.delay(for: line, heardAt: window.now)
+        app.settings.languages.subtitleDelay = subtitleDelay
+        log.info(String(format: "sous-titres synchronisés : décalage %+.2f s", subtitleDelay))
+        panel = nil  // referme le panneau et reprend la lecture (endSubtitleSync)
+    }
+
+    /// Fin de la synchronisation (choix fait, annulée ou panneau fermé) : reprise.
+    func endSubtitleSync() {
+        guard subtitleSync != nil else { return }
+        subtitleSync = nil
+        if resumeAfterSync, !closed { engine.play() }
+        resumeAfterSync = false
+        touch()
     }
 
     // MARK: Progression

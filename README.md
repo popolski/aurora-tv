@@ -34,6 +34,9 @@ films et séries sont inventés, leurs images générées.</sub>
   télécommandes de TV, Menu qui revient en arrière sans quitter le film.
 - **Passer l'intro** (TheIntroDB, AniSkip pour les animés) et encart d'épisode suivant au début
   du générique.
+- **Le soir** : minuteur de mise en veille (fin de l'épisode, 15 à 90 min, fondu au noir),
+  « Êtes-vous toujours là ? » après quelques épisodes enchaînés, et sous-titres resynchronisés
+  en choisissant la réplique que l'on vient d'entendre.
 - **Bandes-annonces** via un petit service sur votre NAS : en fond sur les fiches, en plein écran
   avec le son, et dans le **carrousel Top Shelf** de l'écran d'accueil de l'Apple TV.
 - **Titres lisibles** pour les films asiatiques ou russes (titre français via Wikidata), films
@@ -73,7 +76,7 @@ Pas à pas complet : **[Guide d'utilisation](docs/GUIDE.md)**.
 Aucun Mac n'est nécessaire : tout est compilé par GitHub Actions (image `xcode-27`).
 
 ```bash
-cd Packages/LanterneCore && swift test   # logique métier (121 tests)
+cd Packages/LanterneCore && swift test   # logique métier (128 tests)
 ```
 
 ```bash
