@@ -53,6 +53,8 @@ final class AppModel {
     @ObservationIgnored let account: AccountService
     /// Minutages communautaires (intro, résumé, générique).
     @ObservationIgnored let skipTimes: SkipTimesClient
+    /// Notes Rotten Tomatoes / Metacritic (Wikidata).
+    @ObservationIgnored let reviews: ReviewScoresClient
     @ObservationIgnored let defaults: any KeyValueStore
     @ObservationIgnored let isUITest: Bool
     @ObservationIgnored private var observers: [Task<Void, Never>] = []
@@ -65,6 +67,8 @@ final class AppModel {
     var continueWatching: [LibraryItem] = []
     var libraryItems: [LibraryItem] = []
     var history: [LibraryItem] = []
+    /// Films déjà vus (bibliothèque et historique), pour estomper ou masquer dans les catalogues.
+    private(set) var watchedMovieIDs: Set<String> = []
     var session: StremioSession?
     var syncState: AccountService.SyncState = .idle
     var isBootstrapped = false
@@ -84,8 +88,9 @@ final class AppModel {
     static let settingsKey = "settings.v1"
 
     init(addonClient: AddonClient, registry: AddonRegistry, library: LibraryStore, account: AccountService,
-         skipTimes: SkipTimesClient, defaults: any KeyValueStore, isUITest: Bool) {
+         skipTimes: SkipTimesClient, reviews: ReviewScoresClient, defaults: any KeyValueStore, isUITest: Bool) {
         self.skipTimes = skipTimes
+        self.reviews = reviews
         self.addonClient = addonClient
         self.aggregator = AddonAggregator(client: addonClient)
         self.registry = registry
@@ -113,7 +118,8 @@ final class AppModel {
         let account = AccountService(api: StremioAPI(http: http), secrets: secrets, library: library, registry: registry)
         LogSetup.configure(uiTest: isUITest)
         return AppModel(addonClient: client, registry: registry, library: library, account: account,
-                        skipTimes: SkipTimesClient(http: http), defaults: defaults, isUITest: isUITest)
+                        skipTimes: SkipTimesClient(http: http), reviews: ReviewScoresClient(http: http),
+                        defaults: defaults, isUITest: isUITest)
     }
 
     // MARK: Cycle de vie
@@ -165,12 +171,27 @@ final class AppModel {
         continueWatching = await library.continueWatching()
         libraryItems = await library.libraryItems()
         history = await library.history()
+        watchedMovieIDs = Set((libraryItems + history + continueWatching)
+            .filter { $0.type == ContentType.movie && $0.isWatched }.map(\.id))
         libraryRevision &+= 1
     }
 
     func reloadAccount() async {
         session = await account.session
         syncState = await account.syncState
+    }
+
+    // MARK: Titres déjà vus
+
+    /// Titres à afficher dans un catalogue (réglage « Masquer » : films vus retirés).
+    func visibleTitles(_ metas: [MetaItem]) -> [MetaItem] {
+        guard settings.watchedTitles == .hide, !watchedMovieIDs.isEmpty else { return metas }
+        return metas.filter { !watchedMovieIDs.contains($0.id) }
+    }
+
+    /// Réglage « Estomper » : ce titre est-il un film déjà vu ?
+    func isDimmed(_ meta: MetaItem) -> Bool {
+        settings.watchedTitles == .dim && watchedMovieIDs.contains(meta.id)
     }
 
     // MARK: Lecture

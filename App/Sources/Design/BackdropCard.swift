@@ -18,6 +18,8 @@ struct BackdropCard: View {
     var inCinema = false
     /// Note IMDb (« 7.4 ») : pastille en haut à gauche.
     var rating: String?
+    /// Étiquette en haut à droite (« Nouvel épisode »).
+    var badge: String?
     var route: Route?
     var action: (() -> Void)?
     var onFocus: (() -> Void)?
@@ -73,7 +75,11 @@ struct BackdropCard: View {
             .padding(.horizontal, 22)
             .padding(.bottom, progress == nil ? 18 : 30)
 
-            if inCinema {
+            if let badge {
+                Badge(text: badge, tint: Theme.accent, announced: false)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            } else if inCinema {
                 CinemaBadge()
                     .padding(12)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)

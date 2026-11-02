@@ -18,7 +18,7 @@ actor ImageLoader {
         let config = URLSessionConfiguration.default
         let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
             .appendingPathComponent("Images", isDirectory: true)
-        config.urlCache = URLCache(memoryCapacity: 8 * 1024 * 1024, diskCapacity: 300 * 1024 * 1024, directory: cacheDir)
+        config.urlCache = URLCache(memoryCapacity: 8 * 1024 * 1024, diskCapacity: 150 * 1024 * 1024, directory: cacheDir)
         config.requestCachePolicy = .returnCacheDataElseLoad
         config.timeoutIntervalForRequest = 20
         config.httpMaximumConnectionsPerHost = 6

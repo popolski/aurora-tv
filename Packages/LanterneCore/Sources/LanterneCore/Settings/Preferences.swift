@@ -206,6 +206,19 @@ public struct PlaybackPreferences: Sendable, Codable, Hashable {
     }
 }
 
+/// Affichage des titres déjà vus dans les catalogues et la recherche.
+public enum WatchedTitlesDisplay: String, Sendable, Codable, CaseIterable, Identifiable {
+    case show, dim, hide
+    public var id: String { rawValue }
+    public var label: String {
+        switch self {
+        case .show: "Afficher normalement"
+        case .dim: "Estomper"
+        case .hide: "Masquer"
+        }
+    }
+}
+
 /// Ensemble des réglages persistants.
 public struct AppSettings: Sendable, Codable, Hashable {
     public var sources = SourcePreferences()
@@ -220,11 +233,14 @@ public struct AppSettings: Sendable, Codable, Hashable {
     public var homeCatalogOrder: [String] = []
     /// Bandeau de l'accueil : passe tout seul au titre suivant quand on ne touche à rien.
     public var homeBillboardRotation: Bool = true
+    /// Titres déjà vus dans les catalogues (accueil, Films, Séries, recherche).
+    public var watchedTitles: WatchedTitlesDisplay = .show
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
         case sources, languages, playback, trailers, hideAdultContent, hiddenHomeCatalogs, homeCatalogOrder, homeBillboardRotation
+        case watchedTitles
     }
 
     /// Décodage tolérant : un réglage ajouté dans une version ultérieure ne
@@ -239,6 +255,7 @@ public struct AppSettings: Sendable, Codable, Hashable {
         hiddenHomeCatalogs = c.value(.hiddenHomeCatalogs, default: [String]())
         homeCatalogOrder = c.value(.homeCatalogOrder, default: [String]())
         homeBillboardRotation = c.value(.homeBillboardRotation, default: true)
+        watchedTitles = c.value(.watchedTitles, default: .show)
     }
 }
 

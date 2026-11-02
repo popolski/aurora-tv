@@ -127,10 +127,20 @@ struct PlaybackSettingsView: View {
                 }
             }
             Section {
+                InfoRow(label: "Mode nuit", value: "Réduire les sons forts")
+                    .focusable()
+                InfoRow(label: "Dialogues plus clairs", value: "Améliorer les dialogues")
+                    .focusable()
+            } header: {
+                Text("Son : mode nuit et dialogues")
+            } footer: {
+                Text("Ces deux réglages sont ceux de l'Apple TV, appliqués à toutes les apps : Réglages de l'Apple TV › Vidéo et audio. « Réduire les sons forts » atténue les explosions et garde les voix audibles à faible volume ; « Améliorer les dialogues » fait ressortir les voix (selon la sortie audio). Le moteur de lecture d'Aurora ne permet pas de les reproduire lui-même.")
+            }
+            Section {
                 Toggle("Bouton « Passer l'intro »", isOn: $app.settings.playback.skipButtons)
                 Toggle("Passer l'intro et le résumé automatiquement", isOn: $app.settings.playback.autoSkipIntro)
             } footer: {
-                Text("Minutages communautaires de TheIntroDB (theintrodb.org), quand ils existent pour le film ou l'épisode. Ils peuvent être décalés selon la version du fichier : le bouton laisse le choix (OK pour passer, Menu pour regarder). Pour une série, l'encart « Épisode suivant » apparaît dès le début du générique s'il est connu.")
+                Text("Minutages communautaires de TheIntroDB (theintrodb.org) et, pour les animés de Kitsu, d'AniSkip, quand ils existent pour le film ou l'épisode. Ils peuvent être décalés selon la version du fichier : le bouton laisse le choix (OK pour passer, Menu pour regarder). Pour une série, l'encart « Épisode suivant » apparaît dès le début du générique s'il est connu.")
             }
             Section {
                 TextField("http://192.168.1.20:11470", text: $serverDraft)
@@ -312,6 +322,13 @@ struct HomeSettingsView: View {
     var body: some View {
         @Bindable var app = app
         List {
+            Section {
+                Picker("Films déjà vus", selection: $app.settings.watchedTitles) {
+                    ForEach(WatchedTitlesDisplay.allCases) { Text($0.label).tag($0) }
+                }
+            } footer: {
+                Text("Dans les catalogues de l'accueil, de Films, de Séries et dans la recherche. « Continuer à regarder » et « Ma liste » ne changent pas.")
+            }
             Section {
                 Toggle("Le bandeau défile tout seul", isOn: $app.settings.homeBillboardRotation)
             } footer: {

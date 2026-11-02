@@ -21,19 +21,31 @@ struct DetailView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             backdrop
-            ScrollView(.vertical) {
-                VStack(alignment: .leading, spacing: 40) {
-                    header
-                    if case .failed(let message) = detail.state {
-                        MessageView(systemImage: "exclamationmark.triangle", title: "Fiche indisponible", message: message,
-                                    actionTitle: "Réessayer") { detail.load(app: app) }
-                            .padding(.horizontal, Theme.horizontalMargin)
+            if detail.isSeries {
+                // Série : informations à gauche, épisodes dans un panneau à droite (toujours visibles).
+                HStack(alignment: .top, spacing: 40) {
+                    VStack(alignment: .leading, spacing: 30) {
+                        header
+                        failure
                     }
-                    panel
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    episodesPanel
+                        .frame(width: 680)
+                        .padding(.top, 70)
+                        .padding(.bottom, 50)
+                        .padding(.trailing, 70)
                 }
-                .padding(.bottom, 70)
+            } else {
+                ScrollView(.vertical) {
+                    VStack(alignment: .leading, spacing: 40) {
+                        header
+                        failure
+                        credits
+                    }
+                    .padding(.bottom, 70)
+                }
+                .scrollClipDisabled()
             }
-            .scrollClipDisabled()
         }
         .focusScope(focusNamespace)
         .ignoresSafeArea(edges: .top)
@@ -55,6 +67,14 @@ struct DetailView: View {
     private var trailerCandidate: URL? {
         guard app.settings.trailers.onDetail, app.playback == nil, !app.isTrailerPresented else { return nil }
         return TrailerService.url(for: meta, settings: app.settings)
+    }
+
+    @ViewBuilder private var failure: some View {
+        if case .failed(let message) = detail.state {
+            MessageView(systemImage: "exclamationmark.triangle", title: "Fiche indisponible", message: message,
+                        actionTitle: "Réessayer") { detail.load(app: app) }
+                .padding(.horizontal, Theme.horizontalMargin)
+        }
     }
 
     // MARK: Fond : l'image du contenu teinte tout l'écran
@@ -93,6 +113,9 @@ struct DetailView: View {
                     .shadow(color: .black.opacity(0.4), radius: 10)
             }
             MetaChips(meta: meta)
+            if let reviews = detail.reviews {
+                ReviewChips(scores: reviews)
+            }
             if detail.state == .loading && meta.description == nil {
                 ShimmerBlock().frame(width: 900, height: 110)
             } else if let description = meta.description {
@@ -204,60 +227,85 @@ struct DetailView: View {
         SourcesRoute(meta: meta, videoID: videoID, video: video, startPosition: start, autoPlay: app.settings.sources.autoPlay)
     }
 
-    // MARK: Panneau de verre : épisodes (série) ou générique (film)
+    // MARK: Panneau des épisodes (série)
 
-    @ViewBuilder private var panel: some View {
-        if detail.isSeries {
-            VStack(alignment: .leading, spacing: 24) {
-                if meta.videos.isEmpty {
-                    if detail.state == .loading {
-                        ShimmerBlock().frame(height: 280)
-                    } else {
-                        Text("Aucun épisode n'est listé pour cette série.")
-                            .font(.meta).foregroundStyle(Theme.textTertiary)
-                    }
-                } else {
-                    ScrollView(.horizontal) {
-                        HStack(spacing: 12) {
-                            ForEach(meta.seasons, id: \.self) { season in
-                                Button {
-                                    detail.selectedSeason = season
-                                } label: {
-                                    Text(season == 0 ? "Bonus" : "Saison \(season)")
+    private var currentSeason: Int? { detail.selectedSeason ?? meta.seasons.first }
+
+    private func seasonLabel(_ season: Int) -> String { season == 0 ? "Bonus" : "Saison \(season)" }
+
+    @ViewBuilder private var episodesPanel: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .center) {
+                if meta.seasons.count > 1, let current = currentSeason {
+                    Menu {
+                        ForEach(meta.seasons, id: \.self) { season in
+                            Button {
+                                detail.selectedSeason = season
+                            } label: {
+                                if season == current {
+                                    Label(seasonLabel(season), systemImage: "checkmark")
+                                } else {
+                                    Text(seasonLabel(season))
                                 }
-                                .buttonStyle(PillButtonStyle(selected: season == (detail.selectedSeason ?? meta.seasons.first)))
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Text(seasonLabel(current))
+                            Image(systemName: "chevron.down").font(.system(size: 18, weight: .bold))
+                        }
+                    }
+                    .buttonStyle(PillButtonStyle())
+                    .accessibilityIdentifier("detail.season")
+                } else if let current = currentSeason {
+                    Text(seasonLabel(current)).font(.sectionTitle).foregroundStyle(Theme.textPrimary)
+                }
+                Spacer(minLength: 10)
+                if !detail.episodesInSelectedSeason.isEmpty {
+                    Text("\(detail.episodesInSelectedSeason.count) épisodes")
+                        .font(.manrope(19, .bold)).foregroundStyle(Theme.textTertiary)
+                }
+            }
+
+            if meta.videos.isEmpty {
+                if detail.state == .loading {
+                    ShimmerBlock().frame(height: 300)
+                } else {
+                    Text("Aucun épisode n'est listé pour cette série.")
+                        .font(.meta).foregroundStyle(Theme.textTertiary)
+                }
+                Spacer(minLength: 0)
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical) {
+                        LazyVStack(spacing: 10) {
+                            ForEach(detail.episodesInSelectedSeason) { video in
+                                EpisodeRow(video: video,
+                                           isWatched: detail.watched.contains(video.id),
+                                           isNext: video.id == detail.targetVideo?.id,
+                                           progress: detail.progress(for: video),
+                                           route: .sources(sourcesRoute(videoID: video.id, video: video,
+                                                                        start: video.id == detail.targetVideo?.id ? detail.resumePosition : nil)),
+                                           onToggleWatched: { watched in detail.setWatched(watched, video: video, app: app) })
+                                    .id(video.id)
                             }
                         }
                         .padding(.vertical, 10)
                         .padding(.horizontal, 6)
                     }
-                    .scrollClipDisabled()
-                    .focusSection()
-
-                    ScrollView(.horizontal) {
-                        LazyHStack(alignment: .top, spacing: 34) {
-                            ForEach(detail.episodesInSelectedSeason) { video in
-                                EpisodeCard(video: video,
-                                            isWatched: detail.watched.contains(video.id),
-                                            progress: detail.progress(for: video),
-                                            route: .sources(sourcesRoute(videoID: video.id, video: video,
-                                                                         start: video.id == detail.targetVideo?.id ? detail.resumePosition : nil)),
-                                            onToggleWatched: { watched in detail.setWatched(watched, video: video, app: app) })
-                            }
-                        }
-                        .padding(.vertical, 24)
-                        .padding(.horizontal, 6)
+                    .onAppear {
+                        if let target = detail.targetVideo?.id { proxy.scrollTo(target, anchor: .top) }
                     }
-                    .scrollClipDisabled()
-                    .focusSection()
+                    .onChange(of: detail.selectedSeason) { _, _ in
+                        if let first = detail.episodesInSelectedSeason.first?.id { proxy.scrollTo(first, anchor: .top) }
+                    }
                 }
             }
-            .padding(34)
-            .background(GlassPanel(cornerRadius: 40))
-            .padding(.horizontal, 70)
-        } else {
-            credits
         }
+        .padding(28)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(GlassPanel(cornerRadius: 36))
+        .focusSection()
     }
 
     @ViewBuilder private var credits: some View {
@@ -286,73 +334,97 @@ struct DetailView: View {
     }
 }
 
-struct EpisodeCard: View {
+/// Épisode dans le panneau de droite : vignette, titre, résumé, date ; « À suivre »
+/// sur l'épisode visé par le bouton Lire.
+struct EpisodeRow: View {
     let video: MetaVideo
     let isWatched: Bool
+    let isNext: Bool
     let progress: Double?
     let route: Route
     let onToggleWatched: (Bool) -> Void
     @FocusState private var focused: Bool
 
-    private let width: CGFloat = 420
+    private let thumbWidth: CGFloat = 232
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            NavigationLink(value: route) {
+        NavigationLink(value: route) {
+            HStack(alignment: .top, spacing: 20) {
                 ZStack(alignment: .bottomLeading) {
-                    RemoteImage(url: video.thumbnail, maxPixel: 840) {
+                    RemoteImage(url: video.thumbnail, maxPixel: 480) {
                         ZStack {
                             Theme.surfaceRaised
-                            Image(systemName: "play.rectangle").font(.system(size: 54)).foregroundStyle(Theme.textTertiary)
+                            Image(systemName: "play.rectangle").font(.system(size: 34)).foregroundStyle(Theme.textTertiary)
                         }
                     }
-                    .frame(width: width, height: width * 9 / 16)
+                    .frame(width: thumbWidth, height: thumbWidth * 9 / 16)
                     .clipped()
                     if let progress {
-                        ProgressBar(value: progress).frame(height: 6).padding(12)
+                        ProgressBar(value: progress).frame(height: 5).padding(8)
                     }
                     if isWatched {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 34))
+                            .font(.system(size: 26))
                             .foregroundStyle(Theme.accent, .black)
-                            .padding(12)
+                            .padding(8)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     }
-                    if !video.isReleased() {
-                        Badge(text: "À venir", tint: Theme.textPrimary)
-                            .padding(12)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
+                .frame(width: thumbWidth, height: thumbWidth * 9 / 16)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(.manrope(22, .heavy))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(2)
+                    if let overview = video.overview {
+                        Text(overview)
+                            .font(.system(size: 18))
+                            .foregroundStyle(Theme.textSecondary)
+                            .lineLimit(focused ? 4 : 2)
+                    }
+                    HStack(spacing: 10) {
+                        if isNext { Badge(text: "À suivre", tint: Theme.accent) }
+                        if !video.isReleased() { Badge(text: "À venir", tint: Theme.textPrimary) }
+                        if let released = video.released {
+                            Text(released.formatted(date: .abbreviated, time: .omitted))
+                                .font(.system(size: 17)).foregroundStyle(Theme.textTertiary)
+                        }
                     }
                 }
-                .frame(width: width, height: width * 9 / 16)
+                Spacer(minLength: 0)
             }
-            .buttonStyle(GlassCardButtonStyle(cornerRadius: 20))
-            .focused($focused)
-            .contextMenu {
-                Button(isWatched ? "Marquer comme non vu" : "Marquer comme vu") { onToggleWatched(!isWatched) }
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(title)
-                    .font(.cardTitle)
-                    .foregroundStyle(focused ? Theme.textPrimary : Theme.textSecondary)
-                    .lineLimit(1)
-                if let overview = video.overview {
-                    Text(overview).font(.system(size: 21)).foregroundStyle(Theme.textTertiary).lineLimit(focused ? 4 : 2)
-                }
-                if let released = video.released {
-                    Text(released.formatted(date: .abbreviated, time: .omitted))
-                        .font(.system(size: 19)).foregroundStyle(Theme.textTertiary)
-                }
-            }
-            .frame(width: width, alignment: .leading)
             .animation(.easeOut(duration: 0.2), value: focused)
+        }
+        .buttonStyle(RowButtonStyle())
+        .focused($focused)
+        .contextMenu {
+            Button(isWatched ? "Marquer comme non vu" : "Marquer comme vu") { onToggleWatched(!isWatched) }
         }
     }
 
     private var title: String {
         let number = video.episode.map { "\($0). " } ?? ""
         return number + (video.title.isEmpty ? "Épisode" : video.title)
+    }
+}
+
+/// Notes de la critique : Tomatometer et Metascore.
+struct ReviewChips: View {
+    let scores: ReviewScores
+
+    var body: some View {
+        HStack(spacing: 10) {
+            if let tomato = scores.tomatometer {
+                Chip(text: "Rotten Tomatoes \(tomato) %",
+                     tint: tomato >= 60 ? Color(red: 0.98, green: 0.36, blue: 0.29) : Theme.textSecondary)
+            }
+            if let meta = scores.metascore {
+                Chip(text: "Metacritic \(meta)",
+                     tint: meta >= 61 ? Color(red: 0.40, green: 0.80, blue: 0.20) : (meta >= 40 ? Color(red: 1.0, green: 0.80, blue: 0.20) : Color(red: 1.0, green: 0.35, blue: 0.35)))
+            }
+        }
     }
 }
 

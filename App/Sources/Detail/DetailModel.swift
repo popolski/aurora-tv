@@ -14,6 +14,8 @@ final class DetailModel {
     var selectedSeason: Int?
     /// Position de reprise (s) pour la vidéo cible, si significative.
     private(set) var resumePosition: TimeInterval?
+    /// Notes de la critique (Wikidata), si connues.
+    private(set) var reviews: ReviewScores?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
 
     init(preview: MetaItem) {
@@ -67,6 +69,10 @@ final class DetailModel {
             await self?.refreshLibrary(app: app)
             if let self, self.selectedSeason == nil {
                 self.selectedSeason = self.targetVideo?.season ?? self.meta.seasons.first
+            }
+            if let self, !app.isUITest, self.meta.id.hasPrefix("tt") {
+                let scores = await app.reviews.scores(imdbID: self.meta.id)
+                if !scores.isEmpty { self.reviews = scores }
             }
         }
     }

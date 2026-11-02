@@ -184,6 +184,7 @@ struct SegmentButtonStyle: ButtonStyle {
 
 /// Grille paginée d'un catalogue.
 struct CatalogGrid: View {
+    @Environment(AppModel.self) private var model
     let row: CatalogRowModel
     private let columns = Array(repeating: GridItem(.fixed(Theme.Poster.width), spacing: 48), count: 6)
 
@@ -200,7 +201,7 @@ struct CatalogGrid: View {
                 MessageView(systemImage: "tray", title: "Catalogue vide")
             } else {
                 LazyVGrid(columns: columns, alignment: .leading, spacing: 60) {
-                    ForEach(row.items) { meta in
+                    ForEach(model.visibleTitles(row.items)) { meta in
                         MetaPosterLink(meta: meta)
                             .onAppear {
                                 if let index = row.items.firstIndex(where: { $0.id == meta.id }), index >= row.items.count - 12 {

@@ -209,11 +209,23 @@ struct HomeView: View {
                 ContinueWatchingBackdrop(item: item, meta: home.enriched[item.id]) { candidate = item.previewMeta }
             }
         }
+        if !thisWeek.isEmpty {
+            ShelfRow(title: "Cette semaine", subtitle: "Épisodes de vos séries", items: thisWeek, cardHeight: BackdropCard.height) { entry in
+                BackdropCard(title: entry.series.name, imageURL: entry.video.thumbnail ?? entry.series.background,
+                             fallbackURL: entry.series.poster, logoURL: entry.series.logo,
+                             subtitle: [entry.video.episodeCode, EpisodeCalendar.dayLabel(for: entry.released).capitalizedFirst]
+                                .compactMap { $0 }.joined(separator: " · "),
+                             badge: entry.released > Date() ? nil : "Disponible",
+                             route: .meta(entry.series), onFocus: { candidate = entry.series })
+            }
+        }
         if !model.libraryItems.isEmpty {
             ShelfRow(title: "Ma liste", items: Array(model.libraryItems.prefix(30)), cardHeight: BackdropCard.height) { item in
                 let rich = home.enriched[item.id]
                 BackdropCard(title: item.name, imageURL: rich?.background, fallbackURL: item.poster, logoURL: rich?.logo,
-                             inCinema: rich?.isInCinema ?? false, rating: rich?.imdbRating, route: .meta(rich ?? item.previewMeta), onFocus: { candidate = item.previewMeta })
+                             inCinema: rich?.isInCinema ?? false, rating: rich?.imdbRating,
+                             badge: rich.map { EpisodeCalendar.hasNewEpisode(series: $0, item: item) } == true ? "Nouvel épisode" : nil,
+                             route: .meta(rich ?? item.previewMeta), onFocus: { candidate = item.previewMeta })
             }
         }
         ForEach(home.rows) { row in
@@ -223,6 +235,12 @@ struct HomeView: View {
 
     private func configure() {
         home.configure(addons: model.addons, settings: model.settings, aggregator: model.aggregator)
+    }
+
+    /// Épisodes de la semaine des séries de la bibliothèque (fiches préchargées).
+    private var thisWeek: [EpisodeCalendar.Entry] {
+        let series = model.libraryItems.filter { $0.type == ContentType.series }.compactMap { home.enriched[$0.id] }
+        return EpisodeCalendar.thisWeek(series: series)
     }
 
     private var rotationKey: String {
@@ -264,14 +282,16 @@ struct HomeView: View {
 
 /// Rangée de catalogue (cartes paysage).
 struct CatalogShelf: View {
+    @Environment(AppModel.self) private var model
     let row: CatalogRowModel
     var onFocus: (MetaItem) -> Void = { _ in }
 
     var body: some View {
-        ShelfRow(title: row.title, subtitle: row.subtitle, items: row.items, isLoading: row.isLoading, error: row.error,
+        ShelfRow(title: row.title, subtitle: row.subtitle, items: model.visibleTitles(row.items), isLoading: row.isLoading, error: row.error,
                  cardHeight: BackdropCard.height, onReachEnd: { row.loadNextPage() }) { meta in
             BackdropCard(title: meta.name, imageURL: meta.background, fallbackURL: meta.poster, logoURL: meta.logo,
                          inCinema: meta.isInCinema, rating: meta.imdbRating, route: .meta(meta), onFocus: { onFocus(meta) })
+                .opacity(model.isDimmed(meta) ? 0.45 : 1)
         }
         .onAppear { row.loadIfNeeded() }
     }
@@ -289,6 +309,7 @@ struct ContinueWatchingBackdrop: View {
         BackdropCard(title: item.name, imageURL: meta?.background, fallbackURL: item.poster, logoURL: meta?.logo,
                      subtitle: ContinueWatchingCard.subtitle(for: item),
                      progress: item.state.progress, inCinema: meta?.isInCinema ?? false, rating: meta?.imdbRating,
+                     badge: meta.map { EpisodeCalendar.hasNewEpisode(series: $0, item: item) } == true ? "Nouvel épisode" : nil,
                      route: .meta(meta ?? item.previewMeta), onFocus: onFocus)
             .contextMenu {
                 Button("Retirer de « Continuer à regarder »", role: .destructive) {
@@ -300,11 +321,13 @@ struct ContinueWatchingBackdrop: View {
 
 /// Affiche d'un contenu qui ouvre sa fiche.
 struct MetaPosterLink: View {
+    @Environment(AppModel.self) private var model
     let meta: MetaItem
 
     var body: some View {
         PosterCard(title: meta.name, imageURL: meta.poster, subtitle: meta.displayYear, shape: meta.posterShape,
                    inCinema: meta.isInCinema, rating: meta.imdbRating, route: .meta(meta))
+            .opacity(model.isDimmed(meta) ? 0.45 : 1)
     }
 }
 
@@ -431,4 +454,9 @@ struct MetaLine: View {
         .font(.meta)
         .foregroundStyle(Theme.textSecondary)
     }
+}
+
+extension String {
+    /// Première lettre en majuscule (« jeudi » → « Jeudi »).
+    var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
 }

@@ -48,8 +48,12 @@ public actor SkipTimesClient {
 
     public init(http: any HTTPClient) { self.http = http }
 
-    /// Passages connus pour une vidéo Stremio (`tt…` / `tt…:S:E` / `tmdb:…`), triés par début.
+    /// Passages connus pour une vidéo Stremio (`tt…` / `tt…:S:E` / `tmdb:…` : TheIntroDB ;
+    /// `kitsu:<id>:<épisode>` : AniSkip), triés par début.
     public func segments(videoID: String, type: String, durationMs: Int? = nil) async -> [SkipSegment] {
+        if videoID.hasPrefix("kitsu:") {
+            return await animeSegments(videoID: videoID, durationMs: durationMs)
+        }
         guard let url = Self.requestURL(videoID: videoID, type: type, durationMs: durationMs) else { return [] }
         let key = url.absoluteString
         if let cached = cache[key] { return cached }
@@ -73,6 +77,77 @@ public actor SkipTimesClient {
     }
 
     private struct RateLimit: Decodable { var retry_after_seconds: Double? }
+
+    // MARK: Animés : AniSkip (identifiant MyAnimeList trouvé via Kitsu)
+
+    private var malIDs: [String: Int] = [:]
+
+    private func animeSegments(videoID: String, durationMs: Int?) async -> [SkipSegment] {
+        let parts = videoID.split(separator: ":").map(String.init)
+        guard parts.count >= 2, !parts[1].isEmpty, parts[1].allSatisfy(\.isNumber) else { return [] }
+        let kitsuID = parts[1]
+        let episode = parts.count >= 3 ? Int(parts[parts.count - 1]) ?? 1 : 1
+        let key = "kitsu:\(kitsuID):\(episode)"
+        if let cached = cache[key] { return cached }
+        let mal: Int
+        if let known = malIDs[kitsuID] {
+            mal = known
+        } else {
+            guard let url = Self.kitsuMappingURL(kitsuID: kitsuID),
+                  let response = try? await http.send(HTTPRequest(url: url, timeout: 10, maxBytes: 256 * 1024)),
+                  response.status == 200, let found = Self.parseMALID(response.data) else { return [] }
+            malIDs[kitsuID] = found
+            mal = found
+        }
+        guard let url = Self.aniSkipURL(malID: mal, episode: episode, episodeLength: (durationMs ?? 0) / 1000),
+              let response = try? await http.send(HTTPRequest(url: url, timeout: 10, maxBytes: 256 * 1024)) else { return [] }
+        let segments = response.status == 200 ? Self.parseAniSkip(response.data) : []
+        if response.status == 200 || response.status == 404 { cache[key] = segments }
+        return segments
+    }
+
+    public static func kitsuMappingURL(kitsuID: String) -> URL? {
+        guard kitsuID.allSatisfy(\.isNumber), !kitsuID.isEmpty else { return nil }
+        var components = URLComponents(string: "https://kitsu.app/api/edge/anime/\(kitsuID)/mappings")
+        components?.queryItems = [URLQueryItem(name: "filter[externalSite]", value: "myanimelist/anime")]
+        return components?.url
+    }
+
+    public static func parseMALID(_ data: Data) -> Int? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let entries = object["data"] as? [[String: Any]] else { return nil }
+        for entry in entries {
+            guard let attributes = entry["attributes"] as? [String: Any],
+                  (attributes["externalSite"] as? String) ?? "myanimelist/anime" == "myanimelist/anime",
+                  let raw = attributes["externalId"] else { continue }
+            if let id = raw as? Int { return id }
+            if let text = raw as? String, let id = Int(text) { return id }
+        }
+        return nil
+    }
+
+    /// `GET https://api.aniskip.com/v2/skip-times/<mal>/<épisode>?types[]=op&…&episodeLength=<s>`.
+    public static func aniSkipURL(malID: Int, episode: Int, episodeLength: Int) -> URL? {
+        var components = URLComponents(string: "https://api.aniskip.com/v2/skip-times/\(malID)/\(max(1, episode))")
+        components?.queryItems = ["op", "ed", "recap", "mixed-op", "mixed-ed"].map { URLQueryItem(name: "types[]", value: $0) }
+            + [URLQueryItem(name: "episodeLength", value: String(max(0, episodeLength)))]
+        return components?.url
+    }
+
+    /// `{"found":true,"results":[{"interval":{"startTime":10.5,"endTime":100.2},"skipType":"op"}]}`.
+    public static func parseAniSkip(_ data: Data) -> [SkipSegment] {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let results = object["results"] as? [[String: Any]] else { return [] }
+        let kinds: [String: SkipSegment.Kind] = ["op": .intro, "mixed-op": .intro, "ed": .credits, "mixed-ed": .credits, "recap": .recap]
+        return results.compactMap { result -> SkipSegment? in
+            guard let type = result["skipType"] as? String, let kind = kinds[type],
+                  let interval = result["interval"] as? [String: Any],
+                  let start = (interval["startTime"] as? NSNumber)?.doubleValue,
+                  let end = (interval["endTime"] as? NSNumber)?.doubleValue, end > start + 1 else { return nil }
+            return SkipSegment(kind: kind, start: max(0, start), end: end)
+        }
+        .sorted { $0.start < $1.start }
+    }
 
     public static func requestURL(videoID: String, type: String, durationMs: Int? = nil) -> URL? {
         let parts = videoID.split(separator: ":").map(String.init)

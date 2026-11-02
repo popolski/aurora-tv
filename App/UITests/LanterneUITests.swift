@@ -35,6 +35,13 @@ final class LanterneUITests: XCTestCase {
         }
     }
 
+    private func attachScreenshot(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     private var tabBarHasFocus: Bool {
         app.tabBars.buttons.matching(NSPredicate(format: "hasFocus == true")).firstMatch.exists
     }
@@ -113,13 +120,18 @@ final class LanterneUITests: XCTestCase {
         launch()
         XCTAssertTrue(app.staticTexts["Populaires"].waitForExistence(timeout: 15))
         goToTab("Réglages")
-        let diagnostics = app.buttons["settings.diagnostics"]
+        // Dans une liste tvOS, les lignes peuvent être exposées comme cellules : recherche par identifiant seul.
+        let diagnostics = app.descendants(matching: .any)["settings.diagnostics"]
         XCTAssertTrue(diagnostics.waitForExistence(timeout: 10))
         var guardCount = 0
         while !diagnostics.hasFocus && guardCount < 12 { press(.down); guardCount += 1 }
         press(.select)
-        let clip = app.buttons["test.h264"]
-        XCTAssertTrue(clip.waitForExistence(timeout: 10))
+        let clip = app.descendants(matching: .any)["test.h264"]
+        if !clip.waitForExistence(timeout: 10) {
+            attachScreenshot("diagnostics-non-ouvert")
+            XCTFail("l'écran de test du lecteur ne s'est pas ouvert (focus : \(focusedLabel()))")
+            return
+        }
         guardCount = 0
         while !clip.hasFocus && guardCount < 6 { press(.down); guardCount += 1 }
         press(.select)

@@ -73,7 +73,7 @@ struct SearchView: View {
                 }
                 ForEach(model.groups) { group in
                     ShelfRow(title: group.ref.typeLabel, subtitle: "\(group.ref.title) · \(group.ref.addon.manifest.name)",
-                             items: group.items) { meta in
+                             items: app.visibleTitles(group.items)) { meta in
                         MetaPosterLink(meta: meta)
                     }
                 }
