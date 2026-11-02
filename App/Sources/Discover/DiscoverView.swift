@@ -195,7 +195,7 @@ struct DiscoverDetailPanel: View {
                         .frame(width: 504, height: 284)
                         .clipped()
                     LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
-                    if let logo = meta.logo {
+                    if let logo = meta.displayLogo {
                         RemoteImage(url: logo, maxPixel: 600, contentMode: .fit) {
                             Text(meta.name).font(.manrope(30, .heavy)).foregroundStyle(.white).lineLimit(2)
                         }

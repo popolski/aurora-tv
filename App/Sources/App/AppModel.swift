@@ -88,11 +88,14 @@ final class AppModel {
     static let settingsKey = "settings.v1"
 
     init(addonClient: AddonClient, registry: AddonRegistry, library: LibraryStore, account: AccountService,
-         skipTimes: SkipTimesClient, reviews: ReviewScoresClient, defaults: any KeyValueStore, isUITest: Bool) {
+         skipTimes: SkipTimesClient, reviews: ReviewScoresClient, titles: TitleLocalizer?,
+         defaults: any KeyValueStore, isUITest: Bool) {
         self.skipTimes = skipTimes
         self.reviews = reviews
         self.addonClient = addonClient
-        self.aggregator = AddonAggregator(client: addonClient)
+        var aggregator = AddonAggregator(client: addonClient)
+        aggregator.titles = titles
+        self.aggregator = aggregator
         self.registry = registry
         self.library = library
         self.account = account
@@ -119,6 +122,7 @@ final class AppModel {
         LogSetup.configure(uiTest: isUITest)
         return AppModel(addonClient: client, registry: registry, library: library, account: account,
                         skipTimes: SkipTimesClient(http: http), reviews: ReviewScoresClient(http: http),
+                        titles: isUITest ? nil : TitleLocalizer(http: http),
                         defaults: defaults, isUITest: isUITest)
     }
 

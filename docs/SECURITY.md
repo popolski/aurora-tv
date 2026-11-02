@@ -46,6 +46,7 @@ l'API Stremio, sauf adresses de réseau local (IP privées, `.local`, `.lan`, Ta
 | Addons Stremio choisis par l'utilisateur | navigation, lecture | identifiants de contenu (IMDb…), filtres |
 | API de compte Stremio | connexion, synchronisation | identifiants de connexion, jeton de session (Trousseau) |
 | TheIntroDB (`api.theintrodb.org`, API v4, sans clé) | début de lecture, si « Passer l'intro » est activé | identifiant IMDb/TMDB, saison, épisode, durée — aucune donnée de compte |
+| Wikidata (`query.wikidata.org`, sans clé) | fiche (notes de la critique) ; catalogues contenant des titres non latins | identifiants IMDb seulement |
 | Cinemeta (`v3-cinemeta.strem.io`) | rafraîchissement du Top Shelf | aucune (catalogue public) |
 | Service aurora-trailers (NAS, réseau local) | bandes-annonces, images du Top Shelf | identifiants YouTube, adresses d'images publiques |
 

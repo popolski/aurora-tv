@@ -20,6 +20,8 @@ public struct MetaItem: Sendable, Hashable, Codable, Identifiable {
     public var id: String
     public var type: String
     public var name: String
+    /// Titre d'origine quand `name` a été remplacé par un titre lisible (voir `TitleLocalizer`).
+    public var originalName: String? = nil
     public var poster: URL?
     public var background: URL?
     public var logo: URL?
@@ -179,11 +181,20 @@ public struct MetaItem: Sendable, Hashable, Codable, Identifiable {
         return nil
     }
 
+    /// Logo à afficher : aucun quand le titre a été remplacé par un titre lisible
+    /// (le logo reprend en général l'écriture d'origine).
+    public var displayLogo: URL? { originalName == nil ? logo : nil }
+
     /// Fusionne un aperçu (catalogue) et une fiche détaillée : la fiche prime,
     /// l'aperçu comble les trous. Permet un affichage immédiat puis enrichi.
     public func merged(withDetail detail: MetaItem) -> MetaItem {
         var m = detail
         if m.name.isEmpty { m.name = name }
+        // Titre lisible déjà trouvé pour l'aperçu : le garder si la fiche porte le titre d'origine.
+        if m.originalName == nil, let original = originalName, m.name == original {
+            m.name = name
+            m.originalName = original
+        }
         m.poster = m.poster ?? poster
         m.background = m.background ?? background
         m.logo = m.logo ?? logo

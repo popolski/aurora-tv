@@ -52,6 +52,8 @@ public struct AddonAggregator: Sendable {
     public let client: AddonClient
     /// Délai par addon pour les flux : un addon lent ne bloque pas les autres.
     public var streamTimeout: TimeInterval = 20
+    /// Titres lisibles pour les titres en écriture non latine (facultatif).
+    public var titles: TitleLocalizer?
 
     public init(client: AddonClient) { self.client = client }
 
@@ -81,13 +83,15 @@ public struct AddonAggregator: Sendable {
         if let genre { extra.append(.init(name: ExtraName.genre, value: genre)) }
         if skip > 0 { extra.append(.init(name: ExtraName.skip, value: String(skip))) }
         guard ref.catalog.accepts(extra) else { throw AddonError.resourceNotSupported }
-        return try await client.catalog(ref.addon, catalog: ref.catalog, extra: extra)
+        let metas = try await client.catalog(ref.addon, catalog: ref.catalog, extra: extra)
+        return await titles?.localize(metas) ?? metas
     }
 
     /// Recherche sur tous les catalogues compatibles ; résultats au fil de l'eau.
     public func search(_ query: String, addons: [AddonDescriptor]) -> AsyncStream<(CatalogRef, Result<[MetaItem], AddonError>)> {
         let refs = searchCatalogs(addons)
         let client = self.client
+        let titles = self.titles
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         return AsyncStream { continuation in
             let task = Task {
@@ -97,7 +101,7 @@ public struct AddonAggregator: Sendable {
                             do {
                                 let metas = try await client.catalog(ref.addon, catalog: ref.catalog,
                                                                      extra: [.init(name: ExtraName.search, value: trimmed)])
-                                return (ref, .success(metas))
+                                return (ref, .success(await titles?.localize(metas) ?? metas))
                             } catch let e as AddonError {
                                 return (ref, .failure(e))
                             } catch {
@@ -126,7 +130,9 @@ public struct AddonAggregator: Sendable {
         for addon in candidates {
             try Task.checkCancellation()
             do {
-                if let meta = try await client.meta(addon, type: type, id: id) { return meta }
+                if let meta = try await client.meta(addon, type: type, id: id) {
+                    return await titles?.localize(meta) ?? meta
+                }
             } catch let e as AddonError {
                 lastError = e
             }

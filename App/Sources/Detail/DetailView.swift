@@ -99,7 +99,7 @@ struct DetailView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 20) {
-            if let logo = meta.logo {
+            if let logo = meta.displayLogo {
                 RemoteImage(url: logo, maxPixel: 900, contentMode: .fit) {
                     Text(meta.name).font(.heroTitle).foregroundStyle(Theme.textPrimary)
                 }
@@ -109,6 +109,10 @@ struct DetailView: View {
                     .font(.heroTitle).foregroundStyle(Theme.textPrimary).lineLimit(2)
                     .minimumScaleFactor(0.6)
                     .shadow(color: .black.opacity(0.4), radius: 10)
+            }
+            if let original = meta.originalName {
+                // Titre d'origine, en petit, quand le titre affiché a été rendu lisible.
+                Text(original).font(.manrope(24, .semibold)).foregroundStyle(Theme.textTertiary).lineLimit(1)
             }
             MetaChips(meta: meta, showGenres: false)
             if let reviews = detail.reviews {

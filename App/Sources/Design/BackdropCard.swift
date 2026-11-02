@@ -155,7 +155,7 @@ struct BillboardInfo: View {
                 .foregroundStyle(Theme.accent)
                 .opacity(meta == nil ? 0 : 1)
             ZStack(alignment: .bottomLeading) {
-                if meta?.logo == nil, let name = meta?.name {
+                if meta?.displayLogo == nil, let name = meta?.name {
                     Text(name)
                         .font(.heroTitle)
                         .foregroundStyle(Theme.textPrimary)
@@ -164,7 +164,7 @@ struct BillboardInfo: View {
                         .shadow(color: .black.opacity(0.4), radius: 10)
                         .transition(.opacity)
                 }
-                CrossfadeImage(url: meta?.logo, maxPixel: 900, contentMode: .fit, alignment: .bottomLeading, duration: 0.35)
+                CrossfadeImage(url: meta?.displayLogo, maxPixel: 900, contentMode: .fit, alignment: .bottomLeading, duration: 0.35)
             }
             .frame(width: 760, height: 170, alignment: .bottomLeading)
 
