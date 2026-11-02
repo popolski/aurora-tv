@@ -12,6 +12,8 @@ struct BackdropCard: View {
     let imageURL: URL?
     var fallbackURL: URL?
     var logoURL: URL?
+    /// Film d'origine en écriture non latine : un logo sans texte reconnu est écarté.
+    var nonLatinOrigin = false
     var subtitle: String?
     var progress: Double?
     /// Film probablement encore à l'affiche : pastille discrète en haut à droite.
@@ -25,6 +27,8 @@ struct BackdropCard: View {
     var onFocus: (() -> Void)?
 
     @FocusState private var focused: Bool
+    /// Le logo est-il lisible (vérifié par la reconnaissance de texte) ? Optimiste au départ.
+    @State private var logoReadable = true
 
     var body: some View {
         Group {
@@ -39,6 +43,11 @@ struct BackdropCard: View {
             if isFocused { onFocus?() }
         }
         .accessibilityLabel(Text(title))
+        .task(id: logoURL) {
+            guard let logoURL else { return }
+            let readable = await LogoCheck.shared.isReadable(logoURL, nonLatinOrigin: nonLatinOrigin)
+            if readable != logoReadable { logoReadable = readable }
+        }
     }
 
     private var artwork: some View {
@@ -56,7 +65,7 @@ struct BackdropCard: View {
             LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .center, endPoint: .bottom)
 
             VStack(alignment: .leading, spacing: 4) {
-                if let logoURL {
+                if let logoURL, logoReadable {
                     RemoteImage(url: logoURL, maxPixel: 500, contentMode: .fit) {
                         Text(title).font(.manrope(26, .heavy)).foregroundStyle(.white).lineLimit(2)
                     }
@@ -143,6 +152,13 @@ struct BillboardInfo: View {
     let meta: MetaItem?
     /// Bande-annonce en cours : le résumé s'efface pour laisser voir l'image.
     var dimmed = false
+    @State private var unreadableLogos: Set<URL> = []
+
+    /// Logo affiché : aucun s'il a été jugé illisible (écriture d'origine).
+    private var logo: URL? {
+        guard let url = meta?.displayLogo, !unreadableLogos.contains(url) else { return nil }
+        return url
+    }
 
     /// Gabarit fixe (logo/titre, puces, résumé sur 3 lignes réservées) : le bloc
     /// ne change jamais de hauteur d'un titre à l'autre, donc rien ne saute.
@@ -155,7 +171,7 @@ struct BillboardInfo: View {
                 .foregroundStyle(Theme.accent)
                 .opacity(meta == nil ? 0 : 1)
             ZStack(alignment: .bottomLeading) {
-                if meta?.displayLogo == nil, let name = meta?.name {
+                if logo == nil, let name = meta?.name {
                     Text(name)
                         .font(.heroTitle)
                         .foregroundStyle(Theme.textPrimary)
@@ -164,7 +180,7 @@ struct BillboardInfo: View {
                         .shadow(color: .black.opacity(0.4), radius: 10)
                         .transition(.opacity)
                 }
-                CrossfadeImage(url: meta?.displayLogo, maxPixel: 900, contentMode: .fit, alignment: .bottomLeading, duration: 0.35)
+                CrossfadeImage(url: logo, maxPixel: 900, contentMode: .fit, alignment: .bottomLeading, duration: 0.35)
             }
             .frame(width: 760, height: 170, alignment: .bottomLeading)
 
@@ -184,6 +200,11 @@ struct BillboardInfo: View {
         }
         .animation(.easeInOut(duration: 0.35), value: meta?.id)
         .frame(maxWidth: .infinity, alignment: .bottomLeading)
+        .task(id: meta?.displayLogo) {
+            guard let meta, let url = meta.displayLogo else { return }
+            let readable = await LogoCheck.shared.isReadable(url, nonLatinOrigin: meta.nonLatinOrigin)
+            if !readable { unreadableLogos.insert(url) }
+        }
     }
 }
 

@@ -229,6 +229,7 @@ struct HomeView: View {
             ShelfRow(title: "Cette semaine", subtitle: "Épisodes de vos séries", items: thisWeek, cardHeight: BackdropCard.height) { entry in
                 BackdropCard(title: entry.series.name, imageURL: entry.video.thumbnail ?? entry.series.background,
                              fallbackURL: entry.series.poster, logoURL: entry.series.displayLogo,
+                             nonLatinOrigin: entry.series.nonLatinOrigin,
                              subtitle: [entry.video.episodeCode, EpisodeCalendar.dayLabel(for: entry.released).capitalizedFirst]
                                 .compactMap { $0 }.joined(separator: " · "),
                              badge: entry.released > Date() ? nil : "Disponible",
@@ -240,7 +241,7 @@ struct HomeView: View {
             ShelfRow(title: "Ma liste", items: Array(model.libraryItems.prefix(30)), cardHeight: BackdropCard.height) { item in
                 let rich = home.enriched[item.id]
                 BackdropCard(title: rich?.name ?? item.name, imageURL: rich?.background, fallbackURL: item.poster, logoURL: rich?.displayLogo,
-                             inCinema: rich?.isInCinema ?? false, rating: rich?.imdbRating,
+                             nonLatinOrigin: rich?.nonLatinOrigin ?? false, inCinema: rich?.isInCinema ?? false, rating: rich?.imdbRating,
                              badge: rich.map { EpisodeCalendar.hasNewEpisode(series: $0, item: item) } == true ? "Nouvel épisode" : nil,
                              route: .meta(rich ?? item.previewMeta), onFocus: { focusChanged(item.previewMeta) })
                     .focused($focusedCard, equals: "list|\(item.id)")
@@ -322,7 +323,7 @@ struct CatalogShelf: View {
         ShelfRow(title: row.title, subtitle: row.subtitle, items: model.visibleTitles(row.items), isLoading: row.isLoading, error: row.error,
                  cardHeight: BackdropCard.height, onReachEnd: { row.loadNextPage() }) { meta in
             BackdropCard(title: meta.name, imageURL: meta.background, fallbackURL: meta.poster, logoURL: meta.displayLogo,
-                         inCinema: meta.isInCinema, rating: meta.imdbRating, route: .meta(meta), onFocus: { onFocus(meta) })
+                         nonLatinOrigin: meta.nonLatinOrigin, inCinema: meta.isInCinema, rating: meta.imdbRating, route: .meta(meta), onFocus: { onFocus(meta) })
                 .opacity(model.isDimmed(meta) ? 0.45 : 1)
                 .focused(focus, equals: "\(row.id)|\(meta.id)")
         }
@@ -340,6 +341,7 @@ struct ContinueWatchingBackdrop: View {
 
     var body: some View {
         BackdropCard(title: meta?.name ?? item.name, imageURL: meta?.background, fallbackURL: item.poster, logoURL: meta?.displayLogo,
+                     nonLatinOrigin: meta?.nonLatinOrigin ?? false,
                      subtitle: ContinueWatchingCard.subtitle(for: item),
                      progress: item.state.progress, inCinema: meta?.isInCinema ?? false, rating: meta?.imdbRating,
                      badge: meta.map { EpisodeCalendar.hasNewEpisode(series: $0, item: item) } == true ? "Nouvel épisode" : nil,

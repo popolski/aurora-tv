@@ -8,6 +8,8 @@ struct DetailView: View {
     @Namespace private var focusNamespace
     @State private var trailerURL: URL?
     @FocusState private var focusedAction: SecondaryAction?
+    /// Logo de titre lisible (reconnaissance de texte) ; sinon le titre en texte.
+    @State private var logoReadable = true
 
     /// Boutons ronds : leur rôle s'affiche en légende quand ils ont le focus.
     private enum SecondaryAction: Hashable { case trailer, library, watched }
@@ -48,6 +50,10 @@ struct DetailView: View {
         .focusScope(focusNamespace)
         .ignoresSafeArea(edges: .top)
         .task { detail.load(app: app) }
+        .task(id: meta.displayLogo) {
+            guard let url = meta.displayLogo else { return }
+            logoReadable = await LogoCheck.shared.isReadable(url, nonLatinOrigin: meta.nonLatinOrigin)
+        }
         // Bande-annonce muette après quelques secondes ; coupée dès qu'on lance la lecture.
         .task(id: trailerCandidate) {
             trailerURL = nil
@@ -99,7 +105,7 @@ struct DetailView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 20) {
-            if let logo = meta.displayLogo {
+            if let logo = meta.displayLogo, logoReadable {
                 RemoteImage(url: logo, maxPixel: 900, contentMode: .fit) {
                     Text(meta.name).font(.heroTitle).foregroundStyle(Theme.textPrimary)
                 }

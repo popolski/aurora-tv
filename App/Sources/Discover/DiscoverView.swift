@@ -186,6 +186,7 @@ struct DiscoverView: View {
 /// distribution, réalisation du titre qui a le focus dans la grille.
 struct DiscoverDetailPanel: View {
     let meta: MetaItem?
+    @State private var unreadableLogos: Set<URL> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -195,7 +196,7 @@ struct DiscoverDetailPanel: View {
                         .frame(width: 504, height: 284)
                         .clipped()
                     LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
-                    if let logo = meta.displayLogo {
+                    if let logo = meta.displayLogo, !unreadableLogos.contains(logo) {
                         RemoteImage(url: logo, maxPixel: 600, contentMode: .fit) {
                             Text(meta.name).font(.manrope(30, .heavy)).foregroundStyle(.white).lineLimit(2)
                         }
@@ -238,6 +239,11 @@ struct DiscoverDetailPanel: View {
         .background(GlassPanel(cornerRadius: 36))
         .animation(.easeInOut(duration: 0.25), value: meta?.id)
         .accessibilityElement(children: .combine)
+        .task(id: meta?.displayLogo) {
+            guard let meta, let url = meta.displayLogo else { return }
+            let readable = await LogoCheck.shared.isReadable(url, nonLatinOrigin: meta.nonLatinOrigin)
+            if !readable { unreadableLogos.insert(url) }
+        }
     }
 }
 
