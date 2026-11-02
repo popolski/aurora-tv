@@ -821,7 +821,9 @@ final class PlayerSession {
             if sleepFade >= 1 { finishSleep() }
             return
         }
-        guard let timer = sleepTimer, status == .active, s.phase == .playing else { return }
+        // En pause aussi : l'échéance d'un minuteur à durée fixe n'attend pas la reprise.
+        guard let timer = sleepTimer, status == .active, s.phase == .playing || s.phase == .paused,
+              !stillWatchingPrompt else { return }
         let due: Bool
         switch timer {
         case .minutes:
