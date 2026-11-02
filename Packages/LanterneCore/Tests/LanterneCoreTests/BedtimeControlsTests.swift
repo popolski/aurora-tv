@@ -37,15 +37,17 @@ struct BedtimeControlsTests {
 
     @Test func stillWatchingAsksAfterLimit() {
         var counter = StillWatchingCounter(limit: 2)
-        #expect(counter.allowAutoAdvance())
-        #expect(counter.allowAutoAdvance())
-        #expect(!counter.allowAutoAdvance())
-        #expect(!counter.allowAutoAdvance())
+        var answers: [Bool] = []
+        for _ in 0..<4 { answers.append(counter.allowAutoAdvance()) }
+        #expect(answers == [true, true, false, false])
         counter.userInteracted()
-        #expect(counter.allowAutoAdvance())
+        let afterInput = counter.allowAutoAdvance()
+        #expect(afterInput)
 
         var never = StillWatchingCounter(limit: 0)
-        for _ in 0..<20 { #expect(never.allowAutoAdvance()) }
+        var neverAnswers: [Bool] = []
+        for _ in 0..<20 { neverAnswers.append(never.allowAutoAdvance()) }
+        #expect(neverAnswers.allSatisfy { $0 })
     }
 
     @Test func stillWatchingPreferenceIsTolerant() throws {
