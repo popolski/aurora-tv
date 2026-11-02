@@ -83,6 +83,15 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(r.headers["Content-Range"], "bytes 0-1/1000")
             self.assertEqual(len(r.read()), 2)
 
+    def test_preview_route(self):
+        # Sans ffmpeg dans le PATH des tests : la bande-annonce entière est servie.
+        with self.get("/trailer/ccccccccccc.preview.mp4") as r:
+            self.assertEqual(r.status, 200)
+            self.assertEqual(len(r.read()), 1000)
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            self.get("/trailer/ccccccccccc.other.mp4")
+        self.assertEqual(ctx.exception.code, 404)
+
     def test_failure_is_remembered(self):
         with self.assertRaises(urllib.error.HTTPError) as ctx:
             self.get("/trailer/failfailfai.mp4")

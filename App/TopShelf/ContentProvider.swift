@@ -51,7 +51,8 @@ final class ContentProvider: TVTopShelfContentProvider {
         }
         item.namedAttributes = attributes
         if let server, let id = TrailerLink.firstValidID(in: meta) {
-            item.previewVideoURL = TrailerLink.videoURL(server: server, youTubeID: id)
+            // Extrait de 30 s : tvOS passe au film suivant à la fin de la vidéo.
+            item.previewVideoURL = TrailerLink.previewURL(server: server, youTubeID: id)
         }
         if let url = DeepLink(action: .meta, type: meta.type, id: meta.id, name: meta.name).url {
             item.displayAction = TVTopShelfAction(url: url)

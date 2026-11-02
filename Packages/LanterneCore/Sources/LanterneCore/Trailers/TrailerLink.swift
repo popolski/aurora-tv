@@ -51,6 +51,12 @@ public enum TrailerLink {
         return server.appendingPathComponent("trailer").appendingPathComponent("\(youTubeID).mp4")
     }
 
+    /// `<serveur>/trailer/<id>.preview.mp4` : extrait de 30 s, sans le son (carrousel Top Shelf).
+    public static func previewURL(server: URL, youTubeID: String) -> URL? {
+        guard isValidYouTubeID(youTubeID) else { return nil }
+        return server.appendingPathComponent("trailer").appendingPathComponent("\(youTubeID).preview.mp4")
+    }
+
     /// `<serveur>/prefetch` : demande au service de préparer ces bandes-annonces.
     public static func prefetchURL(server: URL) -> URL {
         server.appendingPathComponent("prefetch")

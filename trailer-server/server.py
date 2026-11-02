@@ -9,6 +9,7 @@ la garde en cache et la sert en HTTP avec prise en charge des plages (Range).
 Points d'entrée :
   GET  /health                 état du service (JSON)
   GET  /trailer/<id>.mp4       bande-annonce (téléchargée à la première demande)
+  GET  /trailer/<id>.preview.mp4  extrait de 30 s, sans le son (carrousel Top Shelf)
   POST /prefetch               {"ids": ["<id>", ...]} : préparation en arrière-plan
 
 Réservé au réseau local : n'exposez pas ce port sur Internet.
@@ -26,7 +27,9 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
-TRAILER_PATH_RE = re.compile(r"^/trailer/([A-Za-z0-9_-]{11})\.mp4$")
+TRAILER_PATH_RE = re.compile(r"^/trailer/([A-Za-z0-9_-]{11})(\.preview)?\.mp4$")
+PREVIEW_START = int(os.environ.get("PREVIEW_START", "5"))
+PREVIEW_SECONDS = int(os.environ.get("PREVIEW_SECONDS", "30"))
 # Fichiers du cache : « <id>.av.mp4 » (image + son). Les anciens « <id>.mp4 » (image seule,
 # première version du service) sont supprimés au démarrage.
 OLD_FILE_RE = re.compile(r"^[A-Za-z0-9_-]{11}\.mp4$")
@@ -209,6 +212,29 @@ class Cache:
             except OSError:
                 pass
 
+    def preview(self, yt_id):
+        """Extrait court et muet de la bande-annonce (créé à la demande, puis gardé en cache)."""
+        full = self.cached(yt_id)
+        if not full:
+            return None
+        target = os.path.join(self.directory, f"{yt_id}.preview.mp4")
+        if os.path.isfile(target):
+            return target
+        if shutil.which("ffmpeg") is None:
+            return full  # sans ffmpeg : la bande-annonce entière
+        tmp = os.path.join(self.work, f"{yt_id}.preview.mp4")
+        cmd = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-ss", str(PREVIEW_START), "-i", full,
+               "-t", str(PREVIEW_SECONDS), "-map", "0:v:0", "-c", "copy", "-an",
+               "-movflags", "+faststart", "-f", "mp4", tmp]
+        try:
+            subprocess.run(cmd, check=True, timeout=60, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            os.replace(tmp, target)
+            return target
+        except (subprocess.SubprocessError, OSError):
+            if os.path.exists(tmp):
+                os.remove(tmp)
+            return full
+
     def entries(self):
         out = []
         for name in os.listdir(self.directory):
@@ -278,6 +304,7 @@ def make_handler(cache):
                 self._json(HTTPStatus.OK, {
                     "ok": True,
                     "audio": True,
+                    "preview": True,
                     "ytdlp": ytdlp_version(),
                     "ffmpeg": shutil.which("ffmpeg") is not None,
                     "cached": len(entries),
@@ -290,6 +317,8 @@ def make_handler(cache):
                 return
             yt_id = m.group(1)
             file_path = cache.ensure(yt_id, wait=WAIT_SECONDS)
+            if file_path and m.group(2):
+                file_path = cache.preview(yt_id)
             if not file_path:
                 status = HTTPStatus.NOT_FOUND if cache.recently_failed(yt_id) else HTTPStatus.GATEWAY_TIMEOUT
                 self._error(status, "bande-annonce indisponible")

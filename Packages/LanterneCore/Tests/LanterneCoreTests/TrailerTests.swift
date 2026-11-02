@@ -18,6 +18,8 @@ struct TrailerTests {
         #expect(TrailerLink.videoURL(server: server, youTubeID: "dQw4w9WgXcQ")?.absoluteString
                 == "http://192.168.1.20:8787/trailer/dQw4w9WgXcQ.mp4")
         #expect(TrailerLink.videoURL(server: server, youTubeID: "../secret") == nil)
+        #expect(TrailerLink.previewURL(server: server, youTubeID: "dQw4w9WgXcQ")?.absoluteString
+                == "http://192.168.1.20:8787/trailer/dQw4w9WgXcQ.preview.mp4")
     }
 
     @Test func serverValidation() {

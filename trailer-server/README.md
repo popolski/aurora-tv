@@ -45,6 +45,8 @@ première installation (téléchargements Debian lents depuis le NAS).
 | `MAX_HEIGHT` | `1080` | Hauteur maximale de la vidéo |
 | `MAX_PARALLEL` | `2` | Téléchargements simultanés |
 | `WAIT_SECONDS` | `120` | Attente maximale d'une demande pendant le premier téléchargement |
+| `PREVIEW_START` | `5` | Début de l'extrait du carrousel (s), après les logos des studios |
+| `PREVIEW_SECONDS` | `30` | Durée de l'extrait du carrousel Top Shelf (s) |
 | `FAILURE_TTL` | `21600` | Durée (s) pendant laquelle une bande-annonce introuvable n'est pas redemandée |
 
 ## Sécurité et limites
