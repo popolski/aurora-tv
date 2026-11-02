@@ -69,7 +69,9 @@ L'utilisateur a choisi le service auto-hébergé sur le NAS. État :
   en double côté app), d'où le choix du groupe commun aux deux profils. Titre incrusté :
   composé par l'extension (builds 27-29) → carrousel vide (mémoire), puis aucun titre ;
   depuis le build 30, image composée par le service du NAS (`/topshelf/<id>.jpg`, Pillow,
-  hôtes d'images autorisés seulement). Extrait de 30 s pour accélérer le défilement. Le défilement automatique du carrousel est géré par tvOS (aucune API
+  hôtes d'images autorisés seulement). Extrait de 30 s pour accélérer le défilement.
+  **Validé sur l'appareil (build 30)** : carrousel avec titres, bandes-annonces et
+  passage automatique au film suivant. Le défilement automatique du carrousel est géré par tvOS (aucune API
   de réglage). Détail initial : : extension Top Shelf `AuroraTopShelf` : carrousel des
   10 dernières sorties de films (Cinemeta, année en cours puis précédente), image plein
   écran, titre, résumé, genres, durée, réalisation, distribution, boutons Lire / Plus d'infos
