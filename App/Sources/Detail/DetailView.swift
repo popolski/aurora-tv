@@ -12,7 +12,7 @@ struct DetailView: View {
     @State private var logoReadable = true
 
     /// Boutons ronds : leur rôle s'affiche en légende quand ils ont le focus.
-    private enum SecondaryAction: Hashable { case trailer, library, watched }
+    private enum SecondaryAction: Hashable { case trailer, restart, library, watched }
 
     init(preview: MetaItem) {
         _detail = State(initialValue: DetailModel(preview: preview))
@@ -177,10 +177,14 @@ struct DetailView: View {
                     .accessibilityIdentifier("detail.play")
 
                     if detail.resumePosition != nil {
+                        // Bouton rond (légende au focus) : le libellé « Reprendre S02E03 · 18:20 »
+                        // garde ainsi toute sa place.
                         NavigationLink(value: Route.sources(sourcesRoute(videoID: videoID, video: detail.targetVideo, start: nil))) {
-                            Label("Depuis le début", systemImage: "arrow.counterclockwise")
+                            Image(systemName: "arrow.counterclockwise")
                         }
-                        .buttonStyle(PillButtonStyle())
+                        .buttonStyle(CircleButtonStyle())
+                        .focused($focusedAction, equals: .restart)
+                        .accessibilityLabel(Text(caption(for: .restart)))
                     }
                 }
 
@@ -236,6 +240,8 @@ struct DetailView: View {
         switch action {
         case .trailer:
             return "Voir la bande-annonce"
+        case .restart:
+            return "Reprendre depuis le début"
         case .library:
             return detail.isInLibrary ? "Dans ma liste · retirer" : "Ajouter à ma liste"
         case .watched:
