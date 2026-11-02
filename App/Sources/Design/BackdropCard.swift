@@ -16,6 +16,8 @@ struct BackdropCard: View {
     var progress: Double?
     /// Film probablement encore à l'affiche : pastille discrète en haut à droite.
     var inCinema = false
+    /// Note IMDb (« 7.4 ») : pastille en haut à gauche.
+    var rating: String?
     var route: Route?
     var action: (() -> Void)?
     var onFocus: (() -> Void)?
@@ -75,6 +77,11 @@ struct BackdropCard: View {
                 CinemaBadge()
                     .padding(12)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
+            if let note = RatingBadge.display(rating) {
+                RatingBadge(rating: note)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
 
             if let progress, progress > 0 {

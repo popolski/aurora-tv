@@ -279,6 +279,36 @@ struct Chip: View {
     }
 }
 
+/// Note IMDb discrète sur une miniature : « IMDb » sur fond jaune, puis la note.
+struct RatingBadge: View {
+    let rating: String
+
+    /// Note affichable : « 7.4 » → « 7,4 » ; ignore les valeurs vides ou nulles.
+    static func display(_ raw: String?) -> String? {
+        guard let raw = raw?.trimmingCharacters(in: .whitespaces), let value = Double(raw), value > 0, value <= 10 else { return nil }
+        return value.formatted(.number.precision(.fractionLength(1)).locale(Locale(identifier: "fr_FR")))
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text("IMDb")
+                .font(.system(size: 13, weight: .black))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(RoundedRectangle(cornerRadius: 4).fill(Color(red: 0.96, green: 0.77, blue: 0.09)))
+            Text(rating)
+                .font(.manrope(17, .heavy))
+                .foregroundStyle(.white)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(Theme.backgroundDeep.opacity(0.72)))
+        .accessibilityLabel(Text("Note IMDb \(rating)"))
+    }
+}
+
 /// Petite pastille « au cinéma » (icône seule) posée sur une miniature.
 struct CinemaBadge: View {
     var body: some View {

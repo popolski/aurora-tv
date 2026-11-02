@@ -127,6 +127,12 @@ struct PlaybackSettingsView: View {
                 }
             }
             Section {
+                Toggle("Bouton « Passer l'intro »", isOn: $app.settings.playback.skipButtons)
+                Toggle("Passer l'intro et le résumé automatiquement", isOn: $app.settings.playback.autoSkipIntro)
+            } footer: {
+                Text("Minutages communautaires de TheIntroDB (theintrodb.org), quand ils existent pour le film ou l'épisode. Ils peuvent être décalés selon la version du fichier : le bouton laisse le choix (OK pour passer, Menu pour regarder). Pour une série, l'encart « Épisode suivant » apparaît dès le début du générique s'il est connu.")
+            }
+            Section {
                 TextField("http://192.168.1.20:11470", text: $serverDraft)
                     .textContentType(.URL)
                     .onSubmit { app.settings.playback.streamingServerURL = serverDraft.trimmingCharacters(in: .whitespaces) }
@@ -304,7 +310,13 @@ struct HomeSettingsView: View {
     }
 
     var body: some View {
+        @Bindable var app = app
         List {
+            Section {
+                Toggle("Le bandeau défile tout seul", isOn: $app.settings.homeBillboardRotation)
+            } footer: {
+                Text("Quand vous ne touchez à rien, le bandeau du haut passe au titre suivant à la fin de l'extrait de bande-annonce (ou après 15 s sans bande-annonce). Il revient au titre sélectionné dès que vous bougez.")
+            }
             Section {
                 ForEach(refs) { ref in
                     let hidden = app.settings.hiddenHomeCatalogs.contains(ref.id)

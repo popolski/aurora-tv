@@ -111,12 +111,19 @@ struct HomeView: View {
     @State private var candidate: MetaItem?
     @State private var trailerURL: URL?
     @State private var trailerPlaying = false
+    /// Titre dont la bande-annonce vient de se terminer d'elle-même (pas interrompue).
+    @State private var trailerEndedFor: String?
 
     private var shown: MetaItem? { (featured ?? home.hero).map { home.enriched[$0.id] ?? $0 } }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            BillboardBackdrop(meta: shown, trailerURL: trailerURL, onTrailerPlaying: { trailerPlaying = $0 })
+            BillboardBackdrop(meta: shown, trailerURL: trailerURL, onTrailerPlaying: { playing in
+                // Fin naturelle : la vidéo s'arrête alors que son adresse est toujours en place
+                // (un changement de titre, lui, retire d'abord l'adresse).
+                if trailerPlaying, !playing, trailerURL != nil { trailerEndedFor = shown?.id }
+                trailerPlaying = playing
+            })
             VStack(alignment: .leading, spacing: 0) {
                 BillboardInfo(meta: shown, dimmed: trailerPlaying)
                     .frame(height: 470, alignment: .bottomLeading)
@@ -164,7 +171,26 @@ struct HomeView: View {
             guard !Task.isCancelled else { return }
             let full = await home.withTrailer(meta, aggregator: model.aggregator, addons: model.addons)
             guard !Task.isCancelled else { return }
-            trailerURL = TrailerService.url(for: full, settings: model.settings)
+            // Bandeau qui défile : extrait de 30 s ; sinon bande-annonce entière.
+            trailerURL = model.settings.homeBillboardRotation
+                ? TrailerService.previewURL(for: full, settings: model.settings)
+                : TrailerService.url(for: full, settings: model.settings)
+        }
+        // Au repos, le bandeau passe au titre suivant (fin de l'extrait, ou 15 s sans vidéo).
+        // Tout mouvement de l'utilisateur change `candidate` et relance l'attente.
+        .task(id: rotationKey) {
+            guard model.settings.homeBillboardRotation, model.playback == nil, !trailerPlaying, shown != nil else { return }
+            let wait: Double
+            if let ended = trailerEndedFor, ended == shown?.id {
+                wait = 2
+            } else if trailerURL != nil {
+                wait = 30   // bande-annonce en préparation sur le NAS : on lui laisse le temps
+            } else {
+                wait = 15
+            }
+            try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
+            guard !Task.isCancelled, !trailerPlaying else { return }
+            await advanceBillboard()
         }
         .task(id: trailerPrefetchKey) { prefetchTrailers() }
         .onDisappear { trailerURL = nil }
@@ -187,7 +213,7 @@ struct HomeView: View {
             ShelfRow(title: "Ma liste", items: Array(model.libraryItems.prefix(30)), cardHeight: BackdropCard.height) { item in
                 let rich = home.enriched[item.id]
                 BackdropCard(title: item.name, imageURL: rich?.background, fallbackURL: item.poster, logoURL: rich?.logo,
-                             inCinema: rich?.isInCinema ?? false, route: .meta(rich ?? item.previewMeta), onFocus: { candidate = item.previewMeta })
+                             inCinema: rich?.isInCinema ?? false, rating: rich?.imdbRating, route: .meta(rich ?? item.previewMeta), onFocus: { candidate = item.previewMeta })
             }
         }
         ForEach(home.rows) { row in
@@ -197,6 +223,21 @@ struct HomeView: View {
 
     private func configure() {
         home.configure(addons: model.addons, settings: model.settings, aggregator: model.aggregator)
+    }
+
+    private var rotationKey: String {
+        "\(candidate?.id ?? "-")|\(shown?.id ?? "-")|\(trailerPlaying)|\(trailerURL != nil)|\(trailerEndedFor ?? "-")|\(model.settings.homeBillboardRotation)"
+    }
+
+    /// Titre suivant de la première rangée (avec image de fond), en boucle.
+    private func advanceBillboard() async {
+        let pool = Array((home.rows.first?.items ?? []).filter { $0.background != nil }.prefix(12))
+        guard !pool.isEmpty else { return }
+        let index = pool.firstIndex { $0.id == shown?.id }.map { ($0 + 1) % pool.count } ?? 0
+        let next = await home.resolve(pool[index], aggregator: model.aggregator, addons: model.addons)
+        guard !Task.isCancelled else { return }
+        trailerEndedFor = nil
+        featured = next
     }
 
     private var trailerKey: String? {
@@ -230,7 +271,7 @@ struct CatalogShelf: View {
         ShelfRow(title: row.title, subtitle: row.subtitle, items: row.items, isLoading: row.isLoading, error: row.error,
                  cardHeight: BackdropCard.height, onReachEnd: { row.loadNextPage() }) { meta in
             BackdropCard(title: meta.name, imageURL: meta.background, fallbackURL: meta.poster, logoURL: meta.logo,
-                         inCinema: meta.isInCinema, route: .meta(meta), onFocus: { onFocus(meta) })
+                         inCinema: meta.isInCinema, rating: meta.imdbRating, route: .meta(meta), onFocus: { onFocus(meta) })
         }
         .onAppear { row.loadIfNeeded() }
     }
@@ -247,7 +288,7 @@ struct ContinueWatchingBackdrop: View {
     var body: some View {
         BackdropCard(title: item.name, imageURL: meta?.background, fallbackURL: item.poster, logoURL: meta?.logo,
                      subtitle: ContinueWatchingCard.subtitle(for: item),
-                     progress: item.state.progress, inCinema: meta?.isInCinema ?? false,
+                     progress: item.state.progress, inCinema: meta?.isInCinema ?? false, rating: meta?.imdbRating,
                      route: .meta(meta ?? item.previewMeta), onFocus: onFocus)
             .contextMenu {
                 Button("Retirer de « Continuer à regarder »", role: .destructive) {
@@ -263,7 +304,7 @@ struct MetaPosterLink: View {
 
     var body: some View {
         PosterCard(title: meta.name, imageURL: meta.poster, subtitle: meta.displayYear, shape: meta.posterShape,
-                   inCinema: meta.isInCinema, route: .meta(meta))
+                   inCinema: meta.isInCinema, rating: meta.imdbRating, route: .meta(meta))
     }
 }
 

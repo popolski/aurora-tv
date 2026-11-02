@@ -11,6 +11,8 @@ struct PosterCard: View {
     var badge: String?
     /// Film probablement encore à l'affiche : pastille discrète en haut à droite.
     var inCinema = false
+    /// Note IMDb (« 7.4 ») : pastille en haut à gauche.
+    var rating: String?
     var width: CGFloat = Theme.Poster.width
     /// Navigation vers une destination (prioritaire sur `action`).
     var route: Route?
@@ -50,6 +52,11 @@ struct PosterCard: View {
                 CinemaBadge()
                     .padding(10)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
+            if let note = RatingBadge.display(rating) {
+                RatingBadge(rating: note)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
             if let progress, progress > 0 {
                 ProgressBar(value: progress)

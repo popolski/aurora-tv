@@ -172,11 +172,16 @@ public struct PlaybackPreferences: Sendable, Codable, Hashable {
     public var nextEpisodeLeadTime: Double = 60
     /// URL du serveur de streaming Stremio (torrents), ex. `http://192.168.1.20:11470`.
     public var streamingServerURL: String = ""
+    /// Bouton « Passer l'intro / le résumé » (minutages communautaires TheIntroDB).
+    public var skipButtons: Bool = true
+    /// Sauter l'intro et le résumé sans attendre (minutages parfois décalés selon le fichier).
+    public var autoSkipIntro: Bool = false
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
         case engine, matchContent, panelSupportsDolbyVision, skipInterval, autoPlayNextEpisode, nextEpisodeLeadTime, streamingServerURL
+        case skipButtons, autoSkipIntro
     }
 
     public init(from decoder: any Decoder) throws {
@@ -189,6 +194,8 @@ public struct PlaybackPreferences: Sendable, Codable, Hashable {
         autoPlayNextEpisode = c.value(.autoPlayNextEpisode, default: d.autoPlayNextEpisode)
         nextEpisodeLeadTime = c.value(.nextEpisodeLeadTime, default: d.nextEpisodeLeadTime)
         streamingServerURL = c.value(.streamingServerURL, default: d.streamingServerURL)
+        skipButtons = c.value(.skipButtons, default: d.skipButtons)
+        autoSkipIntro = c.value(.autoSkipIntro, default: d.autoSkipIntro)
     }
 
     public var streamingServer: URL? {
@@ -211,10 +218,14 @@ public struct AppSettings: Sendable, Codable, Hashable {
     public var hiddenHomeCatalogs: [String] = []
     /// Ordre personnalisé des catalogues d'accueil (identifiants `CatalogRef.id`).
     public var homeCatalogOrder: [String] = []
+    /// Bandeau de l'accueil : passe tout seul au titre suivant quand on ne touche à rien.
+    public var homeBillboardRotation: Bool = true
 
     public init() {}
 
-    enum CodingKeys: String, CodingKey { case sources, languages, playback, trailers, hideAdultContent, hiddenHomeCatalogs, homeCatalogOrder }
+    enum CodingKeys: String, CodingKey {
+        case sources, languages, playback, trailers, hideAdultContent, hiddenHomeCatalogs, homeCatalogOrder, homeBillboardRotation
+    }
 
     /// Décodage tolérant : un réglage ajouté dans une version ultérieure ne
     /// doit jamais faire perdre les autres.
@@ -227,6 +238,7 @@ public struct AppSettings: Sendable, Codable, Hashable {
         hideAdultContent = c.value(.hideAdultContent, default: true)
         hiddenHomeCatalogs = c.value(.hiddenHomeCatalogs, default: [String]())
         homeCatalogOrder = c.value(.homeCatalogOrder, default: [String]())
+        homeBillboardRotation = c.value(.homeBillboardRotation, default: true)
     }
 }
 

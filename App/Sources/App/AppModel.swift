@@ -51,6 +51,8 @@ final class AppModel {
     @ObservationIgnored let registry: AddonRegistry
     @ObservationIgnored let library: LibraryStore
     @ObservationIgnored let account: AccountService
+    /// Minutages communautaires (intro, résumé, générique).
+    @ObservationIgnored let skipTimes: SkipTimesClient
     @ObservationIgnored let defaults: any KeyValueStore
     @ObservationIgnored let isUITest: Bool
     @ObservationIgnored private var observers: [Task<Void, Never>] = []
@@ -82,7 +84,8 @@ final class AppModel {
     static let settingsKey = "settings.v1"
 
     init(addonClient: AddonClient, registry: AddonRegistry, library: LibraryStore, account: AccountService,
-         defaults: any KeyValueStore, isUITest: Bool) {
+         skipTimes: SkipTimesClient, defaults: any KeyValueStore, isUITest: Bool) {
+        self.skipTimes = skipTimes
         self.addonClient = addonClient
         self.aggregator = AddonAggregator(client: addonClient)
         self.registry = registry
@@ -110,7 +113,7 @@ final class AppModel {
         let account = AccountService(api: StremioAPI(http: http), secrets: secrets, library: library, registry: registry)
         LogSetup.configure(uiTest: isUITest)
         return AppModel(addonClient: client, registry: registry, library: library, account: account,
-                        defaults: defaults, isUITest: isUITest)
+                        skipTimes: SkipTimesClient(http: http), defaults: defaults, isUITest: isUITest)
     }
 
     // MARK: Cycle de vie

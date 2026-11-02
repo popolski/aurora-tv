@@ -15,6 +15,12 @@ enum TrailerService {
         return TrailerLink.videoURL(server: server, youTubeID: id)
     }
 
+    /// Extrait de 30 s (bandeau de l'accueil qui défile tout seul).
+    static func previewURL(for meta: MetaItem?, settings: AppSettings) -> URL? {
+        guard let meta, let server = settings.trailers.server, let id = TrailerLink.firstValidID(in: meta) else { return nil }
+        return TrailerLink.previewURL(server: server, youTubeID: id)
+    }
+
     /// Demande au service de préparer ces bandes-annonces (une fois par identifiant et par session).
     static func prefetch(_ metas: [MetaItem], settings: AppSettings) {
         guard let server = settings.trailers.server, settings.trailers.onHome || settings.trailers.onDetail else { return }

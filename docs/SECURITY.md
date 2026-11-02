@@ -38,3 +38,16 @@ l'API Stremio, sauf adresses de réseau local (IP privées, `.local`, `.lan`, Ta
 - atvloadly n'a pas d'authentification : ne pas l'exposer hors du réseau local.
 - Le récepteur de journaux (`scripts/log-receiver.py`) n'a pas d'authentification : réseau local
   uniquement, journaux déjà expurgés.
+
+## Services tiers contactés par l'app
+
+| Service | Quand | Données envoyées |
+|---|---|---|
+| Addons Stremio choisis par l'utilisateur | navigation, lecture | identifiants de contenu (IMDb…), filtres |
+| API de compte Stremio | connexion, synchronisation | identifiants de connexion, jeton de session (Trousseau) |
+| TheIntroDB (`api.theintrodb.org`, API v4, sans clé) | début de lecture, si « Passer l'intro » est activé | identifiant IMDb/TMDB, saison, épisode, durée — aucune donnée de compte |
+| Cinemeta (`v3-cinemeta.strem.io`) | rafraîchissement du Top Shelf | aucune (catalogue public) |
+| Service aurora-trailers (NAS, réseau local) | bandes-annonces, images du Top Shelf | identifiants YouTube, adresses d'images publiques |
+
+Les réponses de TheIntroDB sont traitées comme non fiables : seuls des nombres sont lus,
+et un minutage aberrant ne peut que déplacer la lecture dans la vidéo en cours.

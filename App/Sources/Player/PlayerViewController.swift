@@ -15,6 +15,7 @@ final class RemoteCatcherView: UIView {
 ///
 /// Commandes :
 /// - clic central / Lecture-Pause : lecture ↔ pause (ou validation d'un déplacement) ;
+///   pendant une intro ou un résumé connus, le clic central saute le passage ;
 /// - clic à gauche/droite du pavé : −/+ intervalle de saut ;
 /// - gauche/droite maintenu : retour/avance rapide qui accélère (×8 → ×128),
 ///   la lecture reprend au point atteint au relâchement ;
@@ -193,7 +194,13 @@ final class PlayerViewController: UIViewController {
         case .leftArrow, .rightArrow:
             releaseArrow(press.type, cancelled: false)
         case .select:
-            if session.scrubTarget != nil { session.commitScrub() } else { session.togglePlayPause() }
+            if session.scrubTarget != nil {
+                session.commitScrub()
+            } else if session.activeSkip != nil {
+                session.skipActive()  // bouton « Passer l'intro » affiché : OK saute
+            } else {
+                session.togglePlayPause()
+            }
         case .playPause:
             session.togglePlayPause()
         case .downArrow:
@@ -204,6 +211,8 @@ final class PlayerViewController: UIViewController {
         case .menu:
             if session.scrubTarget != nil {
                 session.cancelScrub()
+            } else if session.activeSkip != nil {
+                session.dismissSkip()
             } else if session.chromeVisible && session.snapshot.phase == .playing {
                 session.chromeVisible = false
             } else {

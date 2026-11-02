@@ -33,6 +33,8 @@ final class PlayerSession {
     private(set) var scrubTarget: TimeInterval?
     /// Vitesse du défilement rapide en cours (secondes de vidéo par seconde, signée).
     private(set) var shuttleRate: Double?
+    /// Passage que l'on peut sauter maintenant (intro, résumé…) : bouton « Passer ».
+    private(set) var activeSkip: SkipSegment?
     private(set) var subtitleDelay: TimeInterval
     /// Préférences d'affichage des sous-titres (la surcouche est hors de l'environnement SwiftUI).
     let languagePrefs: LanguagePreferences
@@ -59,6 +61,10 @@ final class PlayerSession {
     @ObservationIgnored private var lastScrubActivity = Date()
     @ObservationIgnored private var scrubOrigin: TimeInterval = 0
     @ObservationIgnored private var shuttleTask: Task<Void, Never>?
+    @ObservationIgnored private var skipSegments: [SkipSegment] = []
+    @ObservationIgnored private var skipLoaded = false
+    /// Passages déjà sautés ou refusés (par début), pour ne pas reproposer le bouton.
+    @ObservationIgnored private var skipHandled: Set<TimeInterval> = []
     @ObservationIgnored private var remoteCommands: RemoteCommands?
     @ObservationIgnored private var tracksConfigured = false
     @ObservationIgnored private var userChoseSubtitle = false
@@ -134,6 +140,10 @@ final class PlayerSession {
         nextEpisode = nil
         upNext = nil
         upNextDismissed = false
+        skipSegments = []
+        skipLoaded = false
+        skipHandled = []
+        activeSkip = nil
         lastPosition = nil
         playedSinceRecord = 0
         lastRecord = Date()
@@ -249,6 +259,8 @@ final class PlayerSession {
             }
         }
         watchdog(now: now, s: s)
+        loadSkipSegmentsIfNeeded(s)
+        updateSkip(s)
         checkUpNext(s)
         accumulateProgress(now: now, s: s)
         autoHideChrome(now: now, s: s)
@@ -495,14 +507,77 @@ final class PlayerSession {
         guard upNext == nil, !upNextDismissed, !endHandled, status == .active, context.localTest == nil,
               s.phase == .playing, s.duration > 120 else { return }
         let lead = max(10, app.settings.playback.nextEpisodeLeadTime)
-        guard s.duration - s.position <= lead,
-              let next = NextEpisode.after(videoID: context.videoID, in: context.meta.videos) else { return }
+        // Début du générique connu (TheIntroDB) : l'encart apparaît dès qu'il commence.
+        let creditsStart = skipSegments.first { $0.kind == .credits && $0.start > s.duration * 0.6 }?.start
+        let reached = s.duration - s.position <= lead || creditsStart.map { s.position >= $0 } == true
+        guard reached, let next = NextEpisode.after(videoID: context.videoID, in: context.meta.videos) else { return }
         nextEpisode = next
         upNext = next
         panel = nil
         log.info("encart épisode suivant (\(Int(s.duration - s.position)) s avant la fin) : \(next.id)")
         onFocusContextChange?()
         if app.settings.playback.autoPlayNextEpisode { startCountdown(seconds: 15) }
+    }
+
+    // MARK: Passer l'intro / le résumé
+
+    private func loadSkipSegmentsIfNeeded(_ s: EngineSnapshot) {
+        guard !skipLoaded, context.localTest == nil, status == .active, s.duration > 60,
+              app.settings.playback.skipButtons || app.settings.playback.autoSkipIntro else { return }
+        skipLoaded = true
+        let client = app.skipTimes
+        let videoID = context.videoID
+        let type = context.meta.type
+        let durationMs = Int(s.duration * 1000)
+        Task { [weak self] in
+            let segments = await client.segments(videoID: videoID, type: type, durationMs: durationMs)
+            guard let self, !self.closed, self.context.videoID == videoID else { return }
+            self.skipSegments = segments
+            if !segments.isEmpty {
+                self.log.info("minutages TheIntroDB : \(segments.map { "\($0.kind.rawValue) \(Int($0.start))-\($0.end.map { String(Int($0)) } ?? "fin")" }.joined(separator: ", "))")
+            }
+        }
+    }
+
+    private func updateSkip(_ s: EngineSnapshot) {
+        guard status == .active, upNext == nil, scrubTarget == nil, s.duration > 0 else {
+            if activeSkip != nil { activeSkip = nil }
+            return
+        }
+        let isSeries = context.meta.type == ContentType.series
+        let current = skipSegments.first { segment in
+            // Générique de fin d'un épisode : géré par l'encart « Épisode suivant ».
+            !(isSeries && segment.kind == .credits) && !skipHandled.contains(segment.start)
+                && segment.contains(s.position, duration: s.duration)
+        }
+        if let current, app.settings.playback.autoSkipIntro, current.kind == .intro || current.kind == .recap {
+            log.info("\(current.kind.rawValue) sauté automatiquement")
+            skip(current, duration: s.duration)
+            return
+        }
+        let visible = app.settings.playback.skipButtons ? current : nil
+        if visible != activeSkip { activeSkip = visible }
+    }
+
+    /// OK pendant un passage : saute à sa fin.
+    func skipActive() {
+        guard let segment = activeSkip else { return }
+        skip(segment, duration: snapshot.duration)
+    }
+
+    /// Menu pendant le bouton « Passer » : on regarde le passage, le bouton disparaît.
+    func dismissSkip() {
+        guard let segment = activeSkip else { return }
+        skipHandled.insert(segment.start)
+        activeSkip = nil
+    }
+
+    private func skip(_ segment: SkipSegment, duration: TimeInterval) {
+        skipHandled.insert(segment.start)
+        activeSkip = nil
+        let target = min(segment.end ?? duration, max(0, duration - 0.5))
+        touch()
+        seek(to: target)
     }
 
     /// « Regarder le générique » : masque l'encart, la lecture continue.

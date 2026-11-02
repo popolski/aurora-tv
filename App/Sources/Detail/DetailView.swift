@@ -357,6 +357,15 @@ struct EpisodeCard: View {
 }
 
 enum TimeFormat {
+    /// Heure de fin si la lecture continue sans pause : « 22:47 ».
+    static func endTime(after remaining: TimeInterval, from now: Date = Date()) -> String {
+        guard remaining.isFinite, remaining >= 0 else { return "--:--" }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: now.addingTimeInterval(remaining))
+    }
+
     /// « 1:02:03 » ou « 12:34 ».
     static func clock(_ seconds: TimeInterval) -> String {
         guard seconds.isFinite, seconds >= 0 else { return "--:--" }

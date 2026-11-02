@@ -22,6 +22,12 @@ struct PlayerOverlay: View {
                     .padding(.trailing, 80)
                     .padding(.bottom, 90)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
+            } else if let skip = session.activeSkip {
+                SkipPrompt(segment: skip)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, 90)
+                    .padding(.bottom, session.chromeVisible ? 190 : 90)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
             }
             // Jalon atteint, exposé aux tests d'interface (quasi invisible).
             Text(session.milestones.highest?.label ?? "aucun")
@@ -33,6 +39,7 @@ struct PlayerOverlay: View {
         .animation(.easeInOut(duration: 0.25), value: session.chromeVisible)
         .animation(.easeInOut(duration: 0.25), value: session.panel)
         .animation(.easeInOut(duration: 0.3), value: session.upNext?.id)
+        .animation(.easeInOut(duration: 0.3), value: session.activeSkip)
         .ignoresSafeArea()
         // Menu dans la surcouche : revient au film (panneau, encart) au lieu de fermer le lecteur.
         .onExitCommand { session.handleOverlayExit() }
@@ -103,7 +110,12 @@ private struct ChromeView: View {
                                 Text("▼ Audio et sous-titres").foregroundStyle(Theme.textTertiary)
                             }
                             Spacer()
-                            Text(s.duration > 0 ? "−" + TimeFormat.clock(max(0, s.duration - session.displayedPosition)) : "--:--")
+                            if s.duration > 0 {
+                                let remaining = max(0, s.duration - session.displayedPosition)
+                                Text("−\(TimeFormat.clock(remaining)) · Fin à \(TimeFormat.endTime(after: remaining))")
+                            } else {
+                                Text("--:--")
+                            }
                         }
                         .font(.system(size: 26, weight: .semibold).monospacedDigit())
                         .foregroundStyle(.white)
@@ -234,6 +246,33 @@ private struct EndCard: View {
 }
 
 // MARK: - Épisode suivant (pendant le générique)
+
+/// « Passer l'intro » : bouton blanc en bas à droite ; le clic central de la
+/// télécommande l'actionne (le lecteur garde le focus), Menu le masque.
+private struct SkipPrompt: View {
+    let segment: SkipSegment
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "forward.end.fill")
+            Text(segment.actionLabel)
+        }
+        .font(.manrope(26, .heavy))
+        .foregroundStyle(Theme.onFocus)
+        .padding(.horizontal, 34)
+        .padding(.vertical, 20)
+        .background(Capsule().fill(Color.white))
+        .shadow(color: .black.opacity(0.45), radius: 20, y: 8)
+        .overlay(alignment: .bottom) {
+            Text("OK pour passer · Menu pour regarder")
+                .font(.manrope(17, .bold))
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize()
+                .offset(y: 36)
+        }
+        .accessibilityIdentifier("player.skip")
+    }
+}
 
 private struct UpNextCard: View {
     let session: PlayerSession
