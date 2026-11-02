@@ -14,7 +14,8 @@ final class ContentProvider: TVTopShelfContentProvider {
     nonisolated(nonsending) override func loadTopShelfContent() async -> (any TVTopShelfContent)? {
         let shared = SharedContainer.defaults()
         let config = TopShelfConfig.load(from: shared)
-        let metas = await TopShelfLoader.latestMovies(limit: 10)
+        // tvOS abandonne une extension trop lente : 12 s au plus, détails facultatifs.
+        let metas = await TopShelfLoader.latestMovies(limit: 10, deadline: 12)
         let server = config?.server
         let items = metas.map { Self.item(for: $0, server: server) }
         // Compte rendu lisible par l'app (Réglages › Diagnostics) si le groupe est partagé.
@@ -63,12 +64,13 @@ final class ContentProvider: TVTopShelfContentProvider {
 enum TopShelfLoader {
     private static let session: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 10
-        config.timeoutIntervalForResource = 20
+        config.timeoutIntervalForRequest = 6
+        config.timeoutIntervalForResource = 8
         return URLSession(configuration: config)
     }()
 
-    static func latestMovies(limit: Int) async -> [MetaItem] {
+    static func latestMovies(limit: Int, deadline: TimeInterval) async -> [MetaItem] {
+        let started = Date()
         let year = Calendar(identifier: .gregorian).component(.year, from: Date())
         var pool: [MetaItem] = []
         for y in [year, year - 1] {
@@ -78,8 +80,15 @@ enum TopShelfLoader {
             if TopShelfFeed.latest(pool, limit: limit).count >= limit { break }
         }
         let picked = TopShelfFeed.latest(pool, limit: limit)
-        // Fiches complètes (bandes-annonces, réalisation, distribution), en parallèle.
-        return await withTaskGroup(of: (Int, MetaItem).self) { group in
+        let remaining = deadline - Date().timeIntervalSince(started)
+        guard remaining > 1 else { return picked }
+        // Fiches complètes (bandes-annonces, réalisation, distribution), en parallèle,
+        // dans le temps restant ; sans réponse à temps, les données du catalogue suffisent.
+        return (try? await withDeadline(seconds: remaining) { await details(for: picked) }) ?? picked
+    }
+
+    private static func details(for picked: [MetaItem]) async -> [MetaItem] {
+        await withTaskGroup(of: (Int, MetaItem).self) { group in
             for (index, meta) in picked.enumerated() {
                 group.addTask {
                     guard let url = TopShelfFeed.metaURL(id: meta.id), let data = await fetch(url),

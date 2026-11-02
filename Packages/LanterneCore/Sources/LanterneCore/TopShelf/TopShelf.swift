@@ -7,28 +7,53 @@ import Foundation
 /// dans le profil de provisionnement embarqué, et non supposé.
 public enum SharedContainer {
     public static let defaultGroupID = "group.io.github.popolski.lanterne"
+    public static let extensionName = "AuroraTopShelf.appex"
 
-    /// Groupe d'apps attribué par la signature, sinon le nom prévu.
+    /// Groupe à utiliser par l'app et par l'extension : le premier (ordre alphabétique)
+    /// présent dans les deux profils, pour que les deux côtés choisissent le même.
+    /// Constaté sur l'appareil (build 25) : atvloadly a renommé le groupe de l'app en
+    /// « group.io.github.popolski.lanterne.<équipe>.<équipe> ».
     public static func groupID(bundle: Bundle = .main) -> String {
-        provisionedGroupID(bundle: bundle) ?? defaultGroupID
+        let (app, ext) = provisionedGroups(from: bundle)
+        return commonGroup(app: app, extension: ext) ?? app.first ?? ext.first ?? defaultGroupID
     }
 
-    /// Groupe d'apps inscrit dans le profil de provisionnement du paquet, s'il y en a un.
-    public static func provisionedGroupID(bundle: Bundle = .main) -> String? {
-        guard let url = bundle.url(forResource: "embedded", withExtension: "mobileprovision"),
-              let data = try? Data(contentsOf: url) else { return nil }
-        return groupID(fromProvision: data)
+    /// Groupes des profils de l'app et de l'extension, que l'on soit dans l'une ou l'autre.
+    public static func provisionedGroups(from bundle: Bundle = .main) -> (app: [String], extension: [String]) {
+        let url = bundle.bundleURL
+        let appURL: URL, extURL: URL
+        if url.pathExtension == "appex" {
+            appURL = url.deletingLastPathComponent().deletingLastPathComponent()
+            extURL = url
+        } else {
+            appURL = url
+            extURL = url.appendingPathComponent("PlugIns").appendingPathComponent(extensionName)
+        }
+        return (groups(inBundleAt: appURL), groups(inBundleAt: extURL))
+    }
+
+    public static func commonGroup(app: [String], extension ext: [String]) -> String? {
+        Set(app).intersection(ext).sorted().first
+    }
+
+    public static func groups(inBundleAt url: URL) -> [String] {
+        guard let data = try? Data(contentsOf: url.appendingPathComponent("embedded.mobileprovision")) else { return [] }
+        return groups(fromProvision: data)
     }
 
     /// Lit `com.apple.security.application-groups` dans un profil (plist entouré d'une signature CMS).
-    public static func groupID(fromProvision data: Data) -> String? {
+    public static func groups(fromProvision data: Data) -> [String] {
         guard let start = data.range(of: Data("<?xml".utf8)),
-              let end = data.range(of: Data("</plist>".utf8), in: start.lowerBound..<data.endIndex) else { return nil }
+              let end = data.range(of: Data("</plist>".utf8), in: start.lowerBound..<data.endIndex) else { return [] }
         let plistData = data.subdata(in: start.lowerBound..<end.upperBound)
         guard let plist = try? PropertyListSerialization.propertyList(from: plistData, format: nil) as? [String: Any],
               let entitlements = plist["Entitlements"] as? [String: Any],
-              let groups = entitlements["com.apple.security.application-groups"] as? [String] else { return nil }
-        return groups.first { !$0.isEmpty && !$0.contains("*") }
+              let groups = entitlements["com.apple.security.application-groups"] as? [String] else { return [] }
+        return groups.filter { !$0.isEmpty && !$0.contains("*") }
+    }
+
+    public static func groupID(fromProvision data: Data) -> String? {
+        groups(fromProvision: data).first
     }
 
     public static func defaults(bundle: Bundle = .main) -> UserDefaults? {

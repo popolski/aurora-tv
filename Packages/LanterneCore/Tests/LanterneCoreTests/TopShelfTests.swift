@@ -20,6 +20,13 @@ struct TopShelfTests {
         #expect(SharedContainer.groupID(fromProvision: Data("pas un profil".utf8)) == nil)
     }
 
+    @Test func picksTheSameCommonGroupOnBothSides() {
+        let app = ["group.io.github.popolski.lanterne.938QZD3QMV.938QZD3QMV", "group.io.github.popolski.lanterne.938QZD3QMV"]
+        let ext = ["group.io.github.popolski.lanterne.938QZD3QMV"]
+        #expect(SharedContainer.commonGroup(app: app, extension: ext) == "group.io.github.popolski.lanterne.938QZD3QMV")
+        #expect(SharedContainer.commonGroup(app: ["a"], extension: ["b"]) == nil)
+    }
+
     @Test func configRoundTrip() throws {
         let defaults = try #require(UserDefaults(suiteName: "test.topshelf.\(UUID().uuidString)"))
         TopShelfConfig(trailerServer: "http://192.168.1.20:8787").save(to: defaults)

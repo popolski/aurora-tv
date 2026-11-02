@@ -53,14 +53,17 @@ struct DiagnosticsView: View {
             }
 
             Section {
-                InfoRow(label: "Groupe d'apps (app)", value: SharedContainer.provisionedGroupID() ?? "aucun dans le profil")
-                InfoRow(label: "Groupe d'apps (carrousel)", value: extensionGroupID ?? "aucun dans le profil")
+                let groups = SharedContainer.provisionedGroups()
+                GroupsRow(label: "Groupes d'apps (app)", values: groups.app).focusable()
+                GroupsRow(label: "Groupes d'apps (carrousel)", values: groups.extension).focusable()
+                GroupsRow(label: "Groupe partagé utilisé",
+                          values: SharedContainer.commonGroup(app: groups.app, extension: groups.extension).map { [$0] } ?? []).focusable()
                 if let status = TopShelfStatus.load(from: SharedContainer.defaults()) {
-                    InfoRow(label: "Dernière mise à jour", value: status.date.formatted(date: .abbreviated, time: .shortened))
-                    InfoRow(label: "Films · bandes-annonces", value: "\(status.items) · \(status.trailers)")
-                    InfoRow(label: "Adresse du NAS reçue", value: status.serverKnown ? "oui" : "non")
+                    InfoRow(label: "Dernière mise à jour", value: status.date.formatted(date: .abbreviated, time: .shortened)).focusable()
+                    InfoRow(label: "Films · bandes-annonces", value: "\(status.items) · \(status.trailers)").focusable()
+                    InfoRow(label: "Adresse du NAS reçue", value: status.serverKnown ? "oui" : "non").focusable()
                 } else {
-                    InfoRow(label: "Compte rendu du carrousel", value: "aucun (groupe non partagé, ou pas encore rafraîchi)")
+                    InfoRow(label: "Compte rendu du carrousel", value: "aucun (groupe non partagé, ou pas encore rafraîchi)").focusable()
                 }
             } header: {
                 Text("Top Shelf (carrousel de l'écran d'accueil)")
@@ -166,11 +169,18 @@ struct LogsView: View {
     }
 }
 
-extension DiagnosticsView {
-    /// Groupe d'apps du profil de l'extension Top Shelf (dans PlugIns/).
-    var extensionGroupID: String? {
-        guard let plugins = Bundle.main.builtInPlugInsURL,
-              let bundle = Bundle(url: plugins.appendingPathComponent("AuroraTopShelf.appex")) else { return nil }
-        return SharedContainer.provisionedGroupID(bundle: bundle)
+/// Libellé puis valeurs complètes sur plusieurs lignes (identifiants longs).
+private struct GroupsRow: View {
+    let label: String
+    let values: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+            Text(values.isEmpty ? "aucun" : values.joined(separator: "\n"))
+                .font(.system(size: 22, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
