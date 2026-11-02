@@ -360,7 +360,7 @@ struct MetaPosterLink: View {
 
     var body: some View {
         PosterCard(title: meta.name, imageURL: meta.poster, subtitle: meta.displayYear, shape: meta.posterShape,
-                   inCinema: meta.isInCinema, rating: meta.imdbRating, route: .meta(meta),
+                   inCinema: meta.isInCinema, route: .meta(meta),
                    onFocus: onFocus.map { callback in { callback(meta) } })
             .opacity(model.isDimmed(meta) ? 0.45 : 1)
     }
