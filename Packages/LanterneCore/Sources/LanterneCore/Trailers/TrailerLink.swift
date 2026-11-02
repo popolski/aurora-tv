@@ -57,6 +57,25 @@ public enum TrailerLink {
         return server.appendingPathComponent("trailer").appendingPathComponent("\(youTubeID).preview.mp4")
     }
 
+    /// `<serveur>/topshelf/<id>.jpg?bg=…&logo=…&title=…` : image du carrousel avec le titre
+    /// incrusté, composée par le service du NAS (qui ne télécharge que des hôtes d'images connus).
+    public static func topShelfImageURL(server: URL, meta: MetaItem) -> URL? {
+        guard DeepLink.isValidID(meta.id), let background = meta.background else { return nil }
+        // « + », « & » et « = » encodés : le serveur lit la requête comme un formulaire.
+        var allowed = CharacterSet.urlQueryAllowed
+        allowed.remove(charactersIn: "+&=?#")
+        func item(_ name: String, _ value: String) -> URLQueryItem {
+            URLQueryItem(name: name, value: value.addingPercentEncoding(withAllowedCharacters: allowed) ?? "")
+        }
+        var items = [item("bg", background.absoluteString)]
+        if let logo = meta.logo { items.append(item("logo", logo.absoluteString)) }
+        items.append(item("title", String(meta.name.prefix(200))))
+        let base = server.appendingPathComponent("topshelf").appendingPathComponent("\(meta.id).jpg")
+        guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else { return nil }
+        components.percentEncodedQueryItems = items
+        return components.url
+    }
+
     /// `<serveur>/prefetch` : demande au service de préparer ces bandes-annonces.
     public static func prefetchURL(server: URL) -> URL {
         server.appendingPathComponent("prefetch")

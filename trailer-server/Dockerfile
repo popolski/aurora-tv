@@ -16,9 +16,13 @@ ARG YTDLP_REFRESH=initial
 RUN echo "mise à jour yt-dlp : ${YTDLP_REFRESH}" \
  && pip install --no-cache-dir --upgrade "yt-dlp[default]"
 
+# Pillow : images du carrousel Top Shelf avec le titre incrusté (version figée).
+RUN pip install --no-cache-dir "pillow==11.0.0"
+
 RUN useradd --uid 1000 --create-home aurora \
  && mkdir -p /cache && chown aurora /cache
-COPY server.py /app/server.py
+COPY server.py topshelf.py /app/
+COPY fonts /app/fonts
 
 USER aurora
 ENV CACHE_DIR=/cache PORT=8787 PYTHONUNBUFFERED=1

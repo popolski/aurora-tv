@@ -40,7 +40,7 @@ enum TrailerService {
 
     /// Résultat lisible du test de connexion (Réglages).
     nonisolated static func check(server: URL) async -> String {
-        struct Health: Decodable { var ok: Bool?; var audio: Bool?; var preview: Bool?; var ytdlp: String?; var ffmpeg: Bool?; var cached: Int?; var cacheMB: Double? }
+        struct Health: Decodable { var ok: Bool?; var audio: Bool?; var preview: Bool?; var topshelf: Bool?; var ytdlp: String?; var ffmpeg: Bool?; var cached: Int?; var cacheMB: Double? }
         do {
             let (data, response) = try await URLSession.shared.data(for: URLRequest(url: TrailerLink.healthURL(server: server), timeoutInterval: 15))
             guard (response as? HTTPURLResponse)?.statusCode == 200,
@@ -48,8 +48,8 @@ enum TrailerService {
                 return "Réponse inattendue : est-ce bien le service aurora-trailers ?"
             }
             guard let version = health.ytdlp else { return "Service joignable, mais yt-dlp est absent du NAS." }
-            guard health.audio == true, health.preview == true else {
-                return "Connecté, mais le service du NAS est une ancienne version (son des bandes-annonces ou extraits du carrousel absents) : mettez à jour le dossier trailer-server et reconstruisez."
+            guard health.audio == true, health.preview == true, health.topshelf == true else {
+                return "Connecté, mais le service du NAS est une ancienne version (son des bandes-annonces, extraits ou images du carrousel absents) : mettez à jour le dossier trailer-server et reconstruisez."
             }
             return "Connecté · yt-dlp \(version) · \(health.cached ?? 0) bande(s)-annonce(s) en cache (\(Int(health.cacheMB ?? 0)) Mo)"
         } catch {

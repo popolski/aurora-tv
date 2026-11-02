@@ -26,17 +26,20 @@ final class ContentProvider: TVTopShelfContentProvider {
         // puis 7 s pour composer les images avec le titre (sinon image d'origine).
         let metas = await TopShelfLoader.latestMovies(limit: 10, deadline: 10)
         report("images", items: metas.count)
-        let artwork = await TopShelfArtwork.images(for: metas, deadline: 7, shared: shared)
-        let items = metas.map { Self.item(for: $0, server: server, artwork: artwork[$0.id]) }
+        // Images avec le titre incrusté, composées par le NAS (l'extension n'a pas assez de
+        // mémoire pour le faire). Seulement si le service du NAS sait les produire.
+        var titledServer: URL?
+        if let server, await TopShelfLoader.serverMakesTitledImages(server) { titledServer = server }
+        let items = metas.map { Self.item(for: $0, server: server, titledImagesFrom: titledServer) }
         // Compte rendu lisible par l'app (Réglages › Diagnostics) si le groupe est partagé.
         report("terminé", items: items.count, trailers: items.filter { $0.previewVideoURL != nil }.count,
-               titled: artwork.count)
+               titled: titledServer == nil ? 0 : metas.filter { $0.background != nil }.count)
         guard !items.isEmpty else { return nil }  // tvOS garde alors l'image statique
         if let server { TopShelfLoader.prefetchTrailers(metas, server: server) }
         return TVTopShelfCarouselContent(style: .details, items: items)
     }
 
-    private static func item(for meta: MetaItem, server: URL?, artwork: URL?) -> TVTopShelfCarouselItem {
+    private static func item(for meta: MetaItem, server: URL?, titledImagesFrom titled: URL?) -> TVTopShelfCarouselItem {
         let item = TVTopShelfCarouselItem(identifier: meta.id)
         item.title = meta.name
         item.contextTitle = meta.cinemaStatus() == .inTheaters ? "Au cinéma" : "Nouveauté"
@@ -45,8 +48,8 @@ final class ContentProvider: TVTopShelfContentProvider {
         if !genres.isEmpty { item.genre = genres.joined(separator: " · ") }
         if let runtime = meta.runtimeSeconds { item.duration = runtime }
         if let released = meta.released { item.creationDate = released }
-        // Image avec le titre incrusté si elle a pu être composée, sinon l'image d'origine.
-        if let image = artwork ?? meta.background {
+        // Image avec le titre incrusté (NAS) si possible, sinon l'image d'origine.
+        if let image = titled.flatMap({ TrailerLink.topShelfImageURL(server: $0, meta: meta) }) ?? meta.background {
             item.setImageURL(image, for: .screenScale1x)
             item.setImageURL(image, for: .screenScale2x)
         }
@@ -112,6 +115,17 @@ enum TopShelfLoader {
             for await (index, meta) in group { out[index] = meta }
             return out
         }
+    }
+
+    /// Le service du NAS est-il à jour (images du carrousel) ? Réponse rapide exigée.
+    static func serverMakesTitledImages(_ server: URL) async -> Bool {
+        struct Health: Decodable { var topshelf: Bool? }
+        var request = URLRequest(url: TrailerLink.healthURL(server: server), timeoutInterval: 3)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        guard let (data, response) = try? await session.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let health = try? JSONDecoder().decode(Health.self, from: data) else { return false }
+        return health.topshelf == true
     }
 
     /// Demande au NAS de préparer les bandes-annonces (sans attendre la réponse).

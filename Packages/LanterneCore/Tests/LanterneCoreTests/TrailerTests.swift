@@ -22,6 +22,20 @@ struct TrailerTests {
                 == "http://192.168.1.20:8787/trailer/dQw4w9WgXcQ.preview.mp4")
     }
 
+    @Test func topShelfImageURLEncodesParameters() throws {
+        let server = try #require(URL(string: "http://192.168.1.20:8787"))
+        let meta = MetaItem(id: "tt1", type: "movie", name: "Fast & Furious + 1",
+                            background: URL(string: "https://images.metahub.space/background/large/tt1/img?a=1&b=2"),
+                            logo: URL(string: "https://images.metahub.space/logo/medium/tt1/img"))
+        let url = try #require(TrailerLink.topShelfImageURL(server: server, meta: meta))
+        let items = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+        #expect(url.path == "/topshelf/tt1.jpg")
+        #expect(items.first { $0.name == "bg" }?.value == "https://images.metahub.space/background/large/tt1/img?a=1&b=2")
+        #expect(items.first { $0.name == "title" }?.value == "Fast & Furious + 1")
+        #expect(url.absoluteString.contains("Fast%20%26%20Furious%20%2B%201"))
+        #expect(TrailerLink.topShelfImageURL(server: server, meta: MetaItem(id: "tt1", type: "movie", name: "x")) == nil)
+    }
+
     @Test func serverValidation() {
         var p = TrailerPreferences()
         #expect(p.server == nil)

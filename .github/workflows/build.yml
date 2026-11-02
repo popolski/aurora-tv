@@ -54,9 +54,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Tests (yt-dlp simulé)
+      - name: Dépendances
+        run: pip install "pillow==11.0.0"
+      - name: Tests (yt-dlp et téléchargements simulés)
         working-directory: trailer-server
-        run: python -m unittest -v test_server
+        run: python -m unittest -v test_server test_topshelf
 
   app:
     name: Application tvOS (IPA)

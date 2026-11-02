@@ -66,9 +66,10 @@ L'utilisateur a choisi le service auto-hébergé sur le NAS. État :
   l'accueil (build 19).
 - **Étape 2 (builds 23 à 27)** — constaté sur l'appareil : carrousel affiché après
   redémarrage (build 26) ; atvloadly attribue un groupe d'apps renommé (suffixe d'équipe,
-  en double côté app), d'où le choix du groupe commun aux deux profils. Build 27 : titre
-  incrusté dans l'image (logo du film, ou son nom), composée par l'extension dans le
-  conteneur du groupe. Le défilement automatique du carrousel est géré par tvOS (aucune API
+  en double côté app), d'où le choix du groupe commun aux deux profils. Titre incrusté :
+  composé par l'extension (builds 27-29) → carrousel vide (mémoire), puis aucun titre ;
+  depuis le build 30, image composée par le service du NAS (`/topshelf/<id>.jpg`, Pillow,
+  hôtes d'images autorisés seulement). Extrait de 30 s pour accélérer le défilement. Le défilement automatique du carrousel est géré par tvOS (aucune API
   de réglage). Détail initial : : extension Top Shelf `AuroraTopShelf` : carrousel des
   10 dernières sorties de films (Cinemeta, année en cours puis précédente), image plein
   écran, titre, résumé, genres, durée, réalisation, distribution, boutons Lire / Plus d'infos

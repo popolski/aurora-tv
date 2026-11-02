@@ -10,6 +10,7 @@ Points d'entrée :
   GET  /health                 état du service (JSON)
   GET  /trailer/<id>.mp4       bande-annonce (téléchargée à la première demande)
   GET  /trailer/<id>.preview.mp4  extrait de 30 s, sans le son (carrousel Top Shelf)
+  GET  /topshelf/<id>.jpg?bg=…&logo=…&title=…  image du carrousel avec le titre incrusté
   POST /prefetch               {"ids": ["<id>", ...]} : préparation en arrière-plan
 
 Réservé au réseau local : n'exposez pas ce port sur Internet.
@@ -23,10 +24,17 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.parse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+try:  # Pillow : facultatif (images du carrousel Top Shelf)
+    import topshelf
+except ImportError:  # pragma: no cover - dépend de l'image Docker
+    topshelf = None
+
 ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
+TOPSHELF_PATH_RE = re.compile(r"^/topshelf/([A-Za-z0-9][A-Za-z0-9:_.-]{0,63})\.jpg$")
 TRAILER_PATH_RE = re.compile(r"^/trailer/([A-Za-z0-9_-]{11})(\.preview)?\.mp4$")
 PREVIEW_START = int(os.environ.get("PREVIEW_START", "5"))
 PREVIEW_SECONDS = int(os.environ.get("PREVIEW_SECONDS", "30"))
@@ -305,11 +313,16 @@ def make_handler(cache):
                     "ok": True,
                     "audio": True,
                     "preview": True,
+                    "topshelf": topshelf is not None,
                     "ytdlp": ytdlp_version(),
                     "ffmpeg": shutil.which("ffmpeg") is not None,
                     "cached": len(entries),
                     "cacheMB": round(sum(e[1] for e in entries) / 1048576, 1),
                 })
+                return
+            ts = TOPSHELF_PATH_RE.match(path)
+            if ts:
+                self._serve_topshelf(ts.group(1), head)
                 return
             m = TRAILER_PATH_RE.match(path)
             if not m:
@@ -358,6 +371,36 @@ def make_handler(cache):
             except (BrokenPipeError, ConnectionResetError):
                 pass  # le lecteur a interrompu la lecture : normal
 
+        def _serve_topshelf(self, item_id, head):
+            if topshelf is None:
+                self._error(HTTPStatus.NOT_IMPLEMENTED, "Pillow absent")
+                return
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            first = lambda key: (query.get(key) or [None])[0]  # noqa: E731
+            try:
+                file_path = topshelf.ensure(os.path.join(cache.directory, "topshelf"), item_id,
+                                            first("bg"), first("logo"), first("title"))
+            except ValueError as e:
+                self._error(HTTPStatus.BAD_REQUEST, str(e))
+                return
+            except OSError as e:
+                log(f"topshelf {item_id} : image indisponible ({e})")
+                self._error(HTTPStatus.BAD_GATEWAY, "image indisponible")
+                return
+            size = os.path.getsize(file_path)
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Length", str(size))
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.end_headers()
+            if head:
+                return
+            try:
+                with open(file_path, "rb") as f:
+                    shutil.copyfileobj(f, self.wfile, CHUNK)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+
         def do_POST(self):  # noqa: N802
             if self.path.split("?", 1)[0] != "/prefetch":
                 self._error(HTTPStatus.NOT_FOUND, "inconnu")
@@ -382,9 +425,24 @@ def make_handler(cache):
     return Handler
 
 
+def clean_topshelf(directory, max_age=14 * 86400):
+    folder = os.path.join(directory, "topshelf")
+    if not os.path.isdir(folder):
+        return
+    now = time.time()
+    for name in os.listdir(folder):
+        path = os.path.join(folder, name)
+        try:
+            if now - os.path.getmtime(path) > max_age:
+                os.remove(path)
+        except OSError:
+            pass
+
+
 def main():
     try:
         cache = Cache(CACHE_DIR, CACHE_MAX_MB)
+        clean_topshelf(CACHE_DIR)
     except PermissionError:
         log(f"impossible d'écrire dans {CACHE_DIR} : le dossier monté n'est pas accessible en écriture "
             f"pour l'utilisateur du conteneur (uid {os.getuid()}). Utilisez le volume Docker nommé "
@@ -393,7 +451,8 @@ def main():
         return 1
     version = ytdlp_version()
     log(f"aurora-trailers sur le port {PORT}, cache {CACHE_DIR} ({CACHE_MAX_MB} Mo max), "
-        f"yt-dlp {version or 'absent'}, ffmpeg {'présent' if shutil.which('ffmpeg') else 'absent'}")
+        f"yt-dlp {version or 'absent'}, ffmpeg {'présent' if shutil.which('ffmpeg') else 'absent'}, "
+        f"images Top Shelf {'oui' if topshelf else 'non (Pillow absent)'}")
     if version is None:
         log("attention : yt-dlp est introuvable, aucune bande-annonce ne pourra être préparée")
     server = ThreadingHTTPServer(("0.0.0.0", PORT), make_handler(cache))

@@ -9,6 +9,11 @@ lire directement. Le service télécharge la piste vidéo de la bande-annonce av
 en cache et la sert à l'Apple TV. La première demande d'une bande-annonce prend quelques
 secondes ; ensuite elle part immédiatement.
 
+Il compose aussi les images du carrousel Top Shelf avec le titre du film incrusté
+(`/topshelf/<id>.jpg`) : l'Apple TV n'a pas assez de mémoire pour le faire elle-même. Seules
+des images HTTPS d'hôtes connus (metahub, TMDB, IMDb, TheTVDB, fanart.tv) sont téléchargées
+(variable `TOPSHELF_IMAGE_HOSTS`). Police : Manrope (SIL Open Font License, `fonts/`).
+
 ## Installation (Docker)
 
 1. Copier ce dossier `trailer-server` sur le NAS (par exemple `/volume1/docker/aurora-trailers`).
