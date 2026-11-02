@@ -78,6 +78,21 @@ compilation, ce qu'exige tvOS pour une mise à jour.
   dans atvloadly en mode « certificat » (non rafraîchie automatiquement). Ne jamais committer ces
   fichiers. Un profil expiré est refusé par le script.
 
+## Installation bloquée après « AFC upload progress: 100% »
+
+Constaté le 02/11/2026 (builds 26 et 28) : signature correcte, envoi à 100 %, puis plus
+aucune ligne, sans message d'erreur ; l'ancienne version reste installée. Cause : **espace
+de stockage insuffisant sur l'Apple TV**. Après avoir libéré de la place (Réglages ›
+Général › Gérer le stockage), l'installation est passée. Autres causes possibles du même
+symptôme : appairage cassé par une mise à jour de tvOS (refaire l'appairage), version
+d'atvloadly trop ancienne (mettre à jour l'image Docker). Ne pas supprimer Aurora pour
+« réessayer » : ses réglages et sa bibliothèque locale seraient perdus.
+
+Remarque atvloadly : il renomme les identifiants à la signature (constaté :
+`io.github.popolski.lanterne.938QZD3QMV`, extension `….938QZD3QMV.topshelf`, groupe
+d'apps `group.io.github.popolski.lanterne.938QZD3QMV…`). L'app ne suppose donc jamais
+ces noms : elle les lit dans les profils embarqués (voir `SharedContainer`).
+
 ## API d'atvloadly
 
 atvloadly expose une API HTTP (`POST /api/install`, `/healthcheck`, serveur MCP `/mcp`) **sans
