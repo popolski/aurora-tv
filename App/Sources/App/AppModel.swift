@@ -112,9 +112,14 @@ final class AppModel {
         let isUITest = arguments.contains("-uitest")
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
         let isDemo = arguments.contains("-demo")
-        let http: any HTTPClient = isDemo ? DemoHTTPClient()
-            : isUITest ? UITestHTTPClient()
-            : URLSessionHTTPClient(userAgent: "Aurora/\(version) (tvOS)")
+        let http: any HTTPClient
+        if isDemo {
+            http = DemoHTTPClient()
+        } else if isUITest {
+            http = UITestHTTPClient()
+        } else {
+            http = URLSessionHTTPClient(userAgent: "Aurora/\(version) (tvOS)")
+        }
         let secrets: any SecretStore = isUITest ? InMemorySecretStore() : KeychainSecretStore(service: "io.github.popolski.lanterne")
         let defaults: any KeyValueStore = isUITest ? InMemoryStore() : UserDefaultsStore()
         let fileCache: any KeyValueStore = isUITest ? InMemoryStore() : FileStore.caches(subdirectory: "Lanterne")
