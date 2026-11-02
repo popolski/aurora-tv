@@ -36,15 +36,26 @@ struct DetailView: View {
                         .padding(.trailing, 70)
                 }
             } else {
-                ScrollView(.vertical) {
-                    VStack(alignment: .leading, spacing: 40) {
+                // Film : informations à gauche, sources directement à droite.
+                HStack(alignment: .top, spacing: 40) {
+                    VStack(alignment: .leading, spacing: 30) {
                         header
                         failure
-                        credits
                     }
-                    .padding(.bottom, 70)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Group {
+                        if detail.state != .loading, let videoID = detail.targetVideoID {
+                            MovieSourcesPanel(meta: meta, videoID: videoID, resume: detail.resumePosition)
+                                .id(videoID)
+                        } else {
+                            ShimmerBlock()
+                        }
+                    }
+                    .frame(width: 680)
+                    .padding(.top, 70)
+                    .padding(.bottom, 50)
+                    .padding(.trailing, 70)
                 }
-                .scrollClipDisabled()
             }
         }
         .focusScope(focusNamespace)
@@ -100,36 +111,41 @@ struct DetailView: View {
     // MARK: En-tête
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 20) {
             if let logo = meta.logo {
                 RemoteImage(url: logo, maxPixel: 900, contentMode: .fit) {
                     Text(meta.name).font(.heroTitle).foregroundStyle(Theme.textPrimary)
                 }
-                .frame(maxWidth: 720, maxHeight: 200, alignment: .bottomLeading)
+                .frame(maxWidth: 680, maxHeight: 170, alignment: .bottomLeading)
             } else {
                 Text(meta.name.isEmpty ? "…" : meta.name)
                     .font(.heroTitle).foregroundStyle(Theme.textPrimary).lineLimit(2)
                     .minimumScaleFactor(0.6)
                     .shadow(color: .black.opacity(0.4), radius: 10)
             }
-            MetaChips(meta: meta)
+            MetaChips(meta: meta, showGenres: false)
             if let reviews = detail.reviews {
                 ReviewChips(scores: reviews)
             }
+            HStack(alignment: .top, spacing: 40) {
+                LabeledChips(label: "Genres", values: meta.genres.map(Localize.genre))
+                LabeledChips(label: "Réalisation", values: meta.directors, limit: 2)
+            }
+            LabeledChips(label: "Avec", values: meta.cast, limit: 4)
             if detail.state == .loading && meta.description == nil {
-                ShimmerBlock().frame(width: 900, height: 110)
+                ShimmerBlock().frame(width: 860, height: 100)
             } else if let description = meta.description {
                 Text(description)
                     .font(.bodyLarge)
                     .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(4)
-                    .frame(maxWidth: 960, alignment: .leading)
+                    .lineLimit(3)
+                    .frame(maxWidth: 900, alignment: .leading)
             }
-            actions.padding(.top, 8)
+            actions.padding(.top, 6)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Theme.horizontalMargin)
-        .padding(.top, 120)
+        .padding(.top, 100)
         .focusSection()
     }
 
@@ -173,35 +189,39 @@ struct DetailView: View {
                         trailerURL = nil
                         TrailerPresenter.present(trailer, title: meta.name, app: app)
                     } label: {
-                        Image(systemName: "film")
+                        Label("Bande-annonce", systemImage: "film")
                     }
-                    .buttonStyle(CircleButtonStyle())
-                    .focused($focusedAction, equals: .trailer)
-                    .accessibilityLabel(Text("Bande-annonce"))
+                    .buttonStyle(PillButtonStyle())
                     .accessibilityIdentifier("detail.trailer")
                 }
 
-                Button {
-                    detail.toggleLibrary(app: app)
-                } label: {
-                    Image(systemName: detail.isInLibrary ? "checkmark" : "plus")
-                }
-                .buttonStyle(CircleButtonStyle())
-                .focused($focusedAction, equals: .library)
-                .accessibilityLabel(Text(caption(for: .library)))
-                .accessibilityIdentifier("detail.library")
-
-                if !detail.isSeries {
-                    let watched = detail.libraryItem?.isWatched ?? false
+                // « Ma liste » et « Vu » regroupés dans une même capsule.
+                HStack(spacing: 6) {
                     Button {
-                        detail.setWatched(!watched, video: nil, app: app)
+                        detail.toggleLibrary(app: app)
                     } label: {
-                        Image(systemName: watched ? "eye.fill" : "eye")
+                        Image(systemName: detail.isInLibrary ? "checkmark" : "plus")
                     }
                     .buttonStyle(CircleButtonStyle())
-                    .focused($focusedAction, equals: .watched)
-                    .accessibilityLabel(Text(caption(for: .watched)))
+                    .focused($focusedAction, equals: .library)
+                    .accessibilityLabel(Text(caption(for: .library)))
+                    .accessibilityIdentifier("detail.library")
+
+                    if !detail.isSeries {
+                        let watched = detail.libraryItem?.isWatched ?? false
+                        Button {
+                            detail.setWatched(!watched, video: nil, app: app)
+                        } label: {
+                            Image(systemName: watched ? "eye.fill" : "eye")
+                        }
+                        .buttonStyle(CircleButtonStyle())
+                        .focused($focusedAction, equals: .watched)
+                        .accessibilityLabel(Text(caption(for: .watched)))
+                    }
                 }
+                .padding(6)
+                .background(Capsule().fill(Color.white.opacity(0.08)))
+                .overlay(Capsule().strokeBorder(Theme.stroke, lineWidth: 1))
             }
             // Légende du bouton rond qui a le focus (hauteur réservée : rien ne bouge).
             Text(focusedAction.map(caption(for:)) ?? " ")
@@ -314,31 +334,6 @@ struct DetailView: View {
         .frame(maxHeight: .infinity, alignment: .top)
         .background(GlassPanel(cornerRadius: 36))
         .focusSection()
-    }
-
-    @ViewBuilder private var credits: some View {
-        let lines: [(String, [String])] = [("Avec", meta.cast), ("Réalisation", meta.directors), ("Scénario", meta.writers)]
-            .filter { !$0.1.isEmpty }
-        if !lines.isEmpty {
-            HStack(alignment: .top, spacing: 60) {
-                ForEach(lines, id: \.0) { line in
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(line.0).font(.manrope(19, .heavy)).foregroundStyle(Theme.textTertiary)
-                        Text(line.1.prefix(6).joined(separator: "\n"))
-                            .font(.manrope(23, .semibold))
-                            .foregroundStyle(Theme.textPrimary)
-                            .lineLimit(6)
-                    }
-                    .frame(maxWidth: 420, alignment: .leading)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(36)
-            .background(GlassPanel(cornerRadius: 40))
-            .padding(.horizontal, 70)
-            // Lignes non focalisables : on garantit l'accès au défilement.
-            .focusable()
-        }
     }
 }
 

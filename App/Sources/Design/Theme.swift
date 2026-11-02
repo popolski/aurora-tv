@@ -118,25 +118,28 @@ struct PillButtonStyle: ButtonStyle {
     var prominent = false
     /// Option sélectionnée (onglet, filtre) hors focus : capsule blanche discrète.
     var selected = false
+    /// Version réduite (filtres, panneaux).
+    var compact = false
 
     func makeBody(configuration: Configuration) -> some View {
-        PillBody(configuration: configuration, prominent: prominent, selected: selected)
+        PillBody(configuration: configuration, prominent: prominent, selected: selected, compact: compact)
     }
 
     private struct PillBody: View {
         let configuration: ButtonStyleConfiguration
         let prominent: Bool
         let selected: Bool
+        let compact: Bool
         @Environment(\.isFocused) private var isFocused
 
         private var filled: Bool { isFocused || prominent }
 
         var body: some View {
             configuration.label
-                .font(.manrope(25, .heavy))
+                .font(.manrope(compact ? 20 : 25, .heavy))
                 .lineLimit(1)
-                .padding(.horizontal, 36)
-                .padding(.vertical, 20)
+                .padding(.horizontal, compact ? 20 : 36)
+                .padding(.vertical, compact ? 12 : 20)
                 .foregroundStyle(filled ? Theme.onFocus : Theme.textPrimary)
                 .background(
                     Capsule().fill(filled ? Theme.focus : (selected ? Theme.surfaceRaised : Theme.surface))

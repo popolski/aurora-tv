@@ -131,6 +131,14 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 0) {
                 BillboardInfo(meta: shown, dimmed: trailerPlaying)
                     .frame(height: 470, alignment: .bottomLeading)
+                    .overlay(alignment: .bottomTrailing) {
+                        let pool = rotationPool
+                        if model.settings.homeBillboardRotation, pool.count > 1,
+                           let index = pool.firstIndex(where: { $0.id == shown?.id }) {
+                            RotationDots(count: pool.count, index: index)
+                                .padding(.bottom, 12)
+                        }
+                    }
                     .padding(.horizontal, Theme.horizontalMargin)
                     .padding(.bottom, 18)
                 ScrollView(.vertical) {
@@ -265,9 +273,14 @@ struct HomeView: View {
         "\(candidate?.id ?? "-")|\(shown?.id ?? "-")|\(trailerPlaying)|\(trailerURL != nil)|\(trailerEndedFor ?? "-")|\(model.settings.homeBillboardRotation)"
     }
 
+    /// Titres du défilement du bandeau : première rangée, avec image de fond.
+    private var rotationPool: [MetaItem] {
+        Array((home.rows.first?.items ?? []).filter { $0.background != nil }.prefix(12))
+    }
+
     /// Titre suivant de la première rangée (avec image de fond), en boucle.
     private func advanceBillboard() async {
-        let pool = Array((home.rows.first?.items ?? []).filter { $0.background != nil }.prefix(12))
+        let pool = rotationPool
         guard !pool.isEmpty else { return }
         let index = pool.firstIndex { $0.id == shown?.id }.map { ($0 + 1) % pool.count } ?? 0
         let next = await home.resolve(pool[index], aggregator: model.aggregator, addons: model.addons)
@@ -343,10 +356,12 @@ struct ContinueWatchingBackdrop: View {
 struct MetaPosterLink: View {
     @Environment(AppModel.self) private var model
     let meta: MetaItem
+    var onFocus: ((MetaItem) -> Void)?
 
     var body: some View {
         PosterCard(title: meta.name, imageURL: meta.poster, subtitle: meta.displayYear, shape: meta.posterShape,
-                   inCinema: meta.isInCinema, rating: meta.imdbRating, route: .meta(meta))
+                   inCinema: meta.isInCinema, rating: meta.imdbRating, route: .meta(meta),
+                   onFocus: onFocus.map { callback in { callback(meta) } })
             .opacity(model.isDimmed(meta) ? 0.45 : 1)
     }
 }

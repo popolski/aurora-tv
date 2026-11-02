@@ -148,6 +148,12 @@ struct BillboardInfo: View {
     /// ne change jamais de hauteur d'un titre à l'autre, donc rien ne saute.
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
+            // Nature du titre, discrète, au-dessus du logo.
+            Text(kindLabel)
+                .font(.manrope(17, .heavy))
+                .tracking(3)
+                .foregroundStyle(Theme.accent)
+                .opacity(meta == nil ? 0 : 1)
             ZStack(alignment: .bottomLeading) {
                 if meta?.logo == nil, let name = meta?.name {
                     Text(name)
@@ -181,16 +187,45 @@ struct BillboardInfo: View {
     }
 }
 
+extension BillboardInfo {
+    var kindLabel: String {
+        switch meta?.type {
+        case ContentType.series: "SÉRIE"
+        case ContentType.movie: "FILM"
+        default: " "
+        }
+    }
+}
+
+/// Position dans le défilement du bandeau : un trait par titre, le titre affiché plus long et plein.
+struct RotationDots: View {
+    let count: Int
+    let index: Int
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(0..<count, id: \.self) { i in
+                Capsule()
+                    .fill(Color.white.opacity(i == index ? 0.95 : 0.3))
+                    .frame(width: i == index ? 34 : 16, height: 4)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: index)
+        .accessibilityHidden(true)
+    }
+}
+
 /// Puces d'information : type · année · genres · durée · note. Seulement ce qui existe.
 struct MetaChips: View {
     let meta: MetaItem
+    /// Genres dans la ligne (sur la fiche, ils ont leur propre groupe « Genres »).
+    var showGenres = true
 
     private var items: [String] {
         var out: [String] = [meta.type == ContentType.series ? "Série" : (meta.type == ContentType.movie ? "Film" : ContentTypeLabel.label(for: meta.type))]
         if let year = meta.displayYear { out.append(year) }
-        out += meta.genres.prefix(2).map(Localize.genre)
+        if showGenres { out += meta.genres.prefix(2).map(Localize.genre) }
         if let runtime = meta.runtime { out.append(runtime) }
-        if let rating = meta.imdbRating { out.append("IMDb \(rating)") }
         return out
     }
 
@@ -206,8 +241,58 @@ struct MetaChips: View {
     var body: some View {
         HStack(spacing: 10) {
             ForEach(items, id: \.self) { Chip(text: $0) }
+            if let note = RatingBadge.display(meta.imdbRating) { ImdbScoreBox(rating: note) }
             if let cinema { Chip(text: cinema, systemImage: "popcorn", tint: Theme.accent) }
         }
         .foregroundStyle(Theme.textPrimary)
+    }
+}
+
+/// Note IMDb encadrée : « 7,4 » puis le logo IMDb (jaune).
+struct ImdbScoreBox: View {
+    let rating: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(rating).font(.manrope(22, .heavy)).foregroundStyle(.white).monospacedDigit()
+            Text("IMDb")
+                .font(.system(size: 14, weight: .black))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 5).padding(.vertical, 2)
+                .background(RoundedRectangle(cornerRadius: 4).fill(Color(red: 0.96, green: 0.77, blue: 0.09)))
+        }
+        .padding(.horizontal, 12).padding(.vertical, 6)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color(red: 0.96, green: 0.77, blue: 0.09).opacity(0.12)))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(red: 0.96, green: 0.77, blue: 0.09).opacity(0.7), lineWidth: 1.5))
+        .accessibilityLabel(Text("Note IMDb \(rating)"))
+    }
+}
+
+/// Intitulé discret (« GENRES ») au-dessus d'une rangée de puces.
+struct LabeledChips: View {
+    let label: String
+    let values: [String]
+    var limit = 3
+
+    var body: some View {
+        if !values.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(label.uppercased())
+                    .font(.manrope(15, .heavy))
+                    .tracking(1.6)
+                    .foregroundStyle(Theme.textTertiary)
+                HStack(spacing: 8) {
+                    ForEach(Array(values.prefix(limit)), id: \.self) { value in
+                        Text(value)
+                            .font(.manrope(18, .bold))
+                            .lineLimit(1)
+                            .foregroundStyle(Theme.textPrimary)
+                            .padding(.horizontal, 14).padding(.vertical, 6)
+                            .background(Capsule().fill(Color.white.opacity(0.12)))
+                            .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 1))
+                    }
+                }
+            }
+        }
     }
 }

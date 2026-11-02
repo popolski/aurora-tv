@@ -27,6 +27,9 @@ struct DiscoverView: View {
     /// Genre (Populaires) ou année (Nouveautés) ; `nil` = tous / valeur par défaut.
     @State private var filter: String?
     @State private var row: CatalogRowModel?
+    /// Affiche qui a le focus, et fiches complètes déjà chargées (distribution, réalisation…).
+    @State private var focused: MetaItem?
+    @State private var details: [String: MetaItem] = [:]
 
     private var type: String { fixedType ?? ContentType.movie }
 
@@ -63,17 +66,33 @@ struct DiscoverView: View {
     }
 
     var body: some View {
-        ScrollView(.vertical) {
-            VStack(alignment: .leading, spacing: 34) {
-                header
-                if let row {
-                    CatalogGrid(row: row)
-                } else if app.isBootstrapped {
-                    MessageView(systemImage: "square.grid.2x2", title: "Aucun catalogue à explorer",
-                                message: "Le catalogue Cinemeta n'est pas disponible. Vérifiez vos addons dans Réglages.")
+        VStack(alignment: .leading, spacing: 26) {
+            header
+            HStack(alignment: .top, spacing: 30) {
+                ScrollView(.vertical) {
+                    if let row {
+                        CatalogGrid(row: row, columnCount: 4, trailing: 10) { meta in focused = meta }
+                            .padding(.vertical, 20)
+                    } else if app.isBootstrapped {
+                        MessageView(systemImage: "square.grid.2x2", title: "Aucun catalogue à explorer",
+                                    message: "Le catalogue Cinemeta n'est pas disponible. Vérifiez vos addons dans Réglages.")
+                    }
                 }
+                // Panneau de détails : suit l'affiche qui a le focus.
+                DiscoverDetailPanel(meta: focused.map { details[$0.id] ?? $0 })
+                    .frame(width: 560)
+                    .padding(.trailing, 80)
+                    .padding(.bottom, 40)
             }
-            .padding(.vertical, 40)
+        }
+        .padding(.top, 40)
+        .task(id: focused?.id) {
+            guard let meta = focused, details[meta.id] == nil else { return }
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard !Task.isCancelled else { return }
+            if let detail = try? await app.aggregator.meta(type: meta.type, id: meta.id, addons: app.addons) {
+                details[meta.id] = meta.merged(withDetail: detail)
+            }
         }
         .onAppear {
             if !kinds.contains(kind), let first = kinds.first { kind = first }
@@ -154,6 +173,65 @@ struct DiscoverView: View {
     }
 }
 
+/// Panneau de détails d'Explorer : image, titre, informations, résumé, genres,
+/// distribution, réalisation du titre qui a le focus dans la grille.
+struct DiscoverDetailPanel: View {
+    let meta: MetaItem?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            if let meta {
+                ZStack(alignment: .bottomLeading) {
+                    RemoteImage(url: meta.background ?? meta.poster, maxPixel: 1100) { Theme.surface }
+                        .frame(width: 504, height: 284)
+                        .clipped()
+                    LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
+                    if let logo = meta.logo {
+                        RemoteImage(url: logo, maxPixel: 600, contentMode: .fit) {
+                            Text(meta.name).font(.manrope(30, .heavy)).foregroundStyle(.white).lineLimit(2)
+                        }
+                        .frame(maxWidth: 300, maxHeight: 90, alignment: .bottomLeading)
+                        .padding(18)
+                    } else {
+                        Text(meta.name).font(.manrope(30, .heavy)).foregroundStyle(.white).lineLimit(2).padding(18)
+                    }
+                }
+                .frame(width: 504, height: 284)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+
+                HStack(spacing: 14) {
+                    if let year = meta.displayYear { Text(year) }
+                    if let runtime = meta.runtime { Text(runtime) }
+                    if let note = RatingBadge.display(meta.imdbRating) { ImdbScoreBox(rating: note) }
+                    if meta.isInCinema { CinemaBadge() }
+                }
+                .font(.manrope(20, .bold))
+                .foregroundStyle(Theme.textSecondary)
+
+                if let description = meta.description {
+                    Text(description)
+                        .font(.system(size: 21))
+                        .foregroundStyle(Theme.textSecondary)
+                        .lineLimit(6)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                LabeledChips(label: "Genres", values: meta.genres.map(Localize.genre))
+                LabeledChips(label: "Avec", values: meta.cast, limit: 3)
+                LabeledChips(label: "Réalisation", values: meta.directors, limit: 2)
+            } else {
+                Text("Parcourez la grille : le résumé du titre sélectionné s'affiche ici.")
+                    .font(.meta).foregroundStyle(Theme.textTertiary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(GlassPanel(cornerRadius: 36))
+        .animation(.easeInOut(duration: 0.25), value: meta?.id)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// Élément du sélecteur segmenté : choix actif en blanc plein, focus agrandi.
 struct SegmentButtonStyle: ButtonStyle {
     let selected: Bool
@@ -186,7 +264,11 @@ struct SegmentButtonStyle: ButtonStyle {
 struct CatalogGrid: View {
     @Environment(AppModel.self) private var model
     let row: CatalogRowModel
-    private let columns = Array(repeating: GridItem(.fixed(Theme.Poster.width), spacing: 48), count: 6)
+    var columnCount = 6
+    var leading: CGFloat = Theme.horizontalMargin
+    var trailing: CGFloat = Theme.horizontalMargin
+    var onFocus: ((MetaItem) -> Void)?
+    private var columns: [GridItem] { Array(repeating: GridItem(.fixed(Theme.Poster.width), spacing: 48), count: columnCount) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -202,7 +284,7 @@ struct CatalogGrid: View {
             } else {
                 LazyVGrid(columns: columns, alignment: .leading, spacing: 60) {
                     ForEach(model.visibleTitles(row.items)) { meta in
-                        MetaPosterLink(meta: meta)
+                        MetaPosterLink(meta: meta, onFocus: onFocus)
                             .onAppear {
                                 if let index = row.items.firstIndex(where: { $0.id == meta.id }), index >= row.items.count - 12 {
                                     row.loadNextPage()
@@ -213,7 +295,8 @@ struct CatalogGrid: View {
                 if row.isLoading { ProgressView().frame(maxWidth: .infinity) }
             }
         }
-        .padding(.horizontal, Theme.horizontalMargin)
+        .padding(.leading, leading)
+        .padding(.trailing, trailing)
         .focusSection()
     }
 }

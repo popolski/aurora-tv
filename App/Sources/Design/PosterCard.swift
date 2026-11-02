@@ -17,6 +17,8 @@ struct PosterCard: View {
     /// Navigation vers une destination (prioritaire sur `action`).
     var route: Route?
     var action: (() -> Void)?
+    /// Appelé quand la carte prend le focus (panneau de détails d'Explorer).
+    var onFocus: (() -> Void)?
 
     @FocusState private var focused: Bool
 
@@ -72,6 +74,7 @@ struct PosterCard: View {
         VStack(alignment: .leading, spacing: 14) {
             focusable
                 .focused($focused)
+                .onChange(of: focused) { _, isFocused in if isFocused { onFocus?() } }
                 .accessibilityLabel(Text(title))
 
             VStack(alignment: .leading, spacing: 4) {

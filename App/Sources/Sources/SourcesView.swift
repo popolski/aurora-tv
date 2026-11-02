@@ -5,6 +5,7 @@ struct SourcesView: View {
     @Environment(AppModel.self) private var app
     @State private var model: SourcesModel
     @State private var unplayableMessage: String?
+    @State private var filter = SourceFilter()
 
     init(request: SourcesRoute) {
         _model = State(initialValue: SourcesModel(request: request))
@@ -17,6 +18,9 @@ struct SourcesView: View {
             VStack(alignment: .leading, spacing: 30) {
                 header
                 addonChips
+                if !ranked.isEmpty {
+                    SourceFilterBar(filter: $filter, sources: ranked)
+                }
                 content
             }
             .padding(.horizontal, Theme.horizontalMargin)
@@ -110,8 +114,12 @@ struct SourcesView: View {
     // MARK: Liste
 
     @ViewBuilder private var content: some View {
-        let list = ranked
-        if model.addonStatuses.isEmpty && model.raw.isEmpty {
+        let all = ranked
+        let list = filter.apply(all)
+        if !all.isEmpty && list.isEmpty {
+            MessageView(systemImage: "line.3.horizontal.decrease.circle", title: "Aucune source pour ces filtres",
+                        message: "\(all.count) source(s) au total.", actionTitle: "Effacer les filtres") { filter = SourceFilter() }
+        } else if model.addonStatuses.isEmpty && model.raw.isEmpty {
             MessageView(systemImage: "antenna.radiowaves.left.and.right.slash", title: "Aucun addon de flux",
                         message: "Aucun addon installé ne fournit de sources pour ce contenu. Ajoutez un addon de flux dans Réglages › Addons.")
         } else if list.isEmpty && model.isFinished {
@@ -156,10 +164,39 @@ struct SourceRow: View {
     let source: RankedSource
     let isBest: Bool
     let wasUsed: Bool
+    /// Version étroite (panneau de la fiche film).
+    var compact = false
 
     private var t: StreamTraits { source.traits }
 
     var body: some View {
+        if compact { compactBody } else { fullBody }
+    }
+
+    private var compactBody: some View {
+        HStack(alignment: .top, spacing: 16) {
+            Text(t.resolution?.label ?? "—")
+                .font(.system(size: 24, weight: .heavy))
+                .foregroundStyle(t.resolution == .uhd2160 ? Theme.accent : Theme.textPrimary)
+                .frame(width: 74, alignment: .leading)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Text(source.title).font(.system(size: 21, weight: .semibold)).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                    if isBest { Badge(text: "Recommandée", tint: Theme.accent, announced: false) }
+                    if wasUsed { Badge(text: "Déjà utilisée", tint: Theme.success, announced: false) }
+                }
+                badges
+                HStack(spacing: 10) {
+                    Text(source.addonName).font(.system(size: 17, weight: .medium)).foregroundStyle(Theme.textTertiary).lineLimit(1)
+                    playabilityLabel
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .opacity(source.playability.isPlayable ? 1 : 0.55)
+    }
+
+    private var fullBody: some View {
         HStack(alignment: .center, spacing: 26) {
             Text(t.resolution?.label ?? "—")
                 .font(.system(size: 30, weight: .heavy))
