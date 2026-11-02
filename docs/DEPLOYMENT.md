@@ -80,11 +80,16 @@ compilation, ce qu'exige tvOS pour une mise à jour.
 
 ## Installation bloquée après « AFC upload progress: 100% »
 
-Constaté le 02/11/2026 (builds 26 et 28) : signature correcte, envoi à 100 %, puis plus
-aucune ligne, sans message d'erreur ; l'ancienne version reste installée. Cause : **espace
-de stockage insuffisant sur l'Apple TV**. Après avoir libéré de la place (Réglages ›
-Général › Gérer le stockage), l'installation est passée. Autres causes possibles du même
-symptôme : appairage cassé par une mise à jour de tvOS (refaire l'appairage), version
+**Avant chaque mise à jour : ouvrir une autre app sur l'Apple TV (par exemple Réglages)**
+pour que l'écran d'accueil n'affiche pas le carrousel Top Shelf d'Aurora.
+
+Constaté le 02/11/2026 (builds 27, 28 et 31) : signature correcte, envoi à 100 %, puis plus
+aucune ligne, sans message d'erreur ; l'ancienne version reste installée. Les blocages se
+produisent quand le carrousel d'Aurora est affiché et actif (son extension est alors
+utilisée par le système) ; le build 31 s'est installé en ouvrant une autre app avant.
+(Pour le build 28, l'installation était passée après avoir libéré de l'espace : sans doute
+une coïncidence, l'Apple TV ayant ensuite plus de 30 Go libres.) Autres causes possibles du
+même symptôme : espace insuffisant, appairage cassé par une mise à jour de tvOS (refaire l'appairage), version
 d'atvloadly trop ancienne (mettre à jour l'image Docker). Ne pas supprimer Aurora pour
 « réessayer » : ses réglages et sa bibliothèque locale seraient perdus.
 

@@ -28,7 +28,9 @@ addons installés par l'utilisateur. Il n'embarque aucun moteur torrent.
 l'utilisateur. Rien n'est déclaré « fonctionnel » sans exécution réelle.
 
 Remarque atvloadly : la page d'installation peut rester bloquée à 100 % alors que l'installation a
-abouti (vérifier la version dans Réglages › À propos).
+abouti (vérifier la version dans Réglages › À propos). **Avant une mise à jour, ouvrir une autre
+app sur l'Apple TV** : si le carrousel Top Shelf d'Aurora est affiché, l'installation bloque
+(voir docs/DEPLOYMENT.md).
 
 ## Démarrage rapide
 
