@@ -57,6 +57,8 @@ final class AppModel {
     @ObservationIgnored let reviews: ReviewScoresClient
     @ObservationIgnored let defaults: any KeyValueStore
     @ObservationIgnored let isUITest: Bool
+    /// Mode démonstration (`-uitest -demo`) : catalogue inventé pour les captures d'écran.
+    @ObservationIgnored let isDemo = ProcessInfo.processInfo.arguments.contains("-demo")
     @ObservationIgnored private var observers: [Task<Void, Never>] = []
     @ObservationIgnored private var lastForegroundSync = Date.distantPast
     @ObservationIgnored let log = LogChannel("app")
@@ -109,8 +111,9 @@ final class AppModel {
         let arguments = ProcessInfo.processInfo.arguments
         let isUITest = arguments.contains("-uitest")
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
-        let http: any HTTPClient = isUITest
-            ? UITestHTTPClient()
+        let isDemo = arguments.contains("-demo")
+        let http: any HTTPClient = isDemo ? DemoHTTPClient()
+            : isUITest ? UITestHTTPClient()
             : URLSessionHTTPClient(userAgent: "Aurora/\(version) (tvOS)")
         let secrets: any SecretStore = isUITest ? InMemorySecretStore() : KeychainSecretStore(service: "io.github.popolski.lanterne")
         let defaults: any KeyValueStore = isUITest ? InMemoryStore() : UserDefaultsStore()
@@ -132,6 +135,7 @@ final class AppModel {
         guard !isBootstrapped else { return }
         log.info("démarrage \(AppInfo.versionString)")
         startObservers()
+        if isDemo { await DemoHTTPClient.seed(library) }
         await reloadAddons()
         await reloadLibrary()
         await reloadAccount()

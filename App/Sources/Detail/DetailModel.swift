@@ -70,7 +70,7 @@ final class DetailModel {
             if let self, self.selectedSeason == nil {
                 self.selectedSeason = self.targetVideo?.season ?? self.meta.seasons.first
             }
-            if let self, !app.isUITest, self.meta.id.hasPrefix("tt") {
+            if let self, !app.isUITest || app.isDemo, self.meta.id.hasPrefix("tt") {
                 let scores = await app.reviews.scores(imdbID: self.meta.id)
                 if !scores.isEmpty { self.reviews = scores }
             }

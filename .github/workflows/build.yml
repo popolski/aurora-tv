@@ -190,6 +190,7 @@ jobs:
             -destination "id=$DEVICE" \
             -derivedDataPath build/dd-test -clonedSourcePackagesDirPath .spm \
             -resultBundlePath ui-tests.xcresult \
+            -skip-testing:LanterneUITests/ScreenshotTests \
             CODE_SIGNING_ALLOWED=NO > ui-tests.log 2>&1 || STATUS=$?
           grep -E "Test Case .*(passed|failed)|error:|TEST (SUCCEEDED|FAILED)" ui-tests.log | head -n 200 || true
           exit $STATUS

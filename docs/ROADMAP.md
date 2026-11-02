@@ -97,3 +97,20 @@ L'utilisateur a choisi le service auto-hébergé sur le NAS. État :
 Image de fond animée sur la fiche, « Now Playing » système (Siri, autres
 télécommandes), rendu libass complet (si nécessaire), profils multiples, mise à jour OTA via
 source atvloadly, Top Shelf dynamique.
+
+## Idées en attente (proposées le 02/11/2026, à reprendre après la documentation)
+
+Ordre recommandé : 1, 2, 3, puis 4 et 6, puis le reste.
+
+1. Minuteur de sommeil (fin de l'épisode, 30/45/60 min, fondu de l'image).
+2. « Êtes-vous toujours là ? » après 2-3 épisodes enchaînés sans interaction.
+3. Synchroniser les sous-titres en choisissant la réplique entendue.
+4. Épisode suivant préparé pendant le générique (sources cherchées à l'avance).
+5. Infos techniques du flux (résolution, codec, HDR, débit, images perdues, pairs).
+6. Filmographie depuis les puces « Avec » / « Réalisation » (Wikidata).
+7. Sagas sur la fiche (Wikidata, ordre, déjà vus).
+8. « Je ne sais pas quoi regarder » (tirage dans Ma liste, filtre de durée).
+9. Top Shelf au choix : nouveautés ou « Continuer à regarder ».
+10. Sauvegarde des réglages d'Aurora sur le NAS (restauration en un clic).
+
+Écarté : vignettes d'aperçu dans la barre de progression (non fournies par le moteur).

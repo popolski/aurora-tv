@@ -1,0 +1,79 @@
+name: Captures d'écran
+
+# Captures de la documentation, prises sur le simulateur Apple TV en mode démonstration
+# (films et séries inventés, images générées par scripts/generate-demo-assets.py).
+# Publiées sur la release « screenshots » (préversion, jamais « latest »).
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "App/UITests/ScreenshotTests.swift"
+      - "App/Sources/Platform/DemoHTTPClient.swift"
+      - "docs/demo-assets/**"
+      - ".github/workflows/screenshots.yml"
+
+concurrency:
+  group: screenshots
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  XCODE_APP: /Applications/Xcode_27.1.app
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+
+jobs:
+  screenshots:
+    name: Captures (simulateur tvOS, mode démo)
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sélection de Xcode
+        run: sudo xcode-select -s "$XCODE_APP"
+      - name: XcodeGen
+        run: |
+          brew install xcodegen
+          xcodegen generate
+      - name: Cache des paquets Swift
+        uses: actions/cache@v4
+        with:
+          path: .spm
+          key: spm-${{ runner.os }}-${{ hashFiles('project.yml', 'Packages/LanterneCore/Package.swift') }}
+          restore-keys: spm-${{ runner.os }}-
+      - name: Captures
+        run: |
+          DEVICE=$(xcrun simctl list devices available | grep -E "Apple TV 4K \(3rd generation\) \(" | grep -v "1080p" | head -n1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
+          echo "Simulateur : $DEVICE"
+          mkdir -p shots
+          STATUS=0
+          TEST_RUNNER_SCREENSHOTS_DIR="$GITHUB_WORKSPACE/shots" xcodebuild test \
+            -project Lanterne.xcodeproj -scheme Lanterne \
+            -destination "id=$DEVICE" \
+            -only-testing:LanterneUITests/ScreenshotTests \
+            -derivedDataPath build/dd-shots -clonedSourcePackagesDirPath .spm \
+            -resultBundlePath shots.xcresult \
+            CODE_SIGNING_ALLOWED=NO > shots.log 2>&1 || STATUS=$?
+          grep -E "Test Case .*(passed|failed)|error:|TEST (SUCCEEDED|FAILED)" shots.log | head -n 50 || true
+          ls -la shots
+          echo "xcodebuild : $STATUS"
+      - name: Publication sur la release « screenshots »
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls shots/*.png >/dev/null 2>&1 || { echo "::error::aucune capture produite"; exit 1; }
+          gh release view screenshots >/dev/null 2>&1 || gh release create screenshots \
+            --title "Captures d'écran (mode démo)" --prerelease --latest=false \
+            --notes "Captures de la documentation, prises automatiquement sur le simulateur Apple TV en mode démonstration (films et séries inventés)."
+          gh release upload screenshots shots/*.png --clobber
+      - name: Journaux
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ github.run_number }}
+          path: |
+            shots
+            shots.log
+          retention-days: 14
