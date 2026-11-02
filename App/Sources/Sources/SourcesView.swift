@@ -6,6 +6,7 @@ struct SourcesView: View {
     @State private var model: SourcesModel
     @State private var unplayableMessage: String?
     @State private var filter = SourceFilter()
+    @Namespace private var focusNamespace
 
     init(request: SourcesRoute) {
         _model = State(initialValue: SourcesModel(request: request))
@@ -27,6 +28,8 @@ struct SourcesView: View {
             .padding(.vertical, 50)
         }
         .screenBackground()
+        // Le focus arrive sur la première source (et non sur les filtres) : OK lance la lecture.
+        .focusScope(focusNamespace)
         .task { model.load(app: app) }
         .onDisappear { model.cancel() }
         .onChange(of: model.isFinished) { _, finished in
@@ -136,6 +139,7 @@ struct SourcesView: View {
                                   wasUsed: source.stream.fingerprint == model.previousFingerprint)
                     }
                     .buttonStyle(RowButtonStyle())
+                    .prefersDefaultFocus(index == 0, in: focusNamespace)
                     .accessibilityIdentifier("source.\(index)")
                 }
                 if !model.isFinished {
