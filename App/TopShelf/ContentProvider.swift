@@ -14,10 +14,12 @@ final class ContentProvider: TVTopShelfContentProvider {
     nonisolated(nonsending) override func loadTopShelfContent() async -> (any TVTopShelfContent)? {
         let shared = SharedContainer.defaults()
         let config = TopShelfConfig.load(from: shared)
-        // tvOS abandonne une extension trop lente : 12 s au plus, détails facultatifs.
-        let metas = await TopShelfLoader.latestMovies(limit: 10, deadline: 12)
+        // tvOS abandonne une extension trop lente : 10 s pour les données (détails facultatifs),
+        // puis 7 s pour composer les images avec le titre (sinon image d'origine).
+        let metas = await TopShelfLoader.latestMovies(limit: 10, deadline: 10)
+        let artwork = await TopShelfArtwork.images(for: metas, deadline: 7)
         let server = config?.server
-        let items = metas.map { Self.item(for: $0, server: server) }
+        let items = metas.map { Self.item(for: $0, server: server, artwork: artwork[$0.id]) }
         // Compte rendu lisible par l'app (Réglages › Diagnostics) si le groupe est partagé.
         TopShelfStatus(groupID: SharedContainer.groupID(), serverKnown: server != nil, items: items.count,
                        trailers: items.filter { $0.previewVideoURL != nil }.count).save(to: shared)
@@ -26,7 +28,7 @@ final class ContentProvider: TVTopShelfContentProvider {
         return TVTopShelfCarouselContent(style: .details, items: items)
     }
 
-    private static func item(for meta: MetaItem, server: URL?) -> TVTopShelfCarouselItem {
+    private static func item(for meta: MetaItem, server: URL?, artwork: URL?) -> TVTopShelfCarouselItem {
         let item = TVTopShelfCarouselItem(identifier: meta.id)
         item.title = meta.name
         item.contextTitle = meta.cinemaStatus() == .inTheaters ? "Au cinéma" : "Nouveauté"
@@ -35,9 +37,10 @@ final class ContentProvider: TVTopShelfContentProvider {
         if !genres.isEmpty { item.genre = genres.joined(separator: " · ") }
         if let runtime = meta.runtimeSeconds { item.duration = runtime }
         if let released = meta.released { item.creationDate = released }
-        if let background = meta.background {
-            item.setImageURL(background, for: .screenScale1x)
-            item.setImageURL(background, for: .screenScale2x)
+        // Image avec le titre incrusté si elle a pu être composée, sinon l'image d'origine.
+        if let image = artwork ?? meta.background {
+            item.setImageURL(image, for: .screenScale1x)
+            item.setImageURL(image, for: .screenScale2x)
         }
         var attributes: [TVTopShelfNamedAttribute] = []
         if !meta.directors.isEmpty {
@@ -113,7 +116,7 @@ enum TopShelfLoader {
         session.dataTask(with: request).resume()
     }
 
-    private static func fetch(_ url: URL) async -> Data? {
+    static func fetch(_ url: URL) async -> Data? {
         guard let (data, response) = try? await session.data(from: url),
               let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
               data.count < 5_000_000 else { return nil }
