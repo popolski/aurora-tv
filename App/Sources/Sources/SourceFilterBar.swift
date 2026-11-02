@@ -22,7 +22,7 @@ struct SourceFilterBar: View {
                 Button {
                     filter.hdrOnly.toggle()
                 } label: {
-                    Text("HDR / DV \\(hdr)")
+                    Text("HDR / DV \(hdr)")
                 }
                 .buttonStyle(PillButtonStyle(selected: filter.hdrOnly, compact: compact))
             }
@@ -40,7 +40,7 @@ struct SourceFilterBar: View {
 
     private func menu(title: String, options: [SourceFilter.Option], selection: Binding<Set<String>>) -> some View {
         let active = selection.wrappedValue
-        let label = active.isEmpty ? title : "\\(title) · \\(active.count)"
+        let label = active.isEmpty ? title : "\(title) · \(active.count)"
         return Menu {
             if !active.isEmpty {
                 Button("Tout afficher") { selection.wrappedValue = [] }
@@ -52,7 +52,7 @@ struct SourceFilterBar: View {
                         if on { selection.wrappedValue.insert(option.key) } else { selection.wrappedValue.remove(option.key) }
                     }
                 )) {
-                    Text("\\(option.label)   \\(option.count)")
+                    Text("\(option.label)   \(option.count)")
                 }
             }
         } label: {

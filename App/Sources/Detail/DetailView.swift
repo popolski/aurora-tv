@@ -141,7 +141,10 @@ struct DetailView: View {
             actions.padding(.top, 6)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, Theme.horizontalMargin)
+        .padding(.leading, Theme.horizontalMargin)
+        // Côté droit : le panneau (série) ou l'image ; marge réduite pour que les boutons
+        // ne soient pas tronqués (constaté sur les captures : « Reprendre S02… »).
+        .padding(.trailing, 20)
         .padding(.top, 100)
         .focusSection()
     }

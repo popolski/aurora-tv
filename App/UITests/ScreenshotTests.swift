@@ -70,13 +70,13 @@ final class ScreenshotTests: XCTestCase {
         press(.down, times: 2)
         shot("02-accueil-rangees", wait: 4)
 
-        // Fiche film (premier titre de « Continuer à regarder »).
+        // Fiche série (premier titre de « Continuer à regarder » : la série, regardée en dernier).
         press(.up, times: 2)
         press(.left, times: 3, pause: 0.3)
         press(.select)
         if app.buttons["detail.play"].waitForExistence(timeout: 15) {
-            shot("03-fiche-film", wait: 5)
-            // Sources, avec filtres.
+            shot("03-fiche-serie", wait: 5)
+            // Sources de l'épisode, avec filtres.
             press(.select)
             if app.descendants(matching: .any)["source.0"].waitForExistence(timeout: 15) {
                 shot("04-sources", wait: 3)
@@ -87,11 +87,11 @@ final class ScreenshotTests: XCTestCase {
         press(.menu)
         Thread.sleep(forTimeInterval: 2)
 
-        // Fiche série (deuxième titre de « Continuer à regarder »).
+        // Fiche film (deuxième titre de « Continuer à regarder »).
         press(.right)
         press(.select)
         if app.buttons["detail.play"].waitForExistence(timeout: 15) {
-            shot("05-fiche-serie", wait: 5)
+            shot("05-fiche-film", wait: 5)
             press(.menu)
             Thread.sleep(forTimeInterval: 2)
         }

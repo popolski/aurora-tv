@@ -82,8 +82,8 @@ struct DiscoverView: View {
                 // La grille va jusqu'au bas de l'écran et s'efface en fondu (build 35 : rangée coupée
                 // net au-dessus du bas, effet de « cadre »).
                 .mask(
-                    LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.86),
-                                           .init(color: .clear, location: 1)],
+                    LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.04),
+                                           .init(color: .black, location: 0.86), .init(color: .clear, location: 1)],
                                    startPoint: .top, endPoint: .bottom)
                 )
                 .ignoresSafeArea(edges: .bottom)
