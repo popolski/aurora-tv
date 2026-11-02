@@ -123,8 +123,10 @@ final class LanterneUITests: XCTestCase {
         // Dans une liste tvOS, les lignes peuvent être exposées comme cellules : recherche par identifiant seul.
         let diagnostics = app.descendants(matching: .any)["settings.diagnostics"]
         XCTAssertTrue(diagnostics.waitForExistence(timeout: 10))
+        // Le focus est porté par la cellule, pas par l'élément identifié : on suit le texte focalisé.
         var guardCount = 0
-        while !diagnostics.hasFocus && guardCount < 12 { press(.down); guardCount += 1 }
+        while !focusedLabel().contains("Tester le lecteur") && guardCount < 6 { press(.up); guardCount += 1 }
+        XCTAssertTrue(focusedLabel().contains("Tester le lecteur"), "focus inattendu : \(focusedLabel())")
         press(.select)
         let clip = app.descendants(matching: .any)["test.h264"]
         if !clip.waitForExistence(timeout: 10) {
@@ -133,7 +135,7 @@ final class LanterneUITests: XCTestCase {
             return
         }
         guardCount = 0
-        while !clip.hasFocus && guardCount < 6 { press(.down); guardCount += 1 }
+        while !focusedLabel().contains("H.264") && guardCount < 6 { press(.down); guardCount += 1 }
         press(.select)
         let milestone = app.staticTexts["player.milestone"]
         XCTAssertTrue(milestone.waitForExistence(timeout: 20))
