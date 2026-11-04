@@ -38,7 +38,10 @@ films et séries sont inventés, leurs images générées.</sub>
   « Êtes-vous toujours là ? » après quelques épisodes enchaînés, et sous-titres resynchronisés
   en choisissant la réplique que l'on vient d'entendre.
 - **Bandes-annonces** via un petit service sur votre NAS : en fond sur les fiches, en plein écran
-  avec le son, et dans le **carrousel Top Shelf** de l'écran d'accueil de l'Apple TV.
+  avec le son, et dans le **carrousel Top Shelf** de l'écran d'accueil de l'Apple TV ;
+  **en VF si possible**, sinon en VOSTFR, sinon en VO (avec une clé TMDB gratuite sur le NAS).
+- **Addons auto-hébergés** sur le réseau local acceptés en `http://` (les apps Stremio
+  officielles exigent HTTPS).
 - **Titres lisibles** pour les films asiatiques ou russes (titre français via Wikidata), films
   déjà vus estompés ou masqués, pastilles « Au cinéma » et « Nouvel épisode ».
 
