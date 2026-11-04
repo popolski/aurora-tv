@@ -83,6 +83,11 @@ struct URLBuilderTests {
             == "https://addon.example.com/abc/manifest.json")
         #expect(try AddonURLBuilder.normalizeManifestURL(" https://addon.example.com/abc/ ").absoluteString
             == "https://addon.example.com/abc/manifest.json")
+        // Addon auto-hébergé sur le réseau local (bouton « Installer » de Frenchio, AIOStreams…) : HTTP.
+        #expect(try AddonURLBuilder.normalizeManifestURL("stremio://192.168.1.120:7777/eyJ0bWRi/manifest.json").absoluteString
+                == "http://192.168.1.120:7777/eyJ0bWRi/manifest.json")
+        #expect(try AddonURLBuilder.normalizeManifestURL("stremio://nas.local:7777/abc").absoluteString
+                == "http://nas.local:7777/abc/manifest.json")
         #expect(throws: AddonURLError.unsupportedScheme) { try AddonURLBuilder.normalizeManifestURL("ftp://x.com/manifest.json") }
         #expect(throws: (any Error).self) { try AddonURLBuilder.normalizeManifestURL("pas une url") }
     }

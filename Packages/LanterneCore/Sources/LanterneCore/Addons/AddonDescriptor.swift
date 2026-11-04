@@ -85,12 +85,15 @@ public enum AddonURLError: Error, Sendable, Equatable {
 public enum AddonURLBuilder {
     public static let manifestSuffix = "/manifest.json"
 
-    /// Normalise une saisie utilisateur : `stremio://` → `https://`, ajout
-    /// de `/manifest.json` si absent.
+    /// Normalise une saisie utilisateur : `stremio://` → `https://` (`http://`
+    /// pour une adresse du réseau local, où les addons auto-hébergés n'ont
+    /// généralement pas de certificat), ajout de `/manifest.json` si absent.
     public static func normalizeManifestURL(_ input: String) throws -> URL {
         var s = input.trimmingCharacters(in: .whitespacesAndNewlines)
         if s.lowercased().hasPrefix("stremio://") {
-            s = "https://" + s.dropFirst("stremio://".count)
+            let rest = s.dropFirst("stremio://".count)
+            let host = URLComponents(string: "https://" + rest)?.host ?? ""
+            s = (URLPolicy.isLocalHost(host) ? "http://" : "https://") + rest
         }
         guard var comps = URLComponents(string: s), let scheme = comps.scheme?.lowercased() else {
             throw AddonURLError.invalid
