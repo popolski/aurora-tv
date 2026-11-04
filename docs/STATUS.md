@@ -7,11 +7,11 @@ Chaque fonction est évaluée sur quatre niveaux, distincts : **implémentée** 
 
 ✅ fait · 🟡 partiel · ⏳ pas encore vérifié · — sans objet
 
-Dernière mise à jour : 2 novembre 2026, build 42.
+Dernière mise à jour : 4 novembre 2026, build 50.
 
 | Fonction | Implémentée | Compilée | Testée automatiquement | Validée sur l'Apple TV |
 |---|---|---|---|---|
-| Protocole des addons (manifestes, catalogues, fiches, sources, sous-titres) | ✅ | ✅ | ✅ tests unitaires (réponses simulées) | ✅ usage quotidien (catalogues, fiches, sources) |
+| Protocole des addons (manifestes, catalogues, fiches, sources, sous-titres) | ✅ | ✅ | ✅ tests unitaires (réponses simulées) | ✅ usage quotidien (catalogues, fiches, sources) ; addon auto-hébergé sur le NAS (HTTPS, lien de lecture redirigé vers le débrideur) lu sur l'appareil (build 50) |
 | Compte Stremio (code QR, e-mail), synchronisation des addons et de la bibliothèque | ✅ | ✅ | ✅ simulé | ✅ connexion et synchro (build 6), bibliothèque et reprise |
 | Sources : analyse, tri, lisibilité estimée, filtres à compteurs | ✅ | ✅ | ✅ | ✅ filtres (build 42) |
 | Bibliothèque, progression, reprise, épisode suivant | ✅ | ✅ | ✅ | ✅ reprise et synchro (build 8) ; 🟡 encart au début du générique (dépend des minutages TheIntroDB) |

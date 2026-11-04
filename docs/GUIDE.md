@@ -259,5 +259,6 @@ connexion ») :
 | Pas de bande-annonce | Réglages › Bandes-annonces › Tester la connexion ; si le service répond mais rien ne se charge, mettre à jour yt-dlp (changer `YTDLP_REFRESH` dans `compose.yaml` et reconstruire) |
 | Une source ne démarre pas | essayer une autre source (panneau Sources du lecteur), ou « Réessayer avec AVPlayer » |
 | Pas d'image, mais du son | écran « Aucune image » : la source n'est pas affichable ; en choisir une autre |
+| Addon auto-hébergé sur le NAS : les sources s'affichent mais aucune ne démarre | derrière le proxy inversé HTTPS de DSM, l'addon peut renvoyer des liens de lecture en `http://` (port 80 fermé) : vérifier le début des `"url"` de `…/stream/movie/tt0111161.json` ; s'ils sont en `http://`, configurer l'adresse publique de l'addon (selon l'addon : variable `PUBLIC_URL`, en-tête `X-Forwarded-Proto`). En réseau local sans HTTPS, installer l'addon dans Aurora (Réglages › Addons) avec son adresse `http://192.168.…` : les apps Stremio officielles refusent ces adresses |
 | Les torrents ne sont pas lisibles | configurer un serveur de streaming Stremio (Réglages › Lecteur) |
 | Comprendre un problème | Réglages › Diagnostics › Afficher les journaux (ou les envoyer au récepteur du NAS, `scripts/log-receiver.py`) |
