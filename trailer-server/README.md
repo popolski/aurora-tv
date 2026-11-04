@@ -29,6 +29,29 @@ des images HTTPS d'hôtes connus (metahub, TMDB, IMDb, TheTVDB, fanart.tv) sont 
    répondre `"ok": true` et indiquer une version de yt-dlp.
 4. Sur l'Apple TV : *Réglages › Bandes-annonces*, saisir `http://<ip-du-nas>:8787`.
 
+## Bandes-annonces en français
+
+Les addons (Cinemeta) ne donnent en général que la bande-annonce originale. Avec une clé
+[TMDB](https://www.themoviedb.org/settings/api) (gratuite), le service choisit pour chaque
+fiche la bande-annonce **VF**, sinon **VOSTFR**, sinon la **VO** de l'addon. Il s'appuie
+sur la langue et le titre des vidéos répertoriées par TMDB (« Bande-annonce VF »,
+« … VOSTFR ») ; le choix est gardé 7 jours en cache. Sans clé, rien ne change.
+
+La clé est un secret : elle va dans un fichier `.env` sur le NAS, à côté de
+`compose.yaml`, jamais dans le dépôt ni dans `compose.yaml`. En SSH, dans le dossier du
+service (la saisie reste invisible) :
+
+```bash
+sudo bash -c 'read -rs -p "Clé TMDB : " K; echo; printf "TMDB_API_KEY=%s\n" "$K" > .env; chmod 600 .env'
+```
+
+puis `sudo docker compose up -d --build`. La clé v3 (« Clé d'API ») et le jeton de
+lecture v4 (« Jeton d'accès en lecture », commence par `eyJ`) conviennent. Elle n'apparaît
+jamais dans les journaux du service. Vérification : `http://<ip-du-nas>:8787/health`
+indique `"localized": true`, et
+`http://<ip-du-nas>:8787/resolve/tt0111161.json?type=movie` donne la langue choisie pour
+« Les Évadés ».
+
 ## Mise à jour de yt-dlp
 
 YouTube change régulièrement ; si les bandes-annonces ne se chargent plus, il faut la
@@ -53,6 +76,7 @@ première installation (téléchargements Debian lents depuis le NAS).
 | `PREVIEW_START` | `5` | Début de l'extrait du carrousel (s), après les logos des studios |
 | `PREVIEW_SECONDS` | `30` | Durée de l'extrait du carrousel Top Shelf (s) |
 | `FAILURE_TTL` | `21600` | Durée (s) pendant laquelle une bande-annonce introuvable n'est pas redemandée |
+| `TMDB_API_KEY` | vide | Clé TMDB pour les bandes-annonces en français (fichier `.env`, voir plus haut) |
 
 ## Sécurité et limites
 
@@ -67,8 +91,9 @@ première installation (téléchargements Debian lents depuis le NAS).
 ## Tests
 
 ```bash
-python3 -m unittest -v test_server
+python3 -m unittest -v test_server test_topshelf test_localize
 ```
 
-Les tests remplacent yt-dlp par un faux programme : ils ne vérifient pas l'accès réel à
-YouTube, qui ne peut être constaté que sur le NAS (`/health`, puis une fiche dans l'app).
+Les tests remplacent yt-dlp et TMDB par des imitations : ils ne vérifient pas l'accès réel à
+YouTube ni à TMDB, qui ne peut être constaté que sur le NAS (`/health`, `/resolve/…`, puis
+une fiche dans l'app).

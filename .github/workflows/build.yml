@@ -58,7 +58,7 @@ jobs:
         run: pip install "pillow==11.0.0"
       - name: Tests (yt-dlp et téléchargements simulés)
         working-directory: trailer-server
-        run: python -m unittest -v test_server test_topshelf
+        run: python -m unittest -v test_server test_topshelf test_localize
 
   app:
     name: Application tvOS (IPA)

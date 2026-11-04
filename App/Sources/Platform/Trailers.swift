@@ -11,27 +11,27 @@ enum TrailerService {
 
     /// Adresse de la bande-annonce d'une fiche, si le service est configuré.
     static func url(for meta: MetaItem?, settings: AppSettings) -> URL? {
-        guard let meta, let server = settings.trailers.server, let id = TrailerLink.firstValidID(in: meta) else { return nil }
-        return TrailerLink.videoURL(server: server, youTubeID: id)
+        guard let meta, let server = settings.trailers.server else { return nil }
+        return TrailerLink.itemVideoURL(server: server, meta: meta)
     }
 
     /// Extrait de 30 s (bandeau de l'accueil qui défile tout seul).
     static func previewURL(for meta: MetaItem?, settings: AppSettings) -> URL? {
-        guard let meta, let server = settings.trailers.server, let id = TrailerLink.firstValidID(in: meta) else { return nil }
-        return TrailerLink.previewURL(server: server, youTubeID: id)
+        guard let meta, let server = settings.trailers.server else { return nil }
+        return TrailerLink.itemPreviewURL(server: server, meta: meta)
     }
 
     /// Demande au service de préparer ces bandes-annonces (une fois par identifiant et par session).
     static func prefetch(_ metas: [MetaItem], settings: AppSettings) {
         guard let server = settings.trailers.server, settings.trailers.onHome || settings.trailers.onDetail else { return }
-        let ids = metas.compactMap(TrailerLink.firstValidID(in:)).filter { !prefetched.contains($0) }
-        guard !ids.isEmpty else { return }
-        let batch = Array(ids.prefix(30))
-        prefetched.formUnion(batch)
+        let items = metas.compactMap(TrailerLink.prefetchItem(for:)).filter { !prefetched.contains($0.id) }
+        guard !items.isEmpty else { return }
+        let batch = Array(items.prefix(30))
+        prefetched.formUnion(batch.map(\.id))
         var request = URLRequest(url: TrailerLink.prefetchURL(server: server), timeoutInterval: 10)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONEncoder().encode(["ids": batch])
+        request.httpBody = try? JSONEncoder().encode(["items": batch])
         let log = self.log
         let session = URLSession.shared
         let req = request
@@ -46,7 +46,7 @@ enum TrailerService {
 
     /// Résultat lisible du test de connexion (Réglages).
     nonisolated static func check(server: URL) async -> String {
-        struct Health: Decodable { var ok: Bool?; var audio: Bool?; var preview: Bool?; var topshelf: Bool?; var ytdlp: String?; var ffmpeg: Bool?; var cached: Int?; var cacheMB: Double? }
+        struct Health: Decodable { var ok: Bool?; var audio: Bool?; var preview: Bool?; var topshelf: Bool?; var localized: Bool?; var ytdlp: String?; var ffmpeg: Bool?; var cached: Int?; var cacheMB: Double? }
         do {
             let (data, response) = try await URLSession.shared.data(for: URLRequest(url: TrailerLink.healthURL(server: server), timeoutInterval: 15))
             guard (response as? HTTPURLResponse)?.statusCode == 200,
@@ -54,10 +54,11 @@ enum TrailerService {
                 return "Réponse inattendue : est-ce bien le service aurora-trailers ?"
             }
             guard let version = health.ytdlp else { return "Service joignable, mais yt-dlp est absent du NAS." }
-            guard health.audio == true, health.preview == true, health.topshelf == true else {
-                return "Connecté, mais le service du NAS est une ancienne version (son des bandes-annonces, extraits ou images du carrousel absents) : mettez à jour le dossier trailer-server et reconstruisez."
+            guard health.audio == true, health.preview == true, health.topshelf == true, health.localized != nil else {
+                return "Connecté, mais le service du NAS est une ancienne version (bandes-annonces en français, son, extraits ou images du carrousel absents) : mettez à jour le dossier trailer-server et reconstruisez."
             }
-            return "Connecté · yt-dlp \(version) · \(health.cached ?? 0) bande(s)-annonce(s) en cache (\(Int(health.cacheMB ?? 0)) Mo)"
+            let language = health.localized == true ? "en français si possible (TMDB)" : "en VO (clé TMDB absente sur le NAS)"
+            return "Connecté · yt-dlp \(version) · bandes-annonces \(language) · \(health.cached ?? 0) en cache (\(Int(health.cacheMB ?? 0)) Mo)"
         } catch {
             return "Service injoignable : \(error.localizedDescription)"
         }

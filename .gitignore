@@ -18,3 +18,5 @@ Packages/LanterneCore/.swiftpm/
 __pycache__/
 trailer-server/cache/
 App/TopShelf/Info.plist
+# Secrets du service du NAS (clé TMDB)
+trailer-server/.env

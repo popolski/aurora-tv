@@ -214,6 +214,13 @@ connexion ») :
   l'Apple TV, le haut de l'écran montre les dix dernières sorties de films, avec leur titre et
   un extrait de 30 s ; « Lire » et « Plus d'infos » ouvrent Aurora.
 
+**En français si possible.** Avec une clé TMDB gratuite enregistrée sur le NAS (fichier
+`.env`, voir le [README du service](../trailer-server/README.md#bandes-annonces-en-français)),
+Aurora lance la bande-annonce **VF**, sinon la **VOSTFR**, et la **VO** seulement quand aucune
+version française n'est répertoriée sur TMDB. « Tester la connexion » indique si c'est actif.
+Le service du NAS doit être à jour (novembre 2026) : une ancienne version n'affiche plus de
+bande-annonce avec ce build d'Aurora.
+
 ## 11. Réglages, un par un
 
 ![Réglages](screenshots/09-reglages.jpg)

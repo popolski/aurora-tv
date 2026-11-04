@@ -22,6 +22,23 @@ struct TrailerTests {
                 == "http://192.168.1.20:8787/trailer/dQw4w9WgXcQ.preview.mp4")
     }
 
+    @Test func buildsPerTitleURLsForFrenchTrailers() throws {
+        let server = try #require(URL(string: "http://192.168.1.20:8787"))
+        let movie = MetaItem(id: "tt0111161", type: "movie", name: "Les Évadés",
+                             trailerYouTubeIDs: ["../bad", "dQw4w9WgXcQ", "a-b_c123XYZ"])
+        #expect(TrailerLink.itemVideoURL(server: server, meta: movie)?.absoluteString
+                == "http://192.168.1.20:8787/trailer/for/tt0111161.mp4?type=movie&yt=dQw4w9WgXcQ&yt=a-b_c123XYZ")
+        #expect(TrailerLink.itemPreviewURL(server: server, meta: movie)?.absoluteString
+                == "http://192.168.1.20:8787/trailer/for/tt0111161.preview.mp4?type=movie&yt=dQw4w9WgXcQ&yt=a-b_c123XYZ")
+        let series = MetaItem(id: "tt0903747", type: "series", name: "Breaking Bad", trailerYouTubeIDs: ["dQw4w9WgXcQ"])
+        #expect(TrailerLink.prefetchItem(for: series) == .init(id: "tt0903747", type: "series", yt: ["dQw4w9WgXcQ"]))
+        // Sans bande-annonce connue de l'addon, ou identifiant de fiche douteux : rien.
+        #expect(TrailerLink.itemVideoURL(server: server, meta: MetaItem(id: "tt1", type: "movie", name: "x")) == nil)
+        let odd = MetaItem(id: "../x", type: "movie", name: "x", trailerYouTubeIDs: ["dQw4w9WgXcQ"])
+        #expect(TrailerLink.itemVideoURL(server: server, meta: odd) == nil)
+        #expect(TrailerLink.prefetchItem(for: odd) == nil)
+    }
+
     @Test func topShelfImageURLEncodesParameters() throws {
         let server = try #require(URL(string: "http://192.168.1.20:8787"))
         let meta = MetaItem(id: "tt1", type: "movie", name: "Fast & Furious + 1",

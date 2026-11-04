@@ -23,6 +23,7 @@ Dernière mise à jour : 4 novembre 2026, build 50.
 | Films / Séries : trois catalogues, menus déroulants, panneau de détails | ✅ | ✅ | ✅ | ✅ (builds 18 et 42) |
 | Fiches : notes critiques (Wikidata), groupes de puces, épisodes en panneau | ✅ | ✅ | ✅ réponses simulées | ✅ (builds 34 à 42) |
 | Titres et logos lisibles (Wikidata, Vision) | ✅ | ✅ | ✅ réponses simulées | ✅ (build 42) |
+| Bandes-annonces en français (VF > VOSTFR > VO, TMDB, clé sur le NAS) | ✅ | ⏳ | ✅ service testé avec TMDB simulé | ⏳ |
 | Bandes-annonces (fond muet, plein écran avec le son) via le service NAS | ✅ | ✅ | ✅ service testé avec yt-dlp simulé | ✅ (builds 19 et 21, NAS DS224+) |
 | Carrousel Top Shelf (dernières sorties, titres, extraits) | ✅ | ✅ | ✅ cœur et service NAS | ✅ (build 30) |
 | Minuteur de mise en veille, « Êtes-vous toujours là ? » | ✅ | ⏳ | ✅ logique (minuteur, compteur, réglage) | ⏳ |

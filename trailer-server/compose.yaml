@@ -15,6 +15,9 @@ services:
     environment:
       CACHE_MAX_MB: "4000"   # taille maximale du cache (les moins vues sont supprimées)
       MAX_HEIGHT: "1080"
+      # Bandes-annonces en français (VF, sinon VOSTFR, sinon VO) : clé TMDB gratuite,
+      # à mettre dans un fichier .env à côté de ce fichier (jamais dans le dépôt, voir README).
+      TMDB_API_KEY: "${TMDB_API_KEY:-}"
     restart: unless-stopped
 
 volumes:

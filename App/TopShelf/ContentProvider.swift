@@ -61,9 +61,9 @@ final class ContentProvider: TVTopShelfContentProvider {
             attributes.append(TVTopShelfNamedAttribute(name: "Avec", values: Array(meta.cast.prefix(3))))
         }
         item.namedAttributes = attributes
-        if let server, let id = TrailerLink.firstValidID(in: meta) {
-            // Extrait de 30 s : tvOS passe au film suivant à la fin de la vidéo.
-            item.previewVideoURL = TrailerLink.previewURL(server: server, youTubeID: id)
+        if let server {
+            // Extrait de 30 s (en français si possible) : tvOS passe au film suivant à la fin de la vidéo.
+            item.previewVideoURL = TrailerLink.itemPreviewURL(server: server, meta: meta)
         }
         if let url = DeepLink(action: .meta, type: meta.type, id: meta.id, name: meta.name).url {
             item.displayAction = TVTopShelfAction(url: url)
@@ -130,8 +130,8 @@ enum TopShelfLoader {
 
     /// Demande au NAS de préparer les bandes-annonces (sans attendre la réponse).
     static func prefetchTrailers(_ metas: [MetaItem], server: URL) {
-        let ids = metas.compactMap(TrailerLink.firstValidID(in:))
-        guard !ids.isEmpty, let body = try? JSONEncoder().encode(["ids": ids]) else { return }
+        let items = metas.compactMap(TrailerLink.prefetchItem(for:))
+        guard !items.isEmpty, let body = try? JSONEncoder().encode(["items": items]) else { return }
         var request = URLRequest(url: TrailerLink.prefetchURL(server: server), timeoutInterval: 5)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

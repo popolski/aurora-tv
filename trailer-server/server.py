@@ -10,8 +10,12 @@ Points d'entrée :
   GET  /health                 état du service (JSON)
   GET  /trailer/<id>.mp4       bande-annonce (téléchargée à la première demande)
   GET  /trailer/<id>.preview.mp4  extrait de 30 s, sans le son (carrousel Top Shelf)
+  GET  /trailer/for/<fiche>.mp4?type=movie&yt=<id>   bande-annonce d'une fiche, en français
+       si possible (VF, sinon VOSTFR, sinon VO ; TMDB, clé TMDB_API_KEY) ; aussi .preview.mp4
+  GET  /resolve/<fiche>.json?type=movie&yt=<id>      choix fait pour une fiche (diagnostic)
   GET  /topshelf/<id>.jpg?bg=…&logo=…&title=…  image du carrousel avec le titre incrusté
-  POST /prefetch               {"ids": ["<id>", ...]} : préparation en arrière-plan
+  POST /prefetch               {"ids": ["<id>", ...]} ou {"items": [{"id", "type", "yt"}]} :
+                               préparation en arrière-plan
 
 Réservé au réseau local : n'exposez pas ce port sur Internet.
 Aucune dépendance hors bibliothèque standard, à part yt-dlp (et ffmpeg, facultatif).
@@ -28,6 +32,8 @@ import urllib.parse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import localize
+
 try:  # Pillow : facultatif (images du carrousel Top Shelf)
     import topshelf
 except ImportError:  # pragma: no cover - dépend de l'image Docker
@@ -36,6 +42,9 @@ except ImportError:  # pragma: no cover - dépend de l'image Docker
 ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 TOPSHELF_PATH_RE = re.compile(r"^/topshelf/([A-Za-z0-9][A-Za-z0-9:_.-]{0,63})\.jpg$")
 TRAILER_PATH_RE = re.compile(r"^/trailer/([A-Za-z0-9_-]{11})(\.preview)?\.mp4$")
+ITEM_TRAILER_PATH_RE = re.compile(r"^/trailer/for/([A-Za-z0-9][A-Za-z0-9:_.-]{0,63}?)(\.preview)?\.mp4$")
+RESOLVE_PATH_RE = re.compile(r"^/resolve/([A-Za-z0-9][A-Za-z0-9:_.-]{0,63})\.json$")
+TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "")
 PREVIEW_START = int(os.environ.get("PREVIEW_START", "5"))
 PREVIEW_SECONDS = int(os.environ.get("PREVIEW_SECONDS", "30"))
 # Fichiers du cache : « <id>.av.mp4 » (image + son). Les anciens « <id>.mp4 » (image seule,
@@ -280,7 +289,18 @@ def ytdlp_version():
         return None
 
 
-def make_handler(cache):
+def item_query(path):
+    """(type, identifiants YouTube de repli) d'après la requête ?type=…&yt=…"""
+    query = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query)
+    kind = "series" if (query.get("type") or ["movie"])[0] == "series" else "movie"
+    fallback = [i for i in query.get("yt", []) if is_valid_id(i)][:5]
+    return kind, fallback
+
+
+def make_handler(cache, localizer=None):
+    if localizer is None:
+        localizer = localize.TrailerLocalizer("", None, log=log)
+
     class Handler(BaseHTTPRequestHandler):
         server_version = "aurora-trailers/1"
         protocol_version = "HTTP/1.1"
@@ -314,6 +334,7 @@ def make_handler(cache):
                     "audio": True,
                     "preview": True,
                     "topshelf": topshelf is not None,
+                    "localized": localizer.enabled,
                     "ytdlp": ytdlp_version(),
                     "ffmpeg": shutil.which("ffmpeg") is not None,
                     "cached": len(entries),
@@ -324,13 +345,30 @@ def make_handler(cache):
             if ts:
                 self._serve_topshelf(ts.group(1), head)
                 return
+            rs = RESOLVE_PATH_RE.match(path)
+            if rs:
+                kind, fallback = item_query(self.path)
+                yt_id, lang = localizer.choose(rs.group(1), kind, fallback)
+                self._json(HTTPStatus.OK, {"id": yt_id, "language": lang, "tmdb": localizer.enabled})
+                return
+            item = ITEM_TRAILER_PATH_RE.match(path)
+            if item:
+                kind, fallback = item_query(self.path)
+                yt_id, lang = localizer.choose(item.group(1), kind, fallback)
+                if not yt_id:
+                    self._error(HTTPStatus.NOT_FOUND, "aucune bande-annonce pour cette fiche")
+                    return
+                self._serve_trailer(yt_id, bool(item.group(2)), head, lang)
+                return
             m = TRAILER_PATH_RE.match(path)
             if not m:
                 self._error(HTTPStatus.NOT_FOUND, "inconnu")
                 return
-            yt_id = m.group(1)
+            self._serve_trailer(m.group(1), bool(m.group(2)), head, None)
+
+        def _serve_trailer(self, yt_id, preview, head, lang):
             file_path = cache.ensure(yt_id, wait=WAIT_SECONDS)
-            if file_path and m.group(2):
+            if file_path and preview:
                 file_path = cache.preview(yt_id)
             if not file_path:
                 status = HTTPStatus.NOT_FOUND if cache.recently_failed(yt_id) else HTTPStatus.GATEWAY_TIMEOUT
@@ -353,6 +391,8 @@ def make_handler(cache):
             self.send_header("Accept-Ranges", "bytes")
             self.send_header("Content-Length", str(length))
             self.send_header("Cache-Control", "public, max-age=86400")
+            if lang:
+                self.send_header("X-Trailer-Language", lang)
             if rng:
                 self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
             self.end_headers()
@@ -412,7 +452,9 @@ def make_handler(cache):
             try:
                 payload = json.loads(self.rfile.read(length))
                 ids = [i for i in payload.get("ids", []) if is_valid_id(i)][:MAX_PREFETCH]
-            except (ValueError, AttributeError):
+                items = [it for it in payload.get("items", []) if isinstance(it, dict)
+                         and localize.ITEM_RE.match(str(it.get("id", "")))][:MAX_PREFETCH]
+            except (ValueError, AttributeError, TypeError):
                 self._error(HTTPStatus.BAD_REQUEST, "JSON invalide")
                 return
             queued = 0
@@ -420,9 +462,22 @@ def make_handler(cache):
                 if not cache.cached(yt_id) and not cache.recently_failed(yt_id):
                     cache.ensure(yt_id, wait=0)
                     queued += 1
+            if items:
+                # Choix de la langue (appels TMDB) hors de la requête : réponse immédiate.
+                threading.Thread(target=prefetch_items, args=(cache, localizer, items), daemon=True).start()
+                queued += len(items)
             self._json(HTTPStatus.ACCEPTED, {"queued": queued})
 
     return Handler
+
+
+def prefetch_items(cache, localizer, items):
+    for it in items:
+        kind = "series" if it.get("type") == "series" else "movie"
+        fallback = [i for i in (it.get("yt") or []) if isinstance(i, str) and is_valid_id(i)][:5]
+        yt_id, _ = localizer.choose(str(it["id"]), kind, fallback)
+        if yt_id and not cache.cached(yt_id) and not cache.recently_failed(yt_id):
+            cache.ensure(yt_id, wait=0)
 
 
 def clean_topshelf(directory, max_age=14 * 86400):
@@ -455,7 +510,10 @@ def main():
         f"images Top Shelf {'oui' if topshelf else 'non (Pillow absent)'}")
     if version is None:
         log("attention : yt-dlp est introuvable, aucune bande-annonce ne pourra être préparée")
-    server = ThreadingHTTPServer(("0.0.0.0", PORT), make_handler(cache))
+    localizer = localize.TrailerLocalizer(TMDB_API_KEY, CACHE_DIR, log=log)
+    log("bandes-annonces en français : " + ("oui (TMDB)" if localizer.enabled
+        else "non (ajoutez TMDB_API_KEY dans le fichier .env, voir README)"))
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), make_handler(cache, localizer))
     server.daemon_threads = True
     try:
         server.serve_forever()

@@ -57,6 +57,48 @@ public enum TrailerLink {
         return server.appendingPathComponent("trailer").appendingPathComponent("\(youTubeID).preview.mp4")
     }
 
+    /// `<serveur>/trailer/for/<fiche>.mp4?type=…&yt=…` : bande-annonce d'une fiche, que le
+    /// service choisit en français si possible (VF, sinon VOSTFR, sinon VO, via TMDB) et,
+    /// à défaut, parmi les identifiants YouTube de l'addon (`yt`). `nil` si la fiche n'a
+    /// aucune bande-annonce connue de l'addon.
+    public static func itemVideoURL(server: URL, meta: MetaItem) -> URL? {
+        itemURL(server: server, meta: meta, suffix: ".mp4")
+    }
+
+    /// Extrait de 30 s, sans le son, de la bande-annonce d'une fiche (bandeau, Top Shelf).
+    public static func itemPreviewURL(server: URL, meta: MetaItem) -> URL? {
+        itemURL(server: server, meta: meta, suffix: ".preview.mp4")
+    }
+
+    /// Identifiants YouTube valides d'une fiche (au plus 3), transmis en repli.
+    public static func validIDs(in meta: MetaItem) -> [String] {
+        Array(meta.trailerYouTubeIDs.filter(isValidYouTubeID).prefix(3))
+    }
+
+    private static func itemURL(server: URL, meta: MetaItem, suffix: String) -> URL? {
+        let fallback = validIDs(in: meta)
+        guard !fallback.isEmpty, DeepLink.isValidID(meta.id) else { return nil }
+        let base = server.appendingPathComponent("trailer").appendingPathComponent("for")
+            .appendingPathComponent(meta.id + suffix)
+        guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else { return nil }
+        components.queryItems = [URLQueryItem(name: "type", value: meta.type == ContentType.series ? "series" : "movie")]
+            + fallback.map { URLQueryItem(name: "yt", value: $0) }
+        return components.url
+    }
+
+    /// Corps de `POST /prefetch` pour des fiches (le service choisit la langue).
+    public struct PrefetchItem: Codable, Sendable, Equatable {
+        public var id: String
+        public var type: String
+        public var yt: [String]
+    }
+
+    public static func prefetchItem(for meta: MetaItem) -> PrefetchItem? {
+        let fallback = validIDs(in: meta)
+        guard !fallback.isEmpty, DeepLink.isValidID(meta.id) else { return nil }
+        return PrefetchItem(id: meta.id, type: meta.type == ContentType.series ? "series" : "movie", yt: fallback)
+    }
+
     /// `<serveur>/topshelf/<id>.jpg?bg=…&logo=…&title=…` : image du carrousel avec le titre
     /// incrusté, composée par le service du NAS (qui ne télécharge que des hôtes d'images connus).
     public static func topShelfImageURL(server: URL, meta: MetaItem) -> URL? {

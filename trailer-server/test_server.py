@@ -114,6 +114,33 @@ class ServiceTests(unittest.TestCase):
         with self.get("/health") as r:
             self.assertTrue(json.loads(r.read())["ok"])
 
+    def test_item_route_falls_back_to_addon_trailer(self):
+        # Sans clé TMDB : /trailer/for/<fiche> sert la bande-annonce de l'addon.
+        with self.get("/trailer/for/tt0111161.mp4?type=movie&yt=ddddddddddd") as r:
+            self.assertEqual(r.status, 200)
+            self.assertEqual(r.headers["X-Trailer-Language"], "vo")
+            self.assertEqual(len(r.read()), 1000)
+        with self.get("/trailer/for/tt0111161.preview.mp4?type=movie&yt=ddddddddddd") as r:
+            self.assertEqual(r.status, 200)
+        with self.get("/resolve/tt0111161.json?type=movie&yt=ddddddddddd") as r:
+            self.assertEqual(json.loads(r.read()), {"id": "ddddddddddd", "language": "vo", "tmdb": False})
+        for path in ["/trailer/for/tt0111161.mp4", "/trailer/for/tt0111161.mp4?yt=../../x",
+                     "/trailer/for/../etc.mp4?yt=ddddddddddd"]:
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                self.get(path)
+            self.assertEqual(ctx.exception.code, 404)
+        with self.get("/health") as r:
+            self.assertIs(json.loads(r.read())["localized"], False)
+
+    def test_prefetch_items(self):
+        body = json.dumps({"items": [{"id": "tt0111161", "type": "movie", "yt": ["eeeeeeeeeee"]},
+                                     {"id": "../x", "yt": ["fffffffffff"]}]}).encode()
+        req = urllib.request.Request(self.base + "/prefetch", data=body, method="POST",
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            self.assertEqual(r.status, 202)
+            self.assertEqual(json.loads(r.read())["queued"], 1)
+
     def test_old_video_only_files_are_dropped(self):
         directory = os.path.join(self.tmp.name, "old")
         os.makedirs(directory)

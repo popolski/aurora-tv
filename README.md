@@ -80,7 +80,7 @@ cd Packages/LanterneCore && swift test   # logique métier (128 tests)
 ```
 
 ```bash
-cd trailer-server && python3 -m unittest -v test_server test_topshelf   # service NAS
+cd trailer-server && python3 -m unittest -v test_server test_topshelf test_localize   # service NAS
 ```
 
 Avec un Mac : `brew install xcodegen`, puis `xcodegen generate` et ouvrir `Lanterne.xcodeproj`.
