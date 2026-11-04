@@ -205,7 +205,7 @@ struct StremioAPITests {
     @Test func addonCollectionSkipsInvalidDescriptors() async throws {
         let http = MockHTTPClient { req in MockHTTPClient.json(try Fixture.data("addon_collection.json"), url: req.url) }
         let addons = try await StremioAPI(http: http).addonCollection(authKey: "k")
-        #expect(addons.map(\.manifest.id) == ["com.linvo.cinemeta", "org.example.streams"])
+        #expect(addons.map(\.manifest.id) == ["com.linvo.cinemeta", "org.example.streams", "org.stremio.local"])
         #expect(addons[0].flags.official)
     }
 
@@ -254,7 +254,17 @@ struct StremioAPITests {
         #expect(await library.item("tt0944947")?.isInLibrary == true)
         #expect(await library.dirtyItems().isEmpty)
         #expect(pushed.value == 1)
+        // « Local Files » (127.0.0.1:11470) reste dans la collection mais n'est jamais interrogé.
         #expect(await registry.activeDescriptors().map(\.manifest.id) == ["com.linvo.cinemeta", "org.example.streams"])
+        let local = await registry.statuses().first { $0.manifest?.id == "org.stremio.local" }
+        #expect(local?.ignoredNote != nil && local?.failure == nil)
+    }
+
+    @Test func deviceLocalAddonsAreRecognized() {
+        #expect(AddonRegistry.isDeviceLocal(URL(string: "http://127.0.0.1:11470/local-addon/manifest.json")!))
+        #expect(AddonRegistry.isDeviceLocal(URL(string: "http://localhost:7000/manifest.json")!))
+        #expect(!AddonRegistry.isDeviceLocal(URL(string: "http://192.168.1.120:7777/c/manifest.json")!))
+        #expect(!AddonRegistry.isDeviceLocal(URL(string: "https://nas.example.me/c/manifest.json")!))
     }
 }
 

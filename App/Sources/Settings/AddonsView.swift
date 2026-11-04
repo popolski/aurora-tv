@@ -104,7 +104,9 @@ private struct AddonRow: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(status.manifest?.name ?? status.entry.transportURL.host ?? "Addon")
                         Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        if let failure = status.failure {
+                        if let note = status.ignoredNote {
+                            Text(note).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        } else if let failure = status.failure {
                             Text(failure).font(.caption).foregroundStyle(Theme.danger).lineLimit(1)
                         }
                     }

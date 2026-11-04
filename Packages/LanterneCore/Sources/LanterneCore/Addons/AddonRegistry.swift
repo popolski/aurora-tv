@@ -49,10 +49,21 @@ public actor AddonRegistry {
         }
     }
 
+    /// Addons servis par l'appareil lui-même (`127.0.0.1`, `localhost`) : dans un
+    /// compte Stremio, ce sont ceux de l'app Stremio sur ordinateur (« Local Files »
+    /// sur `127.0.0.1:11470`), injoignables depuis l'Apple TV. Conservés dans la
+    /// collection du compte, mais jamais interrogés.
+    public static func isDeviceLocal(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        return host == "localhost" || host == "::1" || host == "[::1]" || host.hasPrefix("127.")
+    }
+
+    public static let deviceLocalNote = "Addon de l'app Stremio sur ordinateur (127.0.0.1) : ignoré sur l'Apple TV"
+
     /// Addons actifs dont le manifeste est disponible, dans l'ordre.
     public func activeDescriptors(hideAdult: Bool = true) -> [AddonDescriptor] {
         entries.compactMap { e in
-            guard e.enabled, let m = manifests[e.transportURL] else { return nil }
+            guard e.enabled, !Self.isDeviceLocal(e.transportURL), let m = manifests[e.transportURL] else { return nil }
             if hideAdult && m.behaviorHints.adult { return nil }
             return AddonDescriptor(transportURL: e.transportURL, manifest: m,
                                    flags: AddonFlags(official: e.origin == .defaults, protected: false))
@@ -64,15 +75,20 @@ public actor AddonRegistry {
         public var manifest: AddonManifest?
         public var failure: String?
         public var id: String { entry.transportURL.absoluteString }
+        /// Addon conservé mais jamais interrogé sur cet appareil (voir `isDeviceLocal`).
+        public var ignoredNote: String? { AddonRegistry.isDeviceLocal(entry.transportURL) ? AddonRegistry.deviceLocalNote : nil }
     }
 
     public func statuses() -> [Status] {
-        entries.map { Status(entry: $0, manifest: manifests[$0.transportURL], failure: failures[$0.transportURL]) }
+        entries.map { e in
+            Status(entry: e, manifest: manifests[e.transportURL],
+                   failure: Self.isDeviceLocal(e.transportURL) ? nil : failures[e.transportURL])
+        }
     }
 
     /// Télécharge les manifestes manquants (ou tous si `force`).
     public func refreshManifests(force: Bool = false) async {
-        let targets = entries.map(\.transportURL).filter { force || manifests[$0] == nil }
+        let targets = entries.map(\.transportURL).filter { (force || manifests[$0] == nil) && !Self.isDeviceLocal($0) }
         guard !targets.isEmpty else { return }
         let client = self.client
         let results = await withTaskGroup(of: (URL, Result<AddonManifest, Error>).self) { group in
