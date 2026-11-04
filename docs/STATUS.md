@@ -7,7 +7,7 @@ Chaque fonction est évaluée sur quatre niveaux, distincts : **implémentée** 
 
 ✅ fait · 🟡 partiel · ⏳ pas encore vérifié · — sans objet
 
-Dernière mise à jour : 4 novembre 2026, build 50.
+Dernière mise à jour : 4 novembre 2026, build 52.
 
 | Fonction | Implémentée | Compilée | Testée automatiquement | Validée sur l'Apple TV |
 |---|---|---|---|---|
@@ -23,7 +23,7 @@ Dernière mise à jour : 4 novembre 2026, build 50.
 | Films / Séries : trois catalogues, menus déroulants, panneau de détails | ✅ | ✅ | ✅ | ✅ (builds 18 et 42) |
 | Fiches : notes critiques (Wikidata), groupes de puces, épisodes en panneau | ✅ | ✅ | ✅ réponses simulées | ✅ (builds 34 à 42) |
 | Titres et logos lisibles (Wikidata, Vision) | ✅ | ✅ | ✅ réponses simulées | ✅ (build 42) |
-| Bandes-annonces en français (VF > VOSTFR > VO, TMDB, clé sur le NAS) | ✅ | ✅ (build 52) | ✅ service testé avec TMDB simulé | 🟡 service du NAS : vraie réponse TMDB, VF trouvée pour « Les Évadés » ; ⏳ lecture dans Aurora |
+| Bandes-annonces en français (VF > VOSTFR > VO, TMDB, clé sur le NAS) | ✅ | ✅ (build 52) | ✅ service testé avec TMDB simulé | ✅ (build 52) : VF trouvée par le NAS et lue dans Aurora (« Les Évadés ») |
 | Bandes-annonces (fond muet, plein écran avec le son) via le service NAS | ✅ | ✅ | ✅ service testé avec yt-dlp simulé | ✅ (builds 19 et 21, NAS DS224+) |
 | Carrousel Top Shelf (dernières sorties, titres, extraits) | ✅ | ✅ | ✅ cœur et service NAS | ✅ (build 30) |
 | Minuteur de mise en veille, « Êtes-vous toujours là ? » | ✅ | ⏳ | ✅ logique (minuteur, compteur, réglage) | ⏳ |

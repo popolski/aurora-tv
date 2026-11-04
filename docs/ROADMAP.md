@@ -118,4 +118,6 @@ Ordre recommandé : 1, 2, 3, puis 4 et 6, puis le reste.
 9. Top Shelf au choix : nouveautés ou « Continuer à regarder ».
 10. Sauvegarde des réglages d'Aurora sur le NAS (restauration en un clic).
 
+Fait hors liste (04/11/2026) : bandes-annonces en français (VF > VOSTFR > VO, TMDB côté NAS, validé build 52) ; addons « Local Files » de l'ordinateur ignorés (build 51) ; liens stremio:// locaux en HTTP (build 50).
+
 Écarté : vignettes d'aperçu dans la barre de progression (non fournies par le moteur).
