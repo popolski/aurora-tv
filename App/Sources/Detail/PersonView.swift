@@ -5,7 +5,11 @@ import LanterneCore
 /// d'après Wikidata : films puis séries, du plus récent au plus ancien.
 struct PersonView: View {
     @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
     let person: PersonRef
+    /// En-tête focalisable : il faut toujours un élément focalisé à l'écran (chargement,
+    /// erreur), sinon tvOS traite le bouton Retour comme « quitter l'app ».
+    @FocusState private var headerFocused: Bool
 
     private enum Phase: Equatable {
         case loading
@@ -24,6 +28,9 @@ struct PersonView: View {
                     Text(subtitle).font(.meta).foregroundStyle(Theme.textSecondary)
                 }
                 .padding(.horizontal, Theme.horizontalMargin)
+                .focusable()
+                .focused($headerFocused)
+                .focusEffectDisabled()
 
                 switch phase {
                 case .loading:
@@ -45,6 +52,8 @@ struct PersonView: View {
             }
             .padding(.vertical, 50)
         }
+        .defaultFocus($headerFocused, true)
+        .onExitCommand { dismiss() }
         .task { if phase == .loading { await load() } }
     }
 

@@ -85,27 +85,43 @@ public actor FilmographyClient {
 
     private let http: any HTTPClient
     private var cache: [PersonRef: Filmography] = [:]
+    private let log = LogChannel("filmographie")
 
     public init(http: any HTTPClient) { self.http = http }
 
     public func filmography(for person: PersonRef) async -> Filmography? {
         if let cached = cache[person] { return cached }
-        guard let peopleURL = Self.peopleURL(imdbID: person.fromIMDb),
-              let people = await fetch(peopleURL).map(Self.parsePeople),
-              let match = Self.match(person, in: people),
-              let worksURL = Self.worksURL(personID: match.id),
-              let data = await fetch(worksURL) else { return nil }
+        guard let peopleURL = Self.peopleURL(imdbID: person.fromIMDb) else { return nil }
+        guard let peopleData = await fetch(peopleURL, step: "distribution de \(person.fromIMDb)") else { return nil }
+        let people = Self.parsePeople(peopleData)
+        guard let match = Self.match(person, in: people) else {
+            log.info("\(person.role.rawValue) introuvable parmi \(people.count) personnes de \(person.fromIMDb)")
+            return nil
+        }
+        guard let worksURL = Self.worksURL(personID: match.id),
+              let data = await fetch(worksURL, step: "œuvres de \(match.id)") else { return nil }
         let result = Filmography(name: match.label, wikidataID: match.id, credits: Self.parseWorks(data))
+        log.info("\(match.id) : \(result.movies.count) films, \(result.series.count) séries")
         guard !result.credits.isEmpty else { return nil }
         cache[person] = result
         return result
     }
 
-    private func fetch(_ url: URL) async -> Data? {
+    /// Wikidata peut mettre plusieurs secondes sur une filmographie fournie : délai large.
+    private func fetch(_ url: URL, step: String) async -> Data? {
         let request = HTTPRequest(url: url, headers: ["Accept": "application/sparql-results+json"],
-                                  timeout: 15, maxBytes: 2 * 1024 * 1024)
-        guard let response = try? await http.send(request), response.status == 200 else { return nil }
-        return response.data
+                                  timeout: 45, maxBytes: 6 * 1024 * 1024)
+        do {
+            let response = try await http.send(request)
+            guard response.status == 200 else {
+                log.warning("Wikidata (\(step)) : HTTP \(response.status)")
+                return nil
+            }
+            return response.data
+        } catch {
+            log.warning("Wikidata (\(step)) : \(error)")
+            return nil
+        }
     }
 
     // MARK: Requêtes
@@ -135,18 +151,24 @@ public actor FilmographyClient {
         """)
     }
 
+    /// Une ligne par œuvre (regroupement côté Wikidata) : sans cela, chaque date de
+    /// sortie par pays multiplie les lignes et la réponse d'un réalisateur prolifique
+    /// devient énorme.
     public static func worksURL(personID: String) -> URL? {
         guard isEntityID(personID) else { return nil }
         return url("""
-        SELECT ?work ?imdb ?role ?type ?date ?start ?fr ?en WHERE {
+        SELECT ?work (SAMPLE(?id) AS ?imdb) (GROUP_CONCAT(DISTINCT ?role; separator=" ") AS ?roles)
+               (GROUP_CONCAT(DISTINCT STR(?type); separator=" ") AS ?types) (MIN(?d) AS ?date)
+               (SAMPLE(?fr) AS ?frLabel) (SAMPLE(?en) AS ?enLabel) WHERE {
           { ?work wdt:P161 wd:\(personID) . BIND("cast" AS ?role) } UNION { ?work wdt:P57 wd:\(personID) . BIND("director" AS ?role) }
-          ?work wdt:P345 ?imdb . FILTER(STRSTARTS(?imdb, "tt"))
+          ?work wdt:P345 ?id . FILTER(STRSTARTS(?id, "tt"))
           ?work wdt:P31 ?type .
-          OPTIONAL { ?work wdt:P577 ?date }
+          OPTIONAL { ?work wdt:P577 ?pub }
           OPTIONAL { ?work wdt:P580 ?start }
+          BIND(COALESCE(?pub, ?start) AS ?d)
           OPTIONAL { ?work rdfs:label ?fr . FILTER(LANG(?fr) = "fr") }
           OPTIONAL { ?work rdfs:label ?en . FILTER(LANG(?en) = "en") }
-        } LIMIT 4000
+        } GROUP BY ?work LIMIT 1500
         """)
     }
 
@@ -217,10 +239,12 @@ public actor FilmographyClient {
         for row in bindings(data) {
             guard let uri = row["work"], let id = entityID(uri), let imdb = row["imdb"], isIMDbID(imdb) else { continue }
             var acc = works[id] ?? Accumulator(imdb: imdb)
-            if let type = row["type"].flatMap(entityID) { acc.types.insert(type) }
-            if let role = row["role"].flatMap(CreditRole.init(rawValue:)) { acc.roles.insert(role) }
-            if acc.fr == nil { acc.fr = row["fr"] }
-            if acc.en == nil { acc.en = row["en"] }
+            let types = (row["types"] ?? row["type"] ?? "").split(separator: " ").map(String.init)
+            acc.types.formUnion(types.compactMap(entityID))
+            let roles = (row["roles"] ?? row["role"] ?? "").split(separator: " ").map(String.init)
+            acc.roles.formUnion(roles.compactMap(CreditRole.init(rawValue:)))
+            if acc.fr == nil { acc.fr = row["frLabel"] ?? row["fr"] }
+            if acc.en == nil { acc.en = row["enLabel"] ?? row["en"] }
             for raw in [row["date"], row["start"]].compactMap({ $0 }) {
                 // « 1994-09-23T00:00:00Z » : année de la première date connue.
                 if let year = Int(raw.prefix(4)), (1870...2100).contains(year) {

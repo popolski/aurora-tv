@@ -77,6 +77,23 @@ struct FilmographyTests {
         #expect(credits[2].roles == [.cast, .director] && credits[2].year == nil)
     }
 
+    @Test func parsesGroupedRows() {
+        // Format de la requête regroupée (une ligne par œuvre).
+        let data = Self.sparql([
+            ["work": "http://www.wikidata.org/entity/Q500", "imdb": "tt0077651", "roles": "director cast",
+             "types": "http://www.wikidata.org/entity/Q11424 http://www.wikidata.org/entity/Q202866",
+             "date": "1978-10-25T00:00:00Z", "frLabel": "La Nuit des masques", "enLabel": "Halloween"],
+            ["work": "http://www.wikidata.org/entity/Q501", "imdb": "tt0080749", "roles": "director",
+             "types": "http://www.wikidata.org/entity/Q11424", "date": "1980-02-08T00:00:00Z", "enLabel": "The Fog"],
+        ])
+        let credits = FilmographyClient.parseWorks(data)
+        #expect(credits.map(\.imdbID) == ["tt0080749", "tt0077651"])
+        #expect(credits[1].title == "La Nuit des masques" && credits[1].year == 1978 && credits[1].roles == [.cast, .director])
+        #expect(credits[0].title == "The Fog" && credits[0].roles == [.director])
+        let query = FilmographyClient.worksURL(personID: "Q95008")?.absoluteString.removingPercentEncoding ?? ""
+        #expect(query.contains("GROUP BY ?work"))
+    }
+
     @Test func fullLookupWithCache() async {
         let http = MockHTTPClient { req in
             let query = req.url.absoluteString.removingPercentEncoding ?? ""
