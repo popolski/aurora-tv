@@ -52,6 +52,10 @@ struct FilmographyTests {
         #expect(FilmographyClient.worksURL(personID: "Q48337 }") == nil)
         let query = FilmographyClient.worksURL(personID: "Q48337")?.absoluteString.removingPercentEncoding ?? ""
         #expect(query.contains("wd:Q48337"))
+        // Ordre d'évaluation imposé (sinon délai dépassé sur Wikidata).
+        #expect(query.contains("hint:optimizer \"None\""))
+        let people = FilmographyClient.peopleURL(imdbID: "tt0111161")?.absoluteString.removingPercentEncoding ?? ""
+        #expect(people.contains("hint:optimizer \"None\""))
     }
 
     @Test func matchesTheNameFromTheAddon() {

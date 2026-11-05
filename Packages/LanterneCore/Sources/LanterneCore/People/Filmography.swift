@@ -56,6 +56,10 @@ public struct Filmography: Sendable, Equatable {
 
 /// Filmographies tirées de Wikidata (données libres, sans clé).
 ///
+/// Les requêtes imposent l'ordre d'évaluation écrit (`hint:Query hint:optimizer "None"`) :
+/// laissé libre, l'optimiseur de Wikidata partait des libellés de toutes les personnes et
+/// dépassait le délai de 60 s (erreur 504, constatée depuis le NAS le 05/11/2026).
+///
 /// 1. Personnes de l'œuvre d'origine (`P161` distribution, `P57` réalisation) : le nom
 ///    de l'addon est comparé à leurs libellés (sans tenir compte des accents ni de la
 ///    ponctuation). Aucun nom n'est inséré dans la requête.
@@ -144,6 +148,7 @@ public actor FilmographyClient {
         guard isIMDbID(imdbID) else { return nil }
         return url("""
         SELECT ?person ?role ?label WHERE {
+          hint:Query hint:optimizer "None" .
           ?work wdt:P345 "\(imdbID)" .
           { ?work wdt:P161 ?person . BIND("cast" AS ?role) } UNION { ?work wdt:P57 ?person . BIND("director" AS ?role) }
           ?person rdfs:label ?label . FILTER(LANG(?label) IN ("fr", "en", "mul"))
@@ -160,6 +165,7 @@ public actor FilmographyClient {
         SELECT ?work (SAMPLE(?id) AS ?imdb) (GROUP_CONCAT(DISTINCT ?role; separator=" ") AS ?roles)
                (GROUP_CONCAT(DISTINCT STR(?type); separator=" ") AS ?types) (MIN(?d) AS ?date)
                (SAMPLE(?fr) AS ?frLabel) (SAMPLE(?en) AS ?enLabel) WHERE {
+          hint:Query hint:optimizer "None" .
           { ?work wdt:P161 wd:\(personID) . BIND("cast" AS ?role) } UNION { ?work wdt:P57 wd:\(personID) . BIND("director" AS ?role) }
           ?work wdt:P345 ?id . FILTER(STRSTARTS(?id, "tt"))
           ?work wdt:P31 ?type .
