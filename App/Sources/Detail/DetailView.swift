@@ -8,6 +8,8 @@ struct DetailView: View {
     @Namespace private var focusNamespace
     @State private var trailerURL: URL?
     @FocusState private var focusedAction: SecondaryAction?
+    /// « Lire » reçoit le focus dès qu'il apparaît (les noms cliquables sont au-dessus).
+    @FocusState private var playFocused: Bool
     /// Logo de titre lisible (reconnaissance de texte) ; sinon le titre en texte.
     @State private var logoReadable = true
 
@@ -48,6 +50,10 @@ struct DetailView: View {
             }
         }
         .focusScope(focusNamespace)
+        .defaultFocus($playFocused, true)
+        .onChange(of: detail.targetVideoID) { old, new in
+            if old == nil, new != nil { playFocused = true }
+        }
         .ignoresSafeArea(edges: .top)
         .task { detail.load(app: app) }
         .task(id: meta.displayLogo) {
@@ -183,6 +189,7 @@ struct DetailView: View {
                     }
                     .buttonStyle(PillButtonStyle(prominent: true))
                     .prefersDefaultFocus(in: focusNamespace)
+                    .focused($playFocused)
                     .accessibilityIdentifier("detail.play")
 
                     if detail.resumePosition != nil {
