@@ -95,6 +95,11 @@ Astuce : appui long sur une carte de « Continuer à regarder » pour la retirer
 - **Informations** : type, année, durée, note IMDb encadrée, puce « Au cinéma » si le film est
   récent, notes **Rotten Tomatoes** et **Metacritic** (d'après Wikidata, quand elles existent),
   groupes **Genres**, **Réalisation**, **Avec**, résumé.
+- **Filmographie** : depuis les boutons, **flèche vers le haut** pour atteindre les noms de
+  **Réalisation** et **Avec** ; un clic ouvre la filmographie de la personne (films puis séries,
+  du plus récent au plus ancien, d'après Wikidata). Chaque affiche ouvre la fiche, avec les
+  sources de vos addons. La personne est retrouvée parmi la distribution de la fiche d'origine :
+  pas de confusion entre homonymes. Disponible pour les fiches avec un identifiant IMDb.
 - **Boutons** :
   - **Lire** / **Reprendre · 52:10**, et un bouton rond ↺ pour **reprendre depuis le début**
     s'il y a une reprise ;
@@ -153,7 +158,8 @@ Astuce : appui long sur une carte de « Continuer à regarder » pour la retirer
 - La barre indique le temps restant et **l'heure de fin** (« Fin à 22:47 »).
 - **Épisode suivant** : un encart apparaît pendant le générique (au début du générique s'il est
   connu, sinon 60 s avant la fin, réglable), avec un compte à rebours si la lecture
-  automatique est activée.
+  automatique est activée. Les sources de l'épisode suivant sont **cherchées pendant le
+  générique** : l'épisode s'ouvre sans repasser par « Recherche de sources… ».
 
 ![Audio et sous-titres](screenshots/11-pistes.jpg)
 

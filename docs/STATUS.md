@@ -26,6 +26,8 @@ Dernière mise à jour : 4 novembre 2026, build 52.
 | Bandes-annonces en français (VF > VOSTFR > VO, TMDB, clé sur le NAS) | ✅ | ✅ (build 52) | ✅ service testé avec TMDB simulé | ✅ (build 52) : VF trouvée par le NAS et lue dans Aurora (« Les Évadés ») |
 | Bandes-annonces (fond muet, plein écran avec le son) via le service NAS | ✅ | ✅ | ✅ service testé avec yt-dlp simulé | ✅ (builds 19 et 21, NAS DS224+) |
 | Carrousel Top Shelf (dernières sorties, titres, extraits) | ✅ | ✅ | ✅ cœur et service NAS | ✅ (build 30) |
+| Épisode suivant préparé pendant le générique | ✅ | ⏳ | — (logique du lecteur, sans test automatique) | ⏳ |
+| Filmographie depuis « Avec » / « Réalisation » (Wikidata) | ✅ | ⏳ | ✅ réponses simulées | ⏳ |
 | Minuteur de mise en veille, « Êtes-vous toujours là ? » | ✅ | ⏳ | ✅ logique (minuteur, compteur, réglage) | ⏳ |
 | Synchronisation des sous-titres par réplique entendue | ✅ | ⏳ | ✅ calcul du décalage et choix des répliques | ⏳ |
 | Films déjà vus estompés ou masqués | ✅ | ✅ | — | ✅ (build 34) |

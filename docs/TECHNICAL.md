@@ -22,7 +22,7 @@ voir [PLAYER-ENGINE.md](PLAYER-ENGINE.md) ; pour l'organisation du code,
 | Service NAS | **Python 3.12** + **yt-dlp** + **ffmpeg** + **Pillow**, **Docker** | bandes-annonces, extraits, images du carrousel |
 | Données libres | **Cinemeta**, **Wikidata**, **TheIntroDB**, **AniSkip** | catalogues, notes critiques, titres lisibles, génériques |
 
-Environ 15 000 lignes de Swift, 128 tests unitaires du cœur, 4 tests d'interface sur simulateur,
+Environ 15 000 lignes de Swift, 134 tests unitaires du cœur, 4 tests d'interface sur simulateur,
 14 tests Python pour le service NAS.
 
 ## Architecture générale

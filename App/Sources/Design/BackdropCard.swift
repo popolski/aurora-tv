@@ -294,6 +294,8 @@ struct LabeledChips: View {
     let label: String
     let values: [String]
     var limit = 3
+    /// Rend chaque valeur cliquable (ex. filmographie d'un acteur).
+    var route: ((String) -> Route?)?
 
     var body: some View {
         if !values.isEmpty {
@@ -304,16 +306,46 @@ struct LabeledChips: View {
                     .foregroundStyle(Theme.textTertiary)
                 HStack(spacing: 8) {
                     ForEach(Array(values.prefix(limit)), id: \.self) { value in
-                        Text(value)
-                            .font(.manrope(18, .bold))
-                            .lineLimit(1)
-                            .foregroundStyle(Theme.textPrimary)
-                            .padding(.horizontal, 14).padding(.vertical, 6)
-                            .background(Capsule().fill(Color.white.opacity(0.12)))
-                            .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 1))
+                        if let destination = route?(value) {
+                            NavigationLink(value: destination) { Text(value).lineLimit(1) }
+                                .buttonStyle(ChipButtonStyle())
+                        } else {
+                            Text(value)
+                                .font(.manrope(18, .bold))
+                                .lineLimit(1)
+                                .foregroundStyle(Theme.textPrimary)
+                                .padding(.horizontal, 14).padding(.vertical, 6)
+                                .background(Capsule().fill(Color.white.opacity(0.12)))
+                                .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 1))
+                        }
                     }
                 }
+                .focusSection()
             }
+        }
+    }
+}
+
+/// Puce focalisable : même aspect que les puces d'information, blanche au focus.
+struct ChipButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        ChipBody(configuration: configuration)
+    }
+
+    private struct ChipBody: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.isFocused) private var isFocused
+
+        var body: some View {
+            configuration.label
+                .font(.manrope(18, .bold))
+                .foregroundStyle(isFocused ? Theme.onFocus : Theme.textPrimary)
+                .padding(.horizontal, 14).padding(.vertical, 6)
+                .background(Capsule().fill(isFocused ? Color.white : Color.white.opacity(0.12)))
+                .overlay(Capsule().strokeBorder(Color.white.opacity(isFocused ? 0 : 0.2), lineWidth: 1))
+                .scaleEffect(configuration.isPressed ? 0.96 : (isFocused ? 1.08 : 1))
+                .shadow(color: .black.opacity(isFocused ? 0.35 : 0), radius: 10, y: 4)
+                .animation(.easeOut(duration: 0.15), value: isFocused)
         }
     }
 }

@@ -90,6 +90,7 @@ final class PlayerSession {
     @ObservationIgnored private var sleepFadeStart: Date?
     @ObservationIgnored private var stillWatching: StillWatchingCounter
     @ObservationIgnored private var resumeAfterSync = false
+    @ObservationIgnored private var nextPreparation: (id: String, started: Date, task: Task<PreparedNext, Never>)?
     @ObservationIgnored private let log = LogChannel("player")
 
     init(context: PlaybackContext, app: AppModel) {
@@ -282,6 +283,7 @@ final class PlayerSession {
         updateSkip(s)
         updateSleepTimer(now: now, s: s)
         guard !closed else { return }
+        prepareNextIfNeeded(s)
         checkUpNext(s)
         accumulateProgress(now: now, s: s)
         autoHideChrome(now: now, s: s)
@@ -511,6 +513,7 @@ final class PlayerSession {
         let next = context.localTest == nil ? NextEpisode.after(videoID: context.videoID, in: context.meta.videos) : nil
         nextEpisode = next
         upNext = nil
+        if let next, sleepTimer != .endOfItem { prepareNextEpisode(next) }
         if context.localTest == nil {
             let ref = LibraryMetaRef(context.meta)
             let s = snapshot
@@ -668,22 +671,22 @@ final class PlayerSession {
         }
     }
 
-    /// Recherche une source pour l'épisode suivant (même `bingeGroup` en priorité, comme Stremio).
-    private func startNextEpisode() {
-        guard let next = nextEpisode else { return }
-        stillWatchingPrompt = false
-        nextCountdown = nil
-        upNext = nil
-        status = .starting("Recherche de sources pour \(next.episodeCode ?? next.title)…")
-        onFocusContextChange?()
+    /// Sources de l'épisode suivant, cherchées pendant le générique.
+    nonisolated struct PreparedNext: Sendable {
+        var choice: RankedSource?
+        var ranked: [RankedSource]
+        var sameGroup: Bool
+    }
+
+    /// Recherche les sources d'un épisode (même `bingeGroup` en priorité, comme Stremio).
+    private func searchSources(for next: MetaVideo) -> Task<PreparedNext, Never> {
         let addons = app.addons
         let meta = context.meta
         let binge = context.source?.stream.behaviorHints.bingeGroup
         let server = app.settings.playback.streamingServer
         let prefs = app.settings
         let aggregator = app.aggregator
-        auxTask?.cancel()
-        auxTask = Task { [weak self] in
+        return Task {
             var found: [RankedSource] = []
             let index = Dictionary(addons.enumerated().map { ($1.manifest.id, $0) }, uniquingKeysWith: { a, _ in a })
             for await outcome in aggregator.streams(type: meta.type, id: next.id, addons: addons) {
@@ -692,24 +695,63 @@ final class PlayerSession {
                                                       indexInAddon: i, streamingServer: server))
                 }
             }
-            guard let self, !Task.isCancelled else { return }
             let ranker = SourceRanker(preferences: prefs.sources, preferredAudioLanguage: prefs.languages.preferredAudio)
             let ranked = ranker.rank(found)
             let sameGroup = binge.flatMap { group in
                 ranked.first { $0.stream.behaviorHints.bingeGroup == group && $0.playability.isPlayable }
             }
-            guard let choice = sameGroup ?? ranker.best(found) else {
+            return PreparedNext(choice: sameGroup ?? ranker.best(found), ranked: ranked, sameGroup: sameGroup != nil)
+        }
+    }
+
+    /// Lance la recherche des sources de l'épisode suivant avant la fin (générique),
+    /// pour enchaîner sans attente. Une préparation de plus de 30 min est refaite
+    /// (les liens de certaines sources expirent).
+    private func prepareNextEpisode(_ next: MetaVideo) {
+        if let current = nextPreparation, current.id == next.id, Date().timeIntervalSince(current.started) < 1800 { return }
+        nextPreparation?.task.cancel()
+        nextPreparation = (next.id, Date(), searchSources(for: next))
+        log.info("épisode suivant \(next.episodeCode ?? next.id) : sources recherchées pendant le générique")
+    }
+
+    private func prepareNextIfNeeded(_ s: EngineSnapshot) {
+        guard status == .active, context.localTest == nil, !endHandled, s.duration > 120,
+              context.meta.type == ContentType.series else { return }
+        let lead = max(10, app.settings.playback.nextEpisodeLeadTime)
+        let creditsStart = skipSegments.first { $0.kind == .credits && $0.start > s.duration * 0.6 }?.start
+        // Un peu avant l'encart « Épisode suivant » (début du générique ou délai réglé).
+        let soon = s.duration - s.position <= lead + 45 || creditsStart.map { s.position >= $0 - 30 } == true
+        guard soon, let next = NextEpisode.after(videoID: context.videoID, in: context.meta.videos) else { return }
+        prepareNextEpisode(next)
+    }
+
+    private func startNextEpisode() {
+        guard let next = nextEpisode else { return }
+        stillWatchingPrompt = false
+        nextCountdown = nil
+        upNext = nil
+        let reuse = nextPreparation.flatMap { $0.id == next.id && Date().timeIntervalSince($0.started) < 1800 ? $0.task : nil }
+        let preparation = reuse ?? searchSources(for: next)
+        nextPreparation = nil
+        status = .starting(reuse != nil ? "Ouverture de \(next.episodeCode ?? next.title)…"
+                                        : "Recherche de sources pour \(next.episodeCode ?? next.title)…")
+        onFocusContextChange?()
+        auxTask?.cancel()
+        auxTask = Task { [weak self] in
+            let prepared = await preparation.value
+            guard let self, !Task.isCancelled, !self.closed else { return }
+            guard let choice = prepared.choice else {
                 self.fail("Aucune source lisible trouvée pour l'épisode suivant.")
                 return
             }
-            self.log.info("épisode suivant : source \(sameGroup != nil ? "du même groupe" : "la mieux classée")")
+            self.log.info("épisode suivant : source \(prepared.sameGroup ? "du même groupe" : "la mieux classée")\(reuse != nil ? " (préparée pendant le générique)" : "")")
             self.finishCurrent()
             var ctx = self.context
             ctx.videoID = next.id
             ctx.video = next
             ctx.source = choice
             ctx.startPosition = nil
-            ctx.alternatives = ranked
+            ctx.alternatives = prepared.ranked
             self.context = ctx
             self.start()
         }
@@ -939,6 +981,8 @@ final class PlayerSession {
         closed = true
         loadTask?.cancel()
         auxTask?.cancel()
+        nextPreparation?.task.cancel()
+        nextPreparation = nil
         ticker?.cancel()
         ticker = nil
         endShuttle()

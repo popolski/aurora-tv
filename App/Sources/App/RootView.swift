@@ -6,6 +6,8 @@ nonisolated enum Route: Hashable {
     case meta(MetaItem)
     case catalog(CatalogRef)
     case sources(SourcesRoute)
+    /// Filmographie d'une personne citée sur une fiche.
+    case person(PersonRef)
 }
 
 /// Demande d'affichage des sources d'une vidéo.
@@ -114,6 +116,7 @@ struct NavigationRoot<Content: View>: View {
                         case .meta(let meta): DetailView(preview: meta)
                         case .catalog(let ref): CatalogGridView(ref: ref)
                         case .sources(let request): SourcesView(request: request)
+                        case .person(let person): PersonView(person: person)
                         }
                     }
                     .screenBackground()

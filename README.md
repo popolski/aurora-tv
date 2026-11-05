@@ -79,7 +79,7 @@ Pas à pas complet : **[Guide d'utilisation](docs/GUIDE.md)**.
 Aucun Mac n'est nécessaire : tout est compilé par GitHub Actions (image `xcode-27`).
 
 ```bash
-cd Packages/LanterneCore && swift test   # logique métier (128 tests)
+cd Packages/LanterneCore && swift test   # logique métier (134 tests)
 ```
 
 ```bash

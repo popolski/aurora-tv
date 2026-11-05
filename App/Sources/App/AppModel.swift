@@ -55,6 +55,7 @@ final class AppModel {
     @ObservationIgnored let skipTimes: SkipTimesClient
     /// Notes Rotten Tomatoes / Metacritic (Wikidata).
     @ObservationIgnored let reviews: ReviewScoresClient
+    @ObservationIgnored let filmography: FilmographyClient
     @ObservationIgnored let defaults: any KeyValueStore
     @ObservationIgnored let isUITest: Bool
     /// Mode démonstration (`-uitest -demo`) : catalogue inventé pour les captures d'écran.
@@ -90,10 +91,11 @@ final class AppModel {
     static let settingsKey = "settings.v1"
 
     init(addonClient: AddonClient, registry: AddonRegistry, library: LibraryStore, account: AccountService,
-         skipTimes: SkipTimesClient, reviews: ReviewScoresClient, titles: TitleLocalizer?,
+         skipTimes: SkipTimesClient, reviews: ReviewScoresClient, filmography: FilmographyClient, titles: TitleLocalizer?,
          defaults: any KeyValueStore, isUITest: Bool) {
         self.skipTimes = skipTimes
         self.reviews = reviews
+        self.filmography = filmography
         self.addonClient = addonClient
         var aggregator = AddonAggregator(client: addonClient)
         aggregator.titles = titles
@@ -130,6 +132,7 @@ final class AppModel {
         LogSetup.configure(uiTest: isUITest)
         return AppModel(addonClient: client, registry: registry, library: library, account: account,
                         skipTimes: SkipTimesClient(http: http), reviews: ReviewScoresClient(http: http),
+                        filmography: FilmographyClient(http: http),
                         titles: isUITest ? nil : TitleLocalizer(http: http),
                         defaults: defaults, isUITest: isUITest)
     }

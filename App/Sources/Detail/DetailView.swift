@@ -126,9 +126,9 @@ struct DetailView: View {
             }
             HStack(alignment: .top, spacing: 40) {
                 LabeledChips(label: "Genres", values: meta.genres.map(Localize.genre))
-                LabeledChips(label: "Réalisation", values: meta.directors, limit: 2)
+                LabeledChips(label: "Réalisation", values: meta.directors, limit: 2, route: personRoute(.director))
             }
-            LabeledChips(label: "Avec", values: meta.cast, limit: 4)
+            LabeledChips(label: "Avec", values: meta.cast, limit: 4, route: personRoute(.cast))
             if detail.state == .loading && meta.description == nil {
                 ShimmerBlock().frame(width: 860, height: 100)
             } else if let description = meta.description {
@@ -147,6 +147,13 @@ struct DetailView: View {
         .padding(.trailing, 20)
         .padding(.top, 100)
         .focusSection()
+    }
+
+    /// Noms cliquables vers leur filmographie (Wikidata), pour les fiches IMDb.
+    private func personRoute(_ role: CreditRole) -> ((String) -> Route?)? {
+        guard FilmographyClient.isIMDbID(meta.id), !app.isDemo else { return nil }
+        let imdb = meta.id
+        return { name in .person(PersonRef(name: name, role: role, fromIMDb: imdb)) }
     }
 
     private var playLabel: String {

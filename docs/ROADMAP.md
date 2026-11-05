@@ -110,9 +110,11 @@ Ordre recommandé : 1, 2, 3, puis 4 et 6, puis le reste.
 3. ✅ Synchroniser les sous-titres en choisissant la réplique entendue (lecture en pause,
    répliques à ±30 s, AetherEngine et sous-titres texte) — implémenté (build 49), à valider
    sur l'appareil.
-4. Épisode suivant préparé pendant le générique (sources cherchées à l'avance).
+4. ✅ Épisode suivant préparé pendant le générique (sources cherchées un peu avant l'encart,
+   réutilisées 30 min au plus) — implémenté (build 53), à valider sur l'appareil.
 5. Infos techniques du flux (résolution, codec, HDR, débit, images perdues, pairs).
-6. Filmographie depuis les puces « Avec » / « Réalisation » (Wikidata).
+6. ✅ Filmographie depuis les puces « Avec » / « Réalisation » (Wikidata, personne retrouvée
+   dans la distribution de la fiche d'origine) — implémenté (build 53), à valider sur l'appareil.
 7. Sagas sur la fiche (Wikidata, ordre, déjà vus).
 8. « Je ne sais pas quoi regarder » (tirage dans Ma liste, filtre de durée).
 9. Top Shelf au choix : nouveautés ou « Continuer à regarder ».

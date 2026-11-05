@@ -23,7 +23,7 @@
 │            EpisodeCalendar (« Cette semaine », nouvel épisode)                │
 │  Streams : StreamTraits, Playability, SourceRanker, SourceFilter              │
 │  Playback : TrackSelector, PlaybackMilestoneTracker, SkipTimesClient          │
-│  Reviews (Wikidata) · Titles (TitleLocalizer, Wikidata) · Trailers (liens NAS)│
+│  Reviews · Titles · People (filmographies) : Wikidata · Trailers (liens NAS)  │
 │  TopShelf (groupe d'apps, configuration, flux, liens aurora://)               │
 │  Settings, Persistence (UserDefaults/fichier/trousseau), Networking, Log      │
 └──────────────────────────────────────────────────────────────────────────────┘
