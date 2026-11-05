@@ -151,7 +151,9 @@ struct DetailView: View {
 
     /// Noms cliquables vers leur filmographie (Wikidata), pour les fiches IMDb.
     private func personRoute(_ role: CreditRole) -> ((String) -> Route?)? {
-        guard FilmographyClient.isIMDbID(meta.id), !app.isDemo else { return nil }
+        // Seulement une fois « Lire » affiché : sinon le focus initial se pose sur un nom
+        // (premier élément focalisable) au lieu du bouton de lecture.
+        guard FilmographyClient.isIMDbID(meta.id), !app.isDemo, detail.targetVideoID != nil else { return nil }
         let imdb = meta.id
         return { name in .person(PersonRef(name: name, role: role, fromIMDb: imdb)) }
     }
