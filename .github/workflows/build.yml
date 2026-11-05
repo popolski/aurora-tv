@@ -121,7 +121,7 @@ jobs:
         run: bash scripts/fakesign.sh build/dd/Build/Products/Release-appletvos/Lanterne.app
       - name: IPA non signée
         run: |
-          IPA="dist/Lanterne-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}-unsigned.ipa"
+          IPA="dist/Aurora-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}-unsigned.ipa"
           bash scripts/package-ipa.sh build/dd/Build/Products/Release-appletvos/Lanterne.app "$IPA"
           bash scripts/verify-ipa.sh "$IPA" io.github.popolski.lanterne
           shasum -a 256 dist/*.ipa | tee dist/SHA256SUMS.txt
@@ -142,7 +142,7 @@ jobs:
       - name: Artefact IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Lanterne-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}
+          name: Aurora-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}
           path: |
             dist/*.ipa
             dist/SHA256SUMS.txt
@@ -216,7 +216,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: Lanterne-*
+          pattern: Aurora-*
           merge-multiple: true
           path: dist
       - name: Release GitHub
@@ -225,9 +225,9 @@ jobs:
           VERSION: ${{ needs.app.outputs.version }}
         run: |
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            TAG="$GITHUB_REF_NAME"; TITLE="Lanterne $GITHUB_REF_NAME"
+            TAG="$GITHUB_REF_NAME"; TITLE="Aurora $GITHUB_REF_NAME"
           else
-            TAG="build-$GITHUB_RUN_NUMBER"; TITLE="Lanterne $VERSION (build $GITHUB_RUN_NUMBER)"
+            TAG="build-$GITHUB_RUN_NUMBER"; TITLE="Aurora $VERSION (build $GITHUB_RUN_NUMBER)"
           fi
           cat > notes.md <<NOTES
           IPA **non signée** pour atvloadly (signature par votre Apple ID à l'installation).

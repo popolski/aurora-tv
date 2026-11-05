@@ -27,8 +27,8 @@ séries qu'on y voit sont inventés, leurs images générées.
 Aurora n'est pas sur l'App Store : on l'installe soi-même sur l'Apple TV, sans Mac, avec
 **atvloadly** (installé sur un NAS ou un ordinateur du réseau local).
 
-1. **Télécharger l'IPA** : page [Releases](https://github.com/popolski/lanterne-tv/releases),
-   dernier `build-NN`, fichier `Lanterne-…-unsigned.ipa`.
+1. **Télécharger l'IPA** : page [Releases](https://github.com/popolski/aurora-tv/releases),
+   dernier `build-NN`, fichier `Aurora-…-unsigned.ipa`.
 2. **Apple TV** : activer le mode développeur (Réglages › Confidentialité et sécurité), puis
    l'appairer dans atvloadly (Réglages › Télécommandes et appareils › Appli Remote et appareils).
 3. **atvloadly** : choisir l'IPA, un compte Apple (un compte gratuit suffit ; utiliser de

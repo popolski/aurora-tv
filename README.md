@@ -47,8 +47,8 @@ films et séries sont inventés, leurs images générées.</sub>
 
 ## Installer
 
-1. Télécharger le dernier IPA : [Releases](https://github.com/popolski/lanterne-tv/releases)
-   (`build-NN`, fichier `Lanterne-…-unsigned.ipa`).
+1. Télécharger le dernier IPA : [Releases](https://github.com/popolski/aurora-tv/releases)
+   (`build-NN`, fichier `Aurora-…-unsigned.ipa`).
 2. L'installer sur l'Apple TV avec [atvloadly](https://github.com/bitxeno/atvloadly) et un
    compte Apple (gratuit suffit), **« Remove extensions » désactivé**.
 3. Pour une mise à jour : **ouvrir d'abord une autre app sur l'Apple TV**, puis installer
@@ -102,8 +102,10 @@ project.yml              projet XcodeGen
 .github/workflows/       CI (build.yml) et captures d'écran (screenshots.yml)
 ```
 
-Le nom technique reste « Lanterne » (dépôt, module, identifiant `io.github.popolski.lanterne`) :
-changer l'identifiant ferait perdre les données à la mise à jour.
+Le nom technique interne reste « Lanterne » (module `LanterneCore`, application
+`Lanterne.app` dans l'IPA, identifiant `io.github.popolski.lanterne`) : changer
+l'identifiant ferait perdre les réglages, la bibliothèque et la connexion à la mise à jour.
+Le dépôt s'appelait `lanterne-tv` jusqu'au 5 novembre 2026 ; les anciens liens redirigent ici.
 
 ## Licences tierces
 

@@ -6,7 +6,7 @@
 push GitHub ──► Actions (runner « xcode-27 », macOS ARM64, Xcode 27.1, SDK tvOS 27.0)
                  ├─ swift test (LanterneCore)
                  ├─ xcodegen → xcodebuild (Release, generic/platform=tvOS, arm64, non signé)
-                 ├─ scripts/package-ipa.sh  → Lanterne-<version>-<build>-unsigned.ipa
+                 ├─ scripts/package-ipa.sh  → Aurora-<version>-<build>-unsigned.ipa
                  ├─ scripts/verify-ipa.sh   → contrôle arm64/tvOS de chaque binaire, plist, ressources
                  ├─ (option) scripts/sign-ipa.sh si secrets de signature présents
                  └─ artefacts : IPA + SHA256SUMS, journaux, dSYM
@@ -30,15 +30,15 @@ atvloadly les re-signe avec l'application.
 ## Installation (première fois)
 
 1. GitHub › Actions › dernière exécution verte de « Build » › artefact
-   `Lanterne-<version>-<build>` → télécharger et dézipper : on obtient
-   `Lanterne-…-unsigned.ipa` (vérifier l'empreinte avec `SHA256SUMS.txt`).
+   `Aurora-<version>-<build>` → télécharger et dézipper : on obtient
+   `Aurora-…-unsigned.ipa` (vérifier l'empreinte avec `SHA256SUMS.txt`).
 2. Interface web d'atvloadly › Apple TV « Chambre » › sélectionner l'IPA › **Install**.
 3. Lancer Lanterne sur l'Apple TV. Premier test conseillé : Réglages › Diagnostics › Tester le
    lecteur.
 
 Plus simple : chaque build réussi de `main` publie une **Release GitHub** `build-<n>` contenant
 l'IPA (dépôt public). Dans atvloadly, utiliser l'URL directe de l'IPA
-(`https://github.com/popolski/lanterne-tv/releases/download/build-<n>/Lanterne-<version>-<n>-unsigned.ipa`)
+(`https://github.com/popolski/aurora-tv/releases/download/build-<n>/Aurora-<version>-<n>-unsigned.ipa`)
 ou suivre les Releases du dépôt. Les pushes de tags `v*` publient aussi une Release.
 
 ## Mises à jour sans perte de données

@@ -5,7 +5,7 @@ import LanterneCore
 /// images générées (docs/demo-assets, servies depuis le dépôt GitHub). Sert aux captures
 /// d'écran de la documentation ; aucun contenu réel, aucun compte.
 nonisolated final class DemoHTTPClient: HTTPClient {
-    static let assets = "https://raw.githubusercontent.com/popolski/lanterne-tv/main/docs/demo-assets/"
+    static let assets = "https://raw.githubusercontent.com/popolski/aurora-tv/main/docs/demo-assets/"
 
     struct Title {
         let id: String, name: String, type: String, year: Int, runtime: String, rating: String
