@@ -20,8 +20,10 @@ mêmes écrans, même compte Stremio, mêmes addons, même lecteur (AetherEngine
   l'affiche sélectionnée, panneau de détails de Films / Séries) restent sur le premier
   élément : il suffit de toucher une affiche pour ouvrir sa fiche.
 
-État : compilée et vérifiée par la CI (IPA, captures du simulateur en mode démo) ; **pas
-encore validée sur un iPad réel** (voir [STATUS.md](STATUS.md)).
+État : compilée et vérifiée par la CI depuis le build 60 (IPA, captures du simulateur en mode
+démo de l'accueil, d'une fiche et des sources, jointes à chaque Release sous les noms
+`apercu-ipad-*.png`) ; le lecteur tactile n'apparaît pas sur ces captures ; **pas encore
+validée sur un iPad réel** (voir [STATUS.md](STATUS.md)).
 
 ## Ce qu'il faut
 
