@@ -464,7 +464,7 @@ struct HeroBanner: View {
             .padding(.bottom, 30)
         }
         .frame(height: 640)
-        .focusSection()
+        .focusGroup()
     }
 }
 

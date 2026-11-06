@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Vérifie le contenu d'une IPA tvOS avant distribution.
+# Vérifie le contenu d'une IPA tvOS (Apple TV) ou iOS (iPad) avant distribution.
 #
 # Contrôles :
 #  - structure Payload/*.app, Info.plist lisible ;
@@ -41,8 +41,14 @@ PLATFORMS="$(read_key CFBundleSupportedPlatforms:0)"
 
 [[ "$BUNDLE_ID" == "$EXPECTED_ID" ]] && ok "identifiant : $BUNDLE_ID" || fail "identifiant $BUNDLE_ID ≠ $EXPECTED_ID"
 [[ -n "$VERSION" && -n "$BUILD" ]] && ok "version : $VERSION ($BUILD)" || fail "version absente"
-[[ "$PLATFORMS" == "AppleTVOS" ]] && ok "plateforme : $PLATFORMS" || fail "plateforme inattendue : '$PLATFORMS' (simulateur ?)"
-[[ -n "$MINOS" ]] && ok "tvOS minimum : $MINOS" || fail "MinimumOSVersion absent"
+# Plateforme Mach-O attendue : 3 = TVOS (8 = simulateur), 2 = IOS (7 = simulateur).
+case "$PLATFORMS" in
+  AppleTVOS) OS_NAME="tvOS"; MACHO_PLATFORM=3; MACHO_NAME=TVOS ;;
+  iPhoneOS) OS_NAME="iPadOS"; MACHO_PLATFORM=2; MACHO_NAME=IOS ;;
+  *) OS_NAME="?"; MACHO_PLATFORM=0; MACHO_NAME="?" ;;
+esac
+[[ "$OS_NAME" != "?" ]] && ok "plateforme : $PLATFORMS" || fail "plateforme inattendue : '$PLATFORMS' (simulateur ?)"
+[[ -n "$MINOS" ]] && ok "$OS_NAME minimum : $MINOS" || fail "MinimumOSVersion absent"
 
 check_macho() {
   local bin="$1" label="$2"
@@ -53,13 +59,12 @@ check_macho() {
     fail "$label : architectures « $archs » (arm64 attendu)"
     return
   fi
-  # platform 3 = TVOS, 8 = TVOSSIMULATOR
   local platform
   platform="$(otool -l "$bin" | awk '/LC_BUILD_VERSION/{f=1} f&&/platform/{print $2; exit}')"
-  if [[ "$platform" == "3" || "$platform" == "TVOS" ]]; then
-    ok "$label : $archs, tvOS"
+  if [[ "$platform" == "$MACHO_PLATFORM" || "$platform" == "$MACHO_NAME" ]]; then
+    ok "$label : $archs, $OS_NAME"
   else
-    fail "$label : plateforme Mach-O « $platform » (3/TVOS attendu)"
+    fail "$label : plateforme Mach-O « $platform » ($MACHO_PLATFORM/$MACHO_NAME attendu)"
   fi
 }
 
@@ -112,7 +117,7 @@ say ""
 if [[ -d "$APP/_CodeSignature" ]]; then
   say "Signature : présente ($(codesign -dv "$APP" 2>&1 | grep -E '^Authority|^TeamIdentifier' | head -n 2 | tr '\n' ' '))"
 else
-  say "Signature : aucune (IPA à signer par atvloadly)"
+  say "Signature : aucune (IPA à signer à l'installation : atvloadly, Sideloadly, AltStore…)"
 fi
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"; fi

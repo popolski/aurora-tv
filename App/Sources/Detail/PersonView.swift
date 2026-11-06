@@ -53,7 +53,7 @@ struct PersonView: View {
             .padding(.vertical, 50)
         }
         .defaultFocus($headerFocused, true)
-        .onExitCommand { dismiss() }
+        .onBackCommand { dismiss() }
         .task { if phase == .loading { await load() } }
     }
 
@@ -92,7 +92,7 @@ struct PersonView: View {
                     }
                 }
                 .padding(.horizontal, Theme.horizontalMargin)
-                .focusSection()
+                .focusGroup()
             }
         }
     }

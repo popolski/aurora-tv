@@ -133,7 +133,7 @@ struct DiscoverView: View {
             }
         }
         .padding(.horizontal, Theme.horizontalMargin)
-        .focusSection()
+        .focusGroup()
     }
 
     /// Sélecteur segmenté : un seul choix actif, clairement marqué.
@@ -312,7 +312,7 @@ struct CatalogGrid: View {
         }
         .padding(.leading, leading)
         .padding(.trailing, trailing)
-        .focusSection()
+        .focusGroup()
     }
 }
 

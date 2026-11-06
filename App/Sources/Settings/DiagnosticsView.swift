@@ -52,6 +52,7 @@ struct DiagnosticsView: View {
                 }
             }
 
+            #if os(tvOS)
             Section {
                 let groups = SharedContainer.provisionedGroups()
                 GroupsRow(label: "Groupes d'apps (app)", values: groups.app).focusable()
@@ -71,6 +72,7 @@ struct DiagnosticsView: View {
             } footer: {
                 Text("Le carrousel reçoit l'adresse du NAS par un groupe d'apps partagé. Si aucun groupe n'apparaît, l'installation ne l'a pas attribué et le carrousel reste sans bande-annonce.")
             }
+            #endif
 
             Section("Version") {
                 InfoRow(label: "Application", value: AppInfo.versionString)
@@ -131,7 +133,7 @@ struct LogsView: View {
                     Button("Actualiser") { reload() }.buttonStyle(PillButtonStyle())
                     Button("Effacer") { LogStore.shared.clear(); reload() }.buttonStyle(PillButtonStyle())
                 }
-                .focusSection()
+                .focusGroup()
                 if entries.isEmpty {
                     Text("Aucune entrée.").foregroundStyle(Theme.textTertiary)
                 }

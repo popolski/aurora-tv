@@ -165,6 +165,6 @@ struct ShelfRow<Item: Identifiable, Card: View>: View {
                 .frame(height: cardHeight + 70)
             }
         }
-        .focusSection()
+        .focusGroup()
     }
 }

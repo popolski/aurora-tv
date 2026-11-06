@@ -47,7 +47,9 @@ extension Font {
         case .semibold: name = "Manrope-SemiBold"
         default: name = "Manrope-Medium"
         }
-        return .custom(name, size: size)
+        // Taille fixe : sur iPad, le texte système est agrandi (canevas de télévision réduit),
+        // la typographie Manrope garde ses tailles de télévision.
+        return .custom(name, fixedSize: size)
     }
 
     /// Typographie lisible à plusieurs mètres (tailles de base tvOS à 1080p).

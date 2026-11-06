@@ -6,6 +6,7 @@ options:
   bundleIdPrefix: io.github.popolski
   deploymentTarget:
     tvOS: "18.0"
+    iOS: "18.0"
   developmentLanguage: fr
   createIntermediateGroups: true
   groupSortPosition: top
@@ -126,6 +127,66 @@ targets:
         CODE_SIGN_ENTITLEMENTS: App/TopShelf/TopShelf.entitlements
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
 
+  # Aurora pour iPad : mêmes sources (interface de la télévision réduite à l'écran,
+  # commandes tactiles dans le lecteur), sans l'extension Top Shelf propre à tvOS.
+  AuroraPad:
+    type: application
+    platform: iOS
+    sources:
+      - path: App/Sources
+      - path: App/ResourcesPad/Assets.xcassets
+      - path: App/Resources/TestMedia
+        type: folder
+        buildPhase: resources
+      - path: App/Resources/Fonts
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - package: LanterneCore
+      - package: AetherEngine
+        product: AetherEngine
+    info:
+      path: App/InfoPad.plist
+      properties:
+        CFBundleDisplayName: Aurora
+        CFBundleDevelopmentRegion: fr
+        CFBundleLocalizations: [fr]
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UIRequiredDeviceCapabilities: [arm64]
+        UIUserInterfaceStyle: Dark
+        ITSAppUsesNonExemptEncryption: false
+        UIApplicationSupportsIndirectInputEvents: true
+        UILaunchScreen:
+          UIColorName: ""
+        # Interface de la télévision : paysage, plein écran (pas d'écran partagé).
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        UIAppFonts:
+          - Fonts/Manrope-Medium.ttf
+          - Fonts/Manrope-SemiBold.ttf
+          - Fonts/Manrope-Bold.ttf
+          - Fonts/Manrope-ExtraBold.ttf
+        CFBundleURLTypes:
+          - CFBundleURLName: io.github.popolski.lanterne
+            CFBundleURLSchemes: [aurora]
+        NSLocalNetworkUsageDescription: "Aurora contacte les addons et le serveur de streaming hébergés sur votre réseau local (NAS)."
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.popolski.lanterne
+        PRODUCT_NAME: Aurora
+        TARGETED_DEVICE_FAMILY: "2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+
   LanterneUITests:
     type: bundle.ui-testing
     platform: tvOS
@@ -140,6 +201,14 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
 
 schemes:
+  AuroraPad:
+    build:
+      targets:
+        AuroraPad: all
+    run:
+      config: Debug
+    archive:
+      config: Release
   Lanterne:
     build:
       targets:

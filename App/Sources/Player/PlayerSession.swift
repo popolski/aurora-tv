@@ -484,6 +484,27 @@ final class PlayerSession {
         touch()
     }
 
+    // MARK: Toucher (iPad)
+
+    /// Appui sur la vidéo : annule la mise en veille, sinon affiche ou masque l'interface.
+    func handleTap() {
+        if cancelSleepFadeIfNeeded() { return }
+        if chromeVisible, panel == nil, scrubTarget == nil, status == .active {
+            chromeVisible = false
+        } else {
+            touch()
+        }
+    }
+
+    /// Glissement sur la barre de progression : position absolue (0 = début, 1 = fin),
+    /// validée au relâchement par `commitScrub()`.
+    func scrubTouch(fraction: Double) {
+        guard snapshot.duration > 0 else { return }
+        touch()
+        scrubTarget = fraction.limited(to: 0...1) * snapshot.duration
+        lastScrubActivity = Date()
+    }
+
     func commitScrub() {
         endShuttle()
         guard let target = scrubTarget else { return }

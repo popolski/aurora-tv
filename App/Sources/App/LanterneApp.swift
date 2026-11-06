@@ -10,6 +10,11 @@ struct LanterneApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .tvCanvas()
+                #if os(iOS)
+                .statusBarHidden()
+                .persistentSystemOverlays(.hidden)
+                #endif
                 .environment(model)
                 .environment(ambient)
                 .preferredColorScheme(.dark)

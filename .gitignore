@@ -20,3 +20,4 @@ trailer-server/cache/
 App/TopShelf/Info.plist
 # Secrets du service du NAS (clé TMDB)
 trailer-server/.env
+App/InfoPad.plist

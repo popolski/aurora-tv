@@ -5,6 +5,7 @@ Icône : un A plein sans barre, dessiné comme un sommet, devant la lueur de l'a
 
 Usage : python3 scripts/generate-icons.py  (nécessite Pillow)
 Les fichiers sont écrits dans App/Resources/Assets.xcassets.
+`--ipad` : génère seulement l'icône carrée de l'app iPad (App/ResourcesPad/Assets.xcassets).
 """
 import json, math, os
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -131,5 +132,29 @@ def main():
         "info": INFO})
 
 
+def ipad_icon():
+    """Icône carrée 1024 × 1024 de l'app iPad (même dessin, sans transparence)."""
+    root = os.path.join(os.path.dirname(__file__), "..", "App", "ResourcesPad", "Assets.xcassets")
+    write_json(os.path.join(root, "Contents.json"), {"info": INFO})
+    n = 1024
+    img = background(n, n)
+    img.alpha_composite(glow(n, n, n / 2, n * 0.62, n * 0.55))
+    img.alpha_composite(peak(n, n, n / 2, n * 0.5, n / 240 * 0.82))
+    icon_dir = os.path.join(root, "AppIcon.appiconset")
+    os.makedirs(icon_dir, exist_ok=True)
+    img.convert("RGB").save(os.path.join(icon_dir, "icon-1024.png"))
+    write_json(os.path.join(icon_dir, "Contents.json"), {
+        "images": [{"filename": "icon-1024.png", "idiom": "universal", "platform": "ios", "size": "1024x1024"}],
+        "info": INFO})
+    write_json(os.path.join(root, "AccentColor.colorset", "Contents.json"), {
+        "colors": [{"idiom": "universal", "color": {"color-space": "srgb", "components": {
+            "red": f"{AMBER[0] / 255:.3f}", "green": f"{AMBER[1] / 255:.3f}", "blue": f"{AMBER[2] / 255:.3f}", "alpha": "1.000"}}}],
+        "info": INFO})
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+    if "--ipad" in sys.argv:
+        ipad_icon()
+    else:
+        main()

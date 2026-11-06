@@ -8,10 +8,22 @@ struct PlayerOverlay: View {
 
     var body: some View {
         ZStack {
+            #if os(iOS)
+            // iPad : un appui sur la vidéo affiche ou masque l'interface.
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture { session.handleTap() }
+            #endif
             if session.chromeVisible || session.scrubTarget != nil {
                 ChromeView(session: session)
                     .transition(.opacity)
             }
+            #if os(iOS)
+            if showsTouchControls {
+                TouchControls(session: session)
+                    .transition(.opacity)
+            }
+            #endif
             statusLayer
             if session.stillWatchingPrompt {
                 StillWatchingCard(session: session)
@@ -26,7 +38,7 @@ struct PlayerOverlay: View {
                     .padding(.bottom, 90)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             } else if let skip = session.activeSkip {
-                SkipPrompt(segment: skip)
+                SkipPrompt(segment: skip, onTap: { session.skipActive() })
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(.trailing, 90)
                     .padding(.bottom, session.chromeVisible ? 190 : 90)
@@ -50,8 +62,16 @@ struct PlayerOverlay: View {
         .animation(.linear(duration: 0.25), value: session.sleepFade)
         .ignoresSafeArea()
         // Menu dans la surcouche : revient au film (panneau, encart) au lieu de fermer le lecteur.
-        .onExitCommand { session.handleOverlayExit() }
+        .onBackCommand { session.handleOverlayExit() }
+        .tvCanvas()
     }
+
+    #if os(iOS)
+    private var showsTouchControls: Bool {
+        (session.chromeVisible || session.scrubTarget != nil) && session.status == .active
+            && session.panel == nil && !session.stillWatchingPrompt && session.sleepFade == 0
+    }
+    #endif
 
     @ViewBuilder private var statusLayer: some View {
         switch session.status {
@@ -122,9 +142,10 @@ private struct ChromeView: View {
                                     .foregroundStyle(Theme.accent)
                                     .contentTransition(.numericText())
                             } else if session.scrubTarget != nil {
-                                Text("Cliquez pour aller à \(TimeFormat.clock(session.displayedPosition)) · Menu pour annuler")
+                                Text(Platform.isTV ? "Cliquez pour aller à \(TimeFormat.clock(session.displayedPosition)) · Menu pour annuler"
+                                                   : "Relâchez pour aller à \(TimeFormat.clock(session.displayedPosition))")
                                     .foregroundStyle(Theme.accent)
-                            } else {
+                            } else if Platform.isTV {
                                 Text("▼ Audio et sous-titres").foregroundStyle(Theme.textTertiary)
                             }
                             Spacer()
@@ -189,7 +210,11 @@ private struct StartingView: View {
                     .font(.system(size: 22))
                 }
             }
-            Text("Menu pour annuler").font(.system(size: 20)).foregroundStyle(Theme.textTertiary)
+            if Platform.isTV {
+                Text("Menu pour annuler").font(.system(size: 20)).foregroundStyle(Theme.textTertiary)
+            } else {
+                Button("Annuler") { session.close() }.buttonStyle(PillButtonStyle())
+            }
         }
         .padding(50)
         .background(RoundedRectangle(cornerRadius: 28).fill(.black.opacity(0.65)))
@@ -225,7 +250,7 @@ private struct ProblemCard: View {
                 .buttonStyle(PillButtonStyle())
                 Button("Fermer") { session.close() }.buttonStyle(PillButtonStyle())
             }
-            .focusSection()
+            .focusGroup()
         }
         .padding(60)
         .background(RoundedRectangle(cornerRadius: 30).fill(.black.opacity(0.8)))
@@ -252,7 +277,7 @@ private struct EndCard: View {
                     }
                     Button("Fermer") { session.close() }.buttonStyle(PillButtonStyle())
                 }
-                .focusSection()
+                .focusGroup()
             } else {
                 Text("Lecture terminée").font(.sectionTitle).foregroundStyle(.white)
                 Button("Fermer") { session.close() }.buttonStyle(PillButtonStyle(prominent: true))
@@ -306,7 +331,7 @@ private struct StillWatchingCard: View {
                     Button("Arrêter") { session.close() }
                         .buttonStyle(PillButtonStyle())
                 }
-                .focusSection()
+                .focusGroup()
             }
             .padding(60)
             .background(RoundedRectangle(cornerRadius: 30).fill(.black.opacity(0.8)))
@@ -322,8 +347,18 @@ private struct StillWatchingCard: View {
 /// télécommande l'actionne (le lecteur garde le focus), Menu le masque.
 private struct SkipPrompt: View {
     let segment: SkipSegment
+    /// iPad : appui sur le bouton.
+    var onTap: () -> Void = {}
 
     var body: some View {
+        if Platform.isTV {
+            prompt
+        } else {
+            Button(action: onTap) { prompt }.buttonStyle(.plain)
+        }
+    }
+
+    private var prompt: some View {
         HStack(spacing: 14) {
             Image(systemName: "forward.end.fill")
             Text(segment.actionLabel)
@@ -335,7 +370,7 @@ private struct SkipPrompt: View {
         .background(Capsule().fill(Color.white))
         .shadow(color: .black.opacity(0.45), radius: 20, y: 8)
         .overlay(alignment: .bottom) {
-            Text("OK pour passer · Menu pour regarder")
+            Text(Platform.isTV ? "OK pour passer · Menu pour regarder" : "Touchez pour passer")
                 .font(.manrope(17, .bold))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize()
@@ -376,7 +411,7 @@ private struct UpNextCard: View {
                     Button("Générique") { session.dismissUpNext() }
                         .buttonStyle(PillButtonStyle())
                 }
-                .focusSection()
+                .focusGroup()
             }
             .frame(maxWidth: 520, alignment: .leading)
         }
@@ -410,8 +445,14 @@ private struct PlayerPanel: View {
                     if !session.playableAlternatives.isEmpty { tabButton("Sources", .sources) }
                     tabButton("Minuteur", .timer)
                     tabButton("Informations", .info)
+                    if !Platform.isTV {
+                        Spacer()
+                        Button { session.panel = nil } label: { Image(systemName: "xmark") }
+                            .buttonStyle(CircleButtonStyle())
+                            .accessibilityLabel(Text("Fermer le panneau"))
+                    }
                 }
-                .focusSection()
+                .focusGroup()
                 ScrollView(.vertical) {
                     Group {
                         switch tab {
@@ -468,7 +509,7 @@ private struct TracksPanel: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .focusSection()
+            .focusGroup()
 
             VStack(alignment: .leading, spacing: 12) {
                 Text("Sous-titres").font(.cardTitle).foregroundStyle(Theme.textSecondary)
@@ -480,7 +521,7 @@ private struct TracksPanel: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .focusSection()
+            .focusGroup()
 
             VStack(alignment: .leading, spacing: 12) {
                 Text("Décalage").font(.cardTitle).foregroundStyle(Theme.textSecondary)
@@ -499,7 +540,7 @@ private struct TracksPanel: View {
                     .accessibilityIdentifier("player.syncSubtitles")
                 }
             }
-            .focusSection()
+            .focusGroup()
         }
     }
 }
@@ -519,7 +560,7 @@ private struct SubtitleSyncPanel: View {
                 Text("Lecture en pause. Choisissez la réplique que vous venez d'entendre : elle s'affichera à cet instant.")
                     .font(.meta).foregroundStyle(Theme.textSecondary)
             }
-            .focusSection()
+            .focusGroup()
             if let window = session.subtitleSync {
                 if window.lines.isEmpty {
                     Text("Aucune réplique disponible autour de ce moment (piste en image, ou passage sans dialogue). Utilisez les boutons ±0,25 s.")
@@ -575,7 +616,7 @@ private struct SleepTimerPanel: View {
                     option(SleepTimerChoice.minutes(m).label(isSeries: session.isSeries), .minutes(m))
                 }
             }
-            .focusSection()
+            .focusGroup()
             if let status = session.sleepTimerStatus {
                 Label(status, systemImage: "moon.zzz.fill").font(.meta).foregroundStyle(Theme.accent)
             }
@@ -716,5 +757,60 @@ struct SubtitleLayer: View {
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
+        .tvCanvas()
     }
 }
+
+#if os(iOS)
+// MARK: - Commandes tactiles (iPad)
+
+/// Fermer, pistes, lecture/pause, ±10 s et barre de progression à faire glisser,
+/// par-dessus la barre de transport (coordonnées du canevas de 1920 points).
+private struct TouchControls: View {
+    let session: PlayerSession
+
+    var body: some View {
+        let s = session.snapshot
+        ZStack {
+            HStack(spacing: 22) {
+                Spacer()
+                Button { session.touch(); session.panel = .tracks } label: { Image(systemName: "captions.bubble") }
+                    .accessibilityLabel(Text("Audio et sous-titres"))
+                Button { session.close() } label: { Image(systemName: "xmark") }
+                    .accessibilityLabel(Text("Fermer le lecteur"))
+            }
+            .buttonStyle(CircleButtonStyle())
+            .padding(.trailing, 90).padding(.top, 150)
+            .frame(maxHeight: .infinity, alignment: .top)
+
+            HStack(spacing: 90) {
+                Button { session.seek(by: -10) } label: { Image(systemName: "gobackward.10").font(.system(size: 64)) }
+                    .accessibilityLabel(Text("Reculer de 10 secondes"))
+                Button { session.togglePlayPause() } label: {
+                    Image(systemName: s.phase == .playing ? "pause.fill" : "play.fill").font(.system(size: 96))
+                        .frame(width: 150, height: 150)
+                }
+                .accessibilityLabel(Text(s.phase == .playing ? "Pause" : "Lecture"))
+                Button { session.seek(by: 10) } label: { Image(systemName: "goforward.10").font(.system(size: 64)) }
+                    .accessibilityLabel(Text("Avancer de 10 secondes"))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.5), radius: 12)
+
+            // Zone de glissement posée sur la barre de progression de ChromeView.
+            GeometryReader { geo in
+                Color.clear
+                    .contentShape(Rectangle())
+                    .gesture(DragGesture(minimumDistance: 0)
+                        .onChanged { value in session.scrubTouch(fraction: value.location.x / max(1, geo.size.width)) }
+                        .onEnded { _ in session.commitScrub() })
+            }
+            .frame(height: 70)
+            .padding(.horizontal, 90)
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .padding(.bottom, 85)
+        }
+    }
+}
+#endif

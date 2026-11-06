@@ -320,7 +320,7 @@ struct LabeledChips: View {
                         }
                     }
                 }
-                .focusSection()
+                .focusGroup()
             }
         }
     }

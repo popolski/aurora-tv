@@ -31,7 +31,7 @@ struct SourcesView: View {
         }
         .screenBackground()
         // Le focus arrive sur la première source (et non sur les filtres) : OK lance la lecture.
-        .focusScope(focusNamespace)
+        .focusScopeOnTV(focusNamespace)
         // Les sources arrivent après l'ouverture de l'écran : le focus est alors placé
         // une fois sur la première, pour que OK lance la lecture (et non un filtre).
         .onChange(of: filter.apply(ranked).first?.id) { _, first in
@@ -80,7 +80,7 @@ struct SourcesView: View {
             .menuStyle(.button)
             .buttonStyle(PillButtonStyle())
         }
-        .focusSection()
+        .focusGroup()
     }
 
     private var subtitle: String {
@@ -148,7 +148,7 @@ struct SourcesView: View {
                                   wasUsed: source.stream.fingerprint == model.previousFingerprint)
                     }
                     .buttonStyle(RowButtonStyle())
-                    .prefersDefaultFocus(index == 0, in: focusNamespace)
+                    .defaultFocusPreferred(index == 0, in: focusNamespace)
                     .focused($focusedSource, equals: source.id)
                     .accessibilityIdentifier("source.\(index)")
                 }
@@ -160,7 +160,7 @@ struct SourcesView: View {
                     .padding(.top, 10)
                 }
             }
-            .focusSection()
+            .focusGroup()
         }
     }
 

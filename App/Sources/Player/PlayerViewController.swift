@@ -74,6 +74,8 @@ final class PlayerViewController: UIViewController {
         }
         subtitleHost.view.isUserInteractionEnabled = false
 
+        #if os(tvOS)
+        // Pavé tactile de la Siri Remote. Sur iPad, tout passe par les commandes à l'écran.
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
         pan.cancelsTouchesInView = false
         pan.delegate = self
@@ -88,10 +90,17 @@ final class PlayerViewController: UIViewController {
             root.addGestureRecognizer(swipe)
             swipes.append(swipe)
         }
+        #endif
 
         session.onFocusContextChange = { [weak self] in self?.updateFocusTarget() }
         session.onEngineViewChange = { [weak self] view in self?.replaceEngineView(view) }
     }
+
+    #if os(iOS)
+    override var prefersStatusBarHidden: Bool { true }
+    override var prefersHomeIndicatorAutoHidden: Bool { true }
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .landscape }
+    #endif
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)

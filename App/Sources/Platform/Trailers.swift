@@ -75,11 +75,14 @@ enum TrailerPresenter {
         if let current = session, !current.isOnScreen { current.finish() }
         guard session == nil, app.playback == nil, let top = topViewController() else { return }
         let item = AVPlayerItem(url: url)
+        #if os(tvOS)
+        // Titre affiché dans la barre du lecteur système (Apple TV).
         let titleItem = AVMutableMetadataItem()
         titleItem.identifier = .commonIdentifierTitle
         titleItem.value = "\(title) · Bande-annonce" as NSString
         titleItem.extendedLanguageTag = "und"
         item.externalMetadata = [titleItem]
+        #endif
         let controller = AVPlayerViewController()
         controller.player = AVPlayer(playerItem: item)
         let newSession = TrailerSession(controller: controller) { [weak app] in
@@ -120,9 +123,17 @@ final class TrailerSession: NSObject, AVPlayerViewControllerDelegate {
         Task { @MainActor in self.close(dismiss: true) }
     }
 
+    #if os(tvOS)
     nonisolated func playerViewControllerDidEndDismissalTransition(_ playerViewController: AVPlayerViewController) {
         Task { @MainActor in self.close(dismiss: false) }
     }
+    #else
+    /// iPad : fermeture du lecteur (bouton ✕ ou glissement vers le bas).
+    nonisolated func playerViewController(_ playerViewController: AVPlayerViewController,
+                                          willEndFullScreenPresentationWithAnimationCoordinator coordinator: any UIViewControllerTransitionCoordinator) {
+        Task { @MainActor in self.close(dismiss: false) }
+    }
+    #endif
 
     var isOnScreen: Bool { controller?.presentingViewController != nil }
 

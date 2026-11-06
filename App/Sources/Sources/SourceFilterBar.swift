@@ -35,7 +35,7 @@ struct SourceFilterBar: View {
                 .buttonStyle(PillButtonStyle(compact: compact))
             }
         }
-        .focusSection()
+        .focusGroup()
     }
 
     private func menu(title: String, options: [SourceFilter.Option], selection: Binding<Set<String>>) -> some View {

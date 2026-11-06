@@ -43,7 +43,7 @@ struct LibraryView: View {
                     syncLabel
                 }
                 .padding(.horizontal, Theme.horizontalMargin)
-                .focusSection()
+                .focusGroup()
 
                 if items.isEmpty {
                     MessageView(systemImage: "books.vertical", title: emptyTitle, message: emptyMessage)
@@ -58,7 +58,7 @@ struct LibraryView: View {
                         }
                     }
                     .padding(.horizontal, Theme.horizontalMargin)
-                    .focusSection()
+                    .focusGroup()
                 }
             }
             .padding(.vertical, 40)

@@ -49,7 +49,7 @@ struct DetailView: View {
                 .frame(maxWidth: 1180, alignment: .leading)
             }
         }
-        .focusScope(focusNamespace)
+        .focusScopeOnTV(focusNamespace)
         .defaultFocus($playFocused, true)
         .onChange(of: detail.targetVideoID) { old, new in
             if old == nil, new != nil { playFocused = true }
@@ -152,7 +152,7 @@ struct DetailView: View {
         // ne soient pas tronqués (constaté sur les captures : « Reprendre S02… »).
         .padding(.trailing, 20)
         .padding(.top, 100)
-        .focusSection()
+        .focusGroup()
     }
 
     /// Noms cliquables vers leur filmographie (Wikidata), pour les fiches IMDb.
@@ -188,7 +188,7 @@ struct DetailView: View {
                         } icon: { Image(systemName: "play.fill") }
                     }
                     .buttonStyle(PillButtonStyle(prominent: true))
-                    .prefersDefaultFocus(in: focusNamespace)
+                    .defaultFocusPreferred(in: focusNamespace)
                     .focused($playFocused)
                     .accessibilityIdentifier("detail.play")
 
@@ -355,7 +355,7 @@ struct DetailView: View {
         .padding(28)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(GlassPanel(cornerRadius: 36))
-        .focusSection()
+        .focusGroup()
     }
 }
 
