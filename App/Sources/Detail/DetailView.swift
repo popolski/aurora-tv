@@ -93,11 +93,9 @@ struct DetailView: View {
         ZStack {
             RemoteImage(url: meta.background ?? meta.poster, maxPixel: 1920,
                         placeholder: { Color.clear }, onLoaded: { ambient.update(from: $0) })
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
+                .backdropFill()
             TrailerBackdrop(url: trailerURL)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
+                .backdropFill()
             LinearGradient(colors: [Theme.backgroundDeep.opacity(0.8), ambient.tint.opacity(0.35), .clear],
                            startPoint: .leading, endPoint: .trailing)
             LinearGradient(stops: [.init(color: .clear, location: 0.35),

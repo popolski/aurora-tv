@@ -48,6 +48,16 @@ extension View {
         #endif
     }
 
+    /// Image ou vidéo de fond : elle remplit la zone sans jamais l'élargir (sur un écran
+    /// moins allongé que 16:9, comme l'iPad, une image « remplissage » est plus large
+    /// que l'écran et décalait toute la page).
+    func backdropFill() -> some View {
+        Color.clear
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay { self }
+            .clipped()
+    }
+
     /// Interface conçue pour un écran de 1920 points (téléviseur) : sur iPad, elle est
     /// réduite à la largeur disponible (mêmes proportions, toucher compris).
     func tvCanvas() -> some View { modifier(TVCanvas()) }

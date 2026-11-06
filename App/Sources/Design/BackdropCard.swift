@@ -130,11 +130,9 @@ struct BillboardBackdrop: View {
             CrossfadeImage(url: meta?.background ?? meta?.poster, maxPixel: 1920, duration: 0.6,
                            onLoaded: { ambient.update(from: $0) })
                 .blur(radius: meta?.background == nil ? 40 : 0)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
+                .backdropFill()
             TrailerBackdrop(url: trailerURL, onPlayingChange: onTrailerPlaying)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
+                .backdropFill()
             // Voile teinté : lisibilité du texte à gauche et des rangées en bas.
             LinearGradient(colors: [Theme.backgroundDeep.opacity(0.85), ambient.tint.opacity(0.35), .clear],
                            startPoint: .leading, endPoint: .trailing)

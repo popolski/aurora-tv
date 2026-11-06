@@ -63,6 +63,8 @@ struct RootView: View {
         // sans la confirmation système qu'impose l'ouverture d'un lien depuis l'extérieur).
         .task {
             guard model.isDemo, let url = Self.launchURL else { return }
+            // Laisse les addons de démonstration se charger avant d'ouvrir l'écran.
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
             open(url)
         }
     }
