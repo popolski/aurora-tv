@@ -21,8 +21,8 @@ mêmes écrans, même compte Stremio, mêmes addons, même lecteur (AetherEngine
   élément : il suffit de toucher une affiche pour ouvrir sa fiche.
 
 État : compilée et vérifiée par la CI depuis le build 60 (IPA, captures du simulateur en mode
-démo de l'accueil, d'une fiche et des sources, jointes à chaque Release sous les noms
-`apercu-ipad-*.png`) ; le lecteur tactile n'apparaît pas sur ces captures ; **validée sur un
+démo de l'accueil, d'une fiche et des sources, publiées dans la Release
+[« apercus-ipad »](https://github.com/popolski/aurora-tv/releases/tag/apercus-ipad)) ; le lecteur tactile n'apparaît pas sur ces captures ; **validée sur un
 iPad réel** (build 60, installation avec Sideloadly) (voir [STATUS.md](STATUS.md)).
 
 ## Ce qu'il faut
