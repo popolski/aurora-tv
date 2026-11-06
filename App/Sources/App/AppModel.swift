@@ -56,6 +56,8 @@ final class AppModel {
     /// Notes Rotten Tomatoes / Metacritic (Wikidata).
     @ObservationIgnored let reviews: ReviewScoresClient
     @ObservationIgnored let filmography: FilmographyClient
+    /// Sagas des films (Wikidata).
+    @ObservationIgnored let sagas: SagaClient
     @ObservationIgnored let defaults: any KeyValueStore
     @ObservationIgnored let isUITest: Bool
     /// Mode démonstration (`-uitest -demo`) : catalogue inventé pour les captures d'écran.
@@ -84,18 +86,27 @@ final class AppModel {
         didSet {
             guard settings != oldValue else { return }
             defaults.encode(settings, forKey: Self.settingsKey)
-            if !isUITest { TopShelfBridge.publish(settings) }
+            if !isUITest { publishTopShelf() }
         }
+    }
+
+    /// Transmet au carrousel Top Shelf l'adresse du NAS, le contenu choisi et, pour
+    /// « Continuer à regarder » ou « Ma liste », les titres de la bibliothèque.
+    func publishTopShelf(force: Bool = false) {
+        let entries = TopShelfEntry.entries(for: settings.topShelfSource, continueWatching: continueWatching,
+                                            library: libraryItems)
+        TopShelfBridge.publish(settings, entries: entries, force: force)
     }
 
     static let settingsKey = "settings.v1"
 
     init(addonClient: AddonClient, registry: AddonRegistry, library: LibraryStore, account: AccountService,
          skipTimes: SkipTimesClient, reviews: ReviewScoresClient, filmography: FilmographyClient, titles: TitleLocalizer?,
-         defaults: any KeyValueStore, isUITest: Bool) {
+         defaults: any KeyValueStore, isUITest: Bool, wikidataHTTP: any HTTPClient) {
         self.skipTimes = skipTimes
         self.reviews = reviews
         self.filmography = filmography
+        self.sagas = SagaClient(http: wikidataHTTP)
         self.addonClient = addonClient
         var aggregator = AddonAggregator(client: addonClient)
         aggregator.titles = titles
@@ -106,7 +117,7 @@ final class AppModel {
         self.defaults = defaults
         self.isUITest = isUITest
         self.settings = defaults.decode(AppSettings.self, forKey: Self.settingsKey) ?? AppSettings()
-        if !isUITest { TopShelfBridge.publish(settings, force: true) }
+        if !isUITest { publishTopShelf(force: true) }
     }
 
     static func make() -> AppModel {
@@ -134,7 +145,7 @@ final class AppModel {
                         skipTimes: SkipTimesClient(http: http), reviews: ReviewScoresClient(http: http),
                         filmography: FilmographyClient(http: http),
                         titles: isUITest ? nil : TitleLocalizer(http: http),
-                        defaults: defaults, isUITest: isUITest)
+                        defaults: defaults, isUITest: isUITest, wikidataHTTP: http)
     }
 
     // MARK: Cycle de vie
@@ -190,6 +201,7 @@ final class AppModel {
         watchedMovieIDs = Set((libraryItems + history + continueWatching)
             .filter { $0.type == ContentType.movie && $0.isWatched }.map(\.id))
         libraryRevision &+= 1
+        if !isUITest, settings.topShelfSource != .latest { publishTopShelf() }
     }
 
     func reloadAccount() async {

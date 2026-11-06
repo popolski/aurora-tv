@@ -52,6 +52,13 @@ indique `"localized": true`, et
 `http://<ip-du-nas>:8787/resolve/tt0111161.json?type=movie` donne la langue choisie pour
 « Les Évadés ».
 
+## Sauvegarde des réglages d'Aurora
+
+Réglages › Sauvegarde, dans l'app, dépose une copie des réglages sur ce service
+(`POST /backup`) et la restaure (`GET /backup/latest.json`). Les 10 dernières sont gardées
+dans le volume du cache (`/cache/backups`). Uniquement des réglages : ni compte, ni addons,
+ni bibliothèque. Liste : `http://<ip-du-nas>:8787/backup/list.json`.
+
 ## Mise à jour de yt-dlp
 
 YouTube change régulièrement ; si les bandes-annonces ne se chargent plus, il faut la

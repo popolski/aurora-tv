@@ -42,11 +42,20 @@ struct DetailView: View {
             } else {
                 // Film : informations sur la gauche, l'image du film reste visible à droite.
                 // (Sources dans un panneau : essayé au build 35, retiré à la demande de l'utilisateur.)
-                VStack(alignment: .leading, spacing: 30) {
-                    header
-                    failure
+                // Défilement vertical : la rangée de la saga peut dépasser le bas de l'écran.
+                ScrollView(.vertical) {
+                    VStack(alignment: .leading, spacing: 30) {
+                        header
+                        failure
+                        if let saga = detail.saga {
+                            SagaRow(saga: saga, currentID: meta.id, watched: app.watchedMovieIDs)
+                                .padding(.bottom, 60)
+                        }
+                    }
+                    .frame(maxWidth: 1180, alignment: .leading)
                 }
-                .frame(maxWidth: 1180, alignment: .leading)
+                .scrollClipDisabled()
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .focusScopeOnTV(focusNamespace)
@@ -466,5 +475,48 @@ enum TimeFormat {
         guard seconds.isFinite, seconds >= 0 else { return "--:--" }
         let s = Int(seconds.rounded(.down))
         return s >= 3600 ? String(format: "%d:%02d:%02d", s / 3600, (s / 60) % 60, s % 60) : String(format: "%d:%02d", s / 60, s % 60)
+    }
+}
+
+/// Rangée « Saga » d'une fiche de film : les œuvres dans l'ordre, celle de la fiche
+/// signalée, celles déjà vues estompées.
+struct SagaRow: View {
+    let saga: Saga
+    let currentID: String
+    let watched: Set<String>
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 14) {
+                Text("SAGA").font(.manrope(15, .heavy)).tracking(1.6).foregroundStyle(Theme.textTertiary)
+                Text(saga.name).font(.cardTitle).foregroundStyle(Theme.textPrimary).lineLimit(1)
+                Text("\(saga.parts.count) œuvres").font(.meta).foregroundStyle(Theme.textTertiary)
+            }
+            .padding(.leading, Theme.horizontalMargin)
+            ScrollView(.horizontal) {
+                LazyHStack(alignment: .top, spacing: 30) {
+                    ForEach(saga.parts) { part in
+                        let isCurrent = part.imdbID == currentID
+                        PosterCard(title: part.title, imageURL: part.posterURL, subtitle: caption(part),
+                                   badge: isCurrent ? "Cette fiche" : nil, width: 150,
+                                   route: isCurrent ? nil : .meta(MetaItem(id: part.imdbID, type: part.type,
+                                                                           name: part.title, poster: part.posterURL)))
+                            .opacity(!isCurrent && watched.contains(part.imdbID) ? 0.55 : 1)
+                    }
+                }
+                .padding(.horizontal, Theme.horizontalMargin)
+                .padding(.vertical, 30)
+            }
+            .scrollClipDisabled()
+        }
+        .focusGroup()
+    }
+
+    private func caption(_ part: SagaPart) -> String {
+        var parts: [String] = []
+        if let ordinal = part.ordinal, Double(ordinal) != nil { parts.append("n° \(ordinal)") }
+        if let year = part.year { parts.append(String(year)) }
+        if watched.contains(part.imdbID) { parts.append("vu") }
+        return parts.joined(separator: " · ")
     }
 }

@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var app
 
     var body: some View {
+        @Bindable var app = app
         List {
             Section {
                 NavigationLink {
@@ -52,7 +53,21 @@ struct SettingsView: View {
                 }
                 .accessibilityIdentifier("settings.trailers")
             }
+            if Platform.isTV {
+                Section {
+                    Picker("Carrousel de l'écran d'accueil", selection: $app.settings.topShelfSource) {
+                        ForEach(TopShelfSource.allCases) { Text($0.label).tag($0) }
+                    }
+                } header: {
+                    Text("Apple TV")
+                } footer: {
+                    Text("Ce qu'affiche le haut de l'écran d'accueil de l'Apple TV quand Aurora est dans la première rangée. Les bandes-annonces du NAS y sont lues dans tous les cas.")
+                }
+            }
             Section("Assistance") {
+                NavigationLink { BackupSettingsView() } label: {
+                    SettingsRow(icon: "externaldrive.badge.icloud", title: "Sauvegarde", value: "Réglages sur le NAS")
+                }
                 NavigationLink { DiagnosticsView() } label: {
                     SettingsRow(icon: "stethoscope", title: "Diagnostics", value: "Journaux, stockage, version")
                 }

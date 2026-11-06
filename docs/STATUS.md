@@ -30,6 +30,9 @@ Dernière mise à jour : 4 novembre 2026, build 52.
 | Filmographie depuis « Avec » / « Réalisation » (Wikidata) | ✅ | ⏳ | ✅ réponses simulées | ⏳ |
 | Minuteur de mise en veille, « Êtes-vous toujours là ? » | ✅ | ⏳ | ✅ logique (minuteur, compteur, réglage) | ⏳ |
 | Synchronisation des sous-titres par réplique entendue | ✅ | ⏳ | ✅ calcul du décalage et choix des répliques | ⏳ |
+| Sagas sur la fiche, « Au hasard » dans Ma liste | ✅ | ⏳ | ✅ réponses Wikidata simulées, tirage | ⏳ |
+| Top Shelf au choix (sorties, en cours, Ma liste) | ✅ | ⏳ | ✅ entrées et configuration | ⏳ |
+| Sauvegarde des réglages sur le NAS | ✅ | ⏳ | ✅ format (Swift) et service (Python) | ⏳ |
 | Films déjà vus estompés ou masqués | ✅ | ✅ | — | ✅ (build 34) |
 | Version iPad (interface réduite, lecteur tactile, sans Top Shelf) | ✅ | ✅ (build 60) | 🟡 captures du simulateur en mode démo : accueil, fiche, sources ; lecteur tactile non capturé | ✅ installée avec Sideloadly, « tout fonctionne » (build 60) |
 | CI GitHub Actions → IPA non signée vérifiée, installation par atvloadly | ✅ | ✅ | — | ✅ (une quarantaine de builds installés) |

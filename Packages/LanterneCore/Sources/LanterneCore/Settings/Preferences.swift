@@ -239,12 +239,14 @@ public struct AppSettings: Sendable, Codable, Hashable {
     public var homeBillboardRotation: Bool = true
     /// Titres déjà vus dans les catalogues (accueil, Films, Séries, recherche).
     public var watchedTitles: WatchedTitlesDisplay = .show
+    /// Contenu du carrousel Top Shelf de l'écran d'accueil de l'Apple TV.
+    public var topShelfSource: TopShelfSource = .latest
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
         case sources, languages, playback, trailers, hideAdultContent, hiddenHomeCatalogs, homeCatalogOrder, homeBillboardRotation
-        case watchedTitles
+        case watchedTitles, topShelfSource
     }
 
     /// Décodage tolérant : un réglage ajouté dans une version ultérieure ne
@@ -260,6 +262,7 @@ public struct AppSettings: Sendable, Codable, Hashable {
         homeCatalogOrder = c.value(.homeCatalogOrder, default: [String]())
         homeBillboardRotation = c.value(.homeBillboardRotation, default: true)
         watchedTitles = c.value(.watchedTitles, default: .show)
+        topShelfSource = c.value(.topShelfSource, default: .latest)
     }
 }
 

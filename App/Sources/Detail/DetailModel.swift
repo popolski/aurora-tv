@@ -16,6 +16,8 @@ final class DetailModel {
     private(set) var resumePosition: TimeInterval?
     /// Notes de la critique (Wikidata), si connues.
     private(set) var reviews: ReviewScores?
+    /// Saga du film (Wikidata), si l'œuvre en fait partie.
+    private(set) var saga: Saga?
     @ObservationIgnored private var loadTask: Task<Void, Never>?
 
     init(preview: MetaItem) {
@@ -73,6 +75,9 @@ final class DetailModel {
             if let self, !app.isUITest || app.isDemo, self.meta.id.hasPrefix("tt") {
                 let scores = await app.reviews.scores(imdbID: self.meta.id)
                 if !scores.isEmpty { self.reviews = scores }
+            }
+            if let self, !self.isSeries, !app.isUITest || app.isDemo, FilmographyClient.isIMDbID(self.meta.id) {
+                self.saga = await app.sagas.saga(forIMDb: self.meta.id)
             }
         }
     }

@@ -2,7 +2,8 @@ import Foundation
 import TVServices
 import LanterneCore
 
-/// Extension Top Shelf d'Aurora : carrousel des dernières sorties de films.
+/// Extension Top Shelf d'Aurora : carrousel des dernières sorties de films, ou, au choix
+/// (Réglages › Bandes-annonces et carrousel), des titres en cours ou de Ma liste.
 ///
 /// tvOS affiche l'image en plein écran, le titre, le résumé, puis lance lui-même
 /// la bande-annonce (sans le son) après quelques secondes si `previewVideoURL`
@@ -24,13 +25,21 @@ final class ContentProvider: TVTopShelfContentProvider {
         report("catalogue")
         // tvOS abandonne une extension trop lente : 10 s pour les données (détails facultatifs),
         // puis 7 s pour composer les images avec le titre (sinon image d'origine).
-        let metas = await TopShelfLoader.latestMovies(limit: 10, deadline: 10)
+        let source = config?.source ?? .latest
+        let entries = config?.entries ?? []
+        let library = source != .latest && !entries.isEmpty
+        let metas = library ? await TopShelfLoader.libraryTitles(entries, deadline: 10)
+                            : await TopShelfLoader.latestMovies(limit: 10, deadline: 10)
+        let entryByID = Dictionary(entries.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         report("images", items: metas.count)
         // Images avec le titre incrusté, composées par le NAS (l'extension n'a pas assez de
         // mémoire pour le faire). Seulement si le service du NAS sait les produire.
         var titledServer: URL?
         if let server, await TopShelfLoader.serverMakesTitledImages(server) { titledServer = server }
-        let items = metas.map { Self.item(for: $0, server: server, titledImagesFrom: titledServer) }
+        let items = metas.map { meta in
+            Self.item(for: meta, server: server, titledImagesFrom: titledServer,
+                      context: library ? Self.context(source, entry: entryByID[meta.id]) : nil)
+        }
         // Compte rendu lisible par l'app (Réglages › Diagnostics) si le groupe est partagé.
         report("terminé", items: items.count, trailers: items.filter { $0.previewVideoURL != nil }.count,
                titled: titledServer == nil ? 0 : metas.filter { $0.background != nil }.count)
@@ -39,10 +48,20 @@ final class ContentProvider: TVTopShelfContentProvider {
         return TVTopShelfCarouselContent(style: .details, items: items)
     }
 
-    private static func item(for meta: MetaItem, server: URL?, titledImagesFrom titled: URL?) -> TVTopShelfCarouselItem {
+    /// Sur-titre d'un titre de la bibliothèque : « Reprendre S02E03 · 24 min restantes », « Ma liste ».
+    private static func context(_ source: TopShelfSource, entry: TopShelfEntry?) -> String {
+        guard source == .continueWatching else { return "Ma liste" }
+        var parts = ["Reprendre"]
+        if let episode = entry?.episode { parts[0] += " \(episode)" }
+        if let remaining = entry?.remaining, remaining >= 60 { parts.append("\(Int(remaining / 60)) min restantes") }
+        return parts.joined(separator: " · ")
+    }
+
+    private static func item(for meta: MetaItem, server: URL?, titledImagesFrom titled: URL?,
+                             context: String? = nil) -> TVTopShelfCarouselItem {
         let item = TVTopShelfCarouselItem(identifier: meta.id)
         item.title = meta.name
-        item.contextTitle = meta.cinemaStatus() == .inTheaters ? "Au cinéma" : "Nouveauté"
+        item.contextTitle = context ?? (meta.cinemaStatus() == .inTheaters ? "Au cinéma" : "Nouveauté")
         item.summary = meta.description
         let genres = meta.genres.prefix(2).map(Localize.genre)
         if !genres.isEmpty { item.genre = genres.joined(separator: " · ") }
@@ -100,6 +119,28 @@ enum TopShelfLoader {
         // Fiches complètes (bandes-annonces, réalisation, distribution), en parallèle,
         // dans le temps restant ; sans réponse à temps, les données du catalogue suffisent.
         return (try? await withDeadline(seconds: remaining) { await details(for: picked) }) ?? picked
+    }
+
+    /// Titres de la bibliothèque (« Continuer à regarder », « Ma liste ») : fiche Cinemeta de
+    /// chacun, en parallèle ; sans réponse à temps, nom et affiche transmis par l'app.
+    static func libraryTitles(_ entries: [TopShelfEntry], deadline: TimeInterval) async -> [MetaItem] {
+        let fallback = entries.map { MetaItem(id: $0.id, type: $0.type, name: $0.name, poster: $0.poster, background: $0.poster) }
+        return (try? await withDeadline(seconds: deadline) {
+            await withTaskGroup(of: (Int, MetaItem).self) { group in
+                for (index, entry) in entries.enumerated() {
+                    group.addTask {
+                        guard let url = TopShelfFeed.metaURL(id: entry.id, type: entry.type), let data = await fetch(url),
+                              let detail = try? TopShelfFeed.decodeMeta(data) else { return (index, fallback[index]) }
+                        var meta = detail
+                        if meta.background == nil { meta.background = entry.poster }
+                        return (index, meta)
+                    }
+                }
+                var out = fallback
+                for await (index, meta) in group { out[index] = meta }
+                return out
+            }
+        }) ?? fallback
     }
 
     private static func details(for picked: [MetaItem]) async -> [MetaItem] {

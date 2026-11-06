@@ -39,6 +39,13 @@ struct LibraryView: View {
                         }
                         .buttonStyle(PillButtonStyle(prominent: s == section, selected: s == section))
                     }
+                    if app.libraryItems.contains(where: \.isInLibrary) {
+                        NavigationLink(value: Route.surprise) {
+                            Label("Au hasard", systemImage: "dice")
+                        }
+                        .buttonStyle(PillButtonStyle())
+                        .accessibilityIdentifier("library.surprise")
+                    }
                     Spacer()
                     syncLabel
                 }

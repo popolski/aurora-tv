@@ -141,6 +141,39 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(r.status, 202)
             self.assertEqual(json.loads(r.read())["queued"], 1)
 
+    def post(self, path, body):
+        req = urllib.request.Request(self.base + path, data=body, method="POST",
+                                     headers={"Content-Type": "application/json"})
+        return urllib.request.urlopen(req, timeout=10)
+
+    def test_backup_roundtrip_and_rotation(self):
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            self.get("/backup/latest.json")
+        self.assertEqual(ctx.exception.code, 404)
+        for i in range(12):
+            body = json.dumps({"version": 1, "app": "Aurora", "device": "Apple TV",
+                               "createdAt": "2026-11-06T10:00:00Z", "settings": {"n": i}}).encode()
+            with self.post("/backup", body) as r:
+                self.assertEqual(r.status, 201)
+        with self.get("/backup/latest.json") as r:
+            self.assertEqual(json.loads(r.read())["settings"], {"n": 11})
+            self.assertTrue(r.headers["X-Backup-Name"].startswith("settings-"))
+        with self.get("/backup/list.json") as r:
+            self.assertEqual(len(json.loads(r.read())["backups"]), server.KEEP_BACKUPS)
+        with self.get("/health") as r:
+            self.assertTrue(json.loads(r.read())["backup"])
+
+    def test_backup_rejects_bad_payloads(self):
+        for body in [b"pas du json", json.dumps({"app": "Autre", "settings": {}}).encode(),
+                     json.dumps(["liste"]).encode()]:
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                self.post("/backup", body)
+            self.assertEqual(ctx.exception.code, 400)
+        big = json.dumps({"app": "Aurora", "settings": {"x": "a" * (server.MAX_BACKUP_BYTES + 10)}}).encode()
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            self.post("/backup", big)
+        self.assertEqual(ctx.exception.code, 413)
+
     def test_old_video_only_files_are_dropped(self):
         directory = os.path.join(self.tmp.name, "old")
         os.makedirs(directory)

@@ -42,6 +42,9 @@ films et séries sont inventés, leurs images générées.</sub>
   **en VF si possible**, sinon en VOSTFR, sinon en VO (avec une clé TMDB gratuite sur le NAS).
 - **Addons auto-hébergés** sur le réseau local acceptés en `http://` (les apps Stremio
   officielles exigent HTTPS).
+- **Le soir et les jours sans idée** : saga d'un film sur sa fiche, filmographie des acteurs,
+  « Au hasard » dans Ma liste, carrousel de l'écran d'accueil au choix (sorties, en cours, Ma
+  liste), réglages sauvegardés sur le NAS.
 - **Titres lisibles** pour les films asiatiques ou russes (titre français via Wikidata), films
   déjà vus estompés ou masqués, pastilles « Au cinéma » et « Nouvel épisode ».
 
@@ -82,7 +85,7 @@ Pas à pas complet : **[Guide d'utilisation](docs/GUIDE.md)**.
 Aucun Mac n'est nécessaire : tout est compilé par GitHub Actions (image `xcode-27`).
 
 ```bash
-cd Packages/LanterneCore && swift test   # logique métier (134 tests)
+cd Packages/LanterneCore && swift test   # logique métier (147 tests)
 ```
 
 ```bash

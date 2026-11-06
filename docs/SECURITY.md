@@ -53,3 +53,11 @@ l'API Stremio, sauf adresses de réseau local (IP privées, `.local`, `.lan`, Ta
 
 Les réponses de TheIntroDB sont traitées comme non fiables : seuls des nombres sont lus,
 et un minutage aberrant ne peut que déplacer la lecture dans la vidéo en cours.
+
+## Sauvegarde des réglages sur le NAS
+
+Le service du NAS n'a pas d'authentification (réseau local uniquement). Aurora n'y dépose donc
+que ses réglages (`AppSettings`) : jamais la session du compte Stremio (trousseau), ni les
+adresses d'addons (qui peuvent contenir des clés de débrideur), ni la bibliothèque. Le service
+refuse ce qui n'est pas une sauvegarde d'Aurora, limite la taille à 256 Ko et garde les 10
+dernières. À la restauration, l'adresse du NAS actuelle est conservée.

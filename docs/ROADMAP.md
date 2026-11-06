@@ -115,10 +115,13 @@ Ordre recommandé : 1, 2, 3, puis 4 et 6, puis le reste.
 5. Infos techniques du flux (résolution, codec, HDR, débit, images perdues, pairs).
 6. ✅ Filmographie depuis les puces « Avec » / « Réalisation » (Wikidata, personne retrouvée
    dans la distribution de la fiche d'origine) — implémenté (build 55), à valider sur l'appareil.
-7. Sagas sur la fiche (Wikidata, ordre, déjà vus).
-8. « Je ne sais pas quoi regarder » (tirage dans Ma liste, filtre de durée).
-9. Top Shelf au choix : nouveautés ou « Continuer à regarder ».
-10. Sauvegarde des réglages d'Aurora sur le NAS (restauration en un clic).
+7. ✅ Sagas sur la fiche (Wikidata, ordre, déjà vus) — implémenté (build 61), à valider.
+8. ✅ « Je ne sais pas quoi regarder » (tirage dans Ma liste, filtres de type et de durée) —
+   implémenté (build 61), à valider.
+9. ✅ Top Shelf au choix : dernières sorties, « Continuer à regarder » ou Ma liste —
+   implémenté (build 61), à valider.
+10. ✅ Sauvegarde des réglages d'Aurora sur le NAS (sauvegarder / restaurer, 10 versions) —
+    implémenté (build 61, service du NAS à mettre à jour), à valider.
 
 Fait hors liste (04/11/2026) : bandes-annonces en français (VF > VOSTFR > VO, TMDB côté NAS, validé build 52) ; addons « Local Files » de l'ordinateur ignorés (build 51) ; liens stremio:// locaux en HTTP (build 50).
 

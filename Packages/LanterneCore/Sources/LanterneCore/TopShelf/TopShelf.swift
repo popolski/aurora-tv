@@ -61,17 +61,106 @@ public enum SharedContainer {
     }
 }
 
+/// Contenu du carrousel Top Shelf.
+public enum TopShelfSource: String, Sendable, Codable, CaseIterable, Identifiable {
+    /// Dernières sorties de films (catalogue Cinemeta public).
+    case latest
+    /// Titres en cours (« Continuer à regarder »).
+    case continueWatching
+    /// Ma liste (films et séries ajoutés), les plus récents d'abord.
+    case myList
+
+    public var id: String { rawValue }
+    public var label: String {
+        switch self {
+        case .latest: "Dernières sorties"
+        case .continueWatching: "Continuer à regarder"
+        case .myList: "Ma liste"
+        }
+    }
+}
+
+/// Titre de la bibliothèque transmis par l'app pour le carrousel (« Continuer à
+/// regarder », « Ma liste ») ; l'extension complète avec la fiche Cinemeta.
+public struct TopShelfEntry: Codable, Sendable, Equatable {
+    public var id: String
+    public var type: String
+    public var name: String
+    public var poster: URL?
+    /// Épisode en cours (« S02E03 »), le cas échéant.
+    public var episode: String?
+    /// Temps restant (secondes) d'un titre en cours.
+    public var remaining: TimeInterval?
+
+    public init(id: String, type: String, name: String, poster: URL? = nil, episode: String? = nil, remaining: TimeInterval? = nil) {
+        self.id = id; self.type = type; self.name = name; self.poster = poster; self.episode = episode; self.remaining = remaining
+    }
+
+    /// Entrées du carrousel à partir de la bibliothèque (10 au plus, identifiants vérifiés).
+    public static func entries(for source: TopShelfSource, continueWatching: [LibraryItem], library: [LibraryItem],
+                               limit: Int = 10) -> [TopShelfEntry] {
+        let items: [LibraryItem]
+        switch source {
+        case .latest: return []
+        case .continueWatching: items = continueWatching
+        case .myList: items = library.filter(\.isInLibrary).sorted { ($0.ctime ?? $0.mtime) > ($1.ctime ?? $1.mtime) }
+        }
+        return items
+            .filter { DeepLink.isValidID($0.id) && ($0.type == ContentType.movie || $0.type == ContentType.series) }
+            .prefix(limit)
+            .map { item in
+                let state = item.state
+                let remaining = state.duration > 0 && state.timeOffset > 0 && source == .continueWatching
+                    ? TimeInterval(max(0, state.duration - state.timeOffset)) / 1000 : nil
+                let episode = item.type == ContentType.series ? state.videoID.flatMap(EpisodeCode.from(videoID:)) : nil
+                return TopShelfEntry(id: item.id, type: item.type, name: item.name, poster: item.poster,
+                                     episode: episode, remaining: remaining)
+            }
+    }
+}
+
+/// « tt0903747:2:3 » → « S02E03 ».
+public enum EpisodeCode {
+    public static func from(videoID: String) -> String? {
+        let parts = videoID.split(separator: ":")
+        guard parts.count >= 3, let season = Int(parts[parts.count - 2]), let episode = Int(parts[parts.count - 1]) else { return nil }
+        return String(format: "S%02dE%02d", season, episode)
+    }
+}
+
 /// Ce que l'app transmet à l'extension Top Shelf.
 public struct TopShelfConfig: Codable, Sendable, Equatable {
     /// Adresse du service de bandes-annonces (NAS), si configurée.
     public var trailerServer: String?
     public var updatedAt: Date
+    /// Contenu choisi dans les réglages, et les titres correspondants de la bibliothèque.
+    public var source: TopShelfSource
+    public var entries: [TopShelfEntry]
 
     public static let key = "topshelf.config.v1"
 
-    public init(trailerServer: String?, updatedAt: Date = Date()) {
+    public init(trailerServer: String?, updatedAt: Date = Date(), source: TopShelfSource = .latest, entries: [TopShelfEntry] = []) {
         self.trailerServer = trailerServer
         self.updatedAt = updatedAt
+        self.source = source
+        self.entries = entries
+    }
+
+    enum CodingKeys: String, CodingKey { case trailerServer, updatedAt, source, entries }
+
+    /// Décodage tolérant : une configuration écrite par une version précédente reste lisible.
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        trailerServer = try? c.decodeIfPresent(String.self, forKey: .trailerServer)
+        updatedAt = c.value(.updatedAt, default: Date(timeIntervalSince1970: 0))
+        source = c.value(.source, default: .latest)
+        entries = c.value(.entries, default: [TopShelfEntry]())
+    }
+
+    /// Équivalence pour décider d'une nouvelle publication (la date n'en fait pas partie).
+    public func sameContent(as other: TopShelfConfig?) -> Bool {
+        guard let other else { return false }
+        return trailerServer == other.trailerServer && source == other.source && entries == other.entries
     }
 
     public var server: URL? {
@@ -135,9 +224,9 @@ public enum TopShelfFeed {
                                  transportURL: cinemetaManifest)
     }
 
-    public static func metaURL(id: String) -> URL? {
-        guard DeepLink.isValidID(id) else { return nil }
-        return try? AddonURLBuilder.url(for: .meta(type: ContentType.movie, id: id), transportURL: cinemetaManifest)
+    public static func metaURL(id: String, type: String = ContentType.movie) -> URL? {
+        guard DeepLink.isValidID(id), type == ContentType.movie || type == ContentType.series else { return nil }
+        return try? AddonURLBuilder.url(for: .meta(type: type, id: id), transportURL: cinemetaManifest)
     }
 
     public static func decodeCatalog(_ data: Data) throws -> [MetaItem] {

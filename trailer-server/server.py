@@ -13,6 +13,8 @@ Points d'entrée :
   GET  /trailer/for/<fiche>.mp4?type=movie&yt=<id>   bande-annonce d'une fiche, en français
        si possible (VF, sinon VOSTFR, sinon VO ; TMDB, clé TMDB_API_KEY) ; aussi .preview.mp4
   GET  /resolve/<fiche>.json?type=movie&yt=<id>      choix fait pour une fiche (diagnostic)
+  POST /backup                 sauvegarde des réglages d'Aurora (JSON, 256 Ko au plus, 10 gardées)
+  GET  /backup/latest.json     dernière sauvegarde ; GET /backup/list.json : liste
   GET  /topshelf/<id>.jpg?bg=…&logo=…&title=…  image du carrousel avec le titre incrusté
   POST /prefetch               {"ids": ["<id>", ...]} ou {"items": [{"id", "type", "yt"}]} :
                                préparation en arrière-plan
@@ -60,6 +62,10 @@ DOWNLOAD_TIMEOUT = int(os.environ.get("DOWNLOAD_TIMEOUT", "180"))
 WAIT_SECONDS = int(os.environ.get("WAIT_SECONDS", "120"))
 FAILURE_TTL = int(os.environ.get("FAILURE_TTL", str(6 * 3600)))
 MAX_PREFETCH = 30
+MAX_BACKUP_BYTES = 256 * 1024
+KEEP_BACKUPS = 10
+# Horodatage à la microseconde : l'ordre alphabétique est l'ordre chronologique.
+BACKUP_NAME_RE = re.compile(r"^settings-\d{8}T\d{6}\.\d{6}Z\.json$")
 CHUNK = 256 * 1024
 
 
@@ -289,6 +295,71 @@ def ytdlp_version():
         return None
 
 
+class BackupStore:
+    """Sauvegardes des réglages d'Aurora : fichiers JSON horodatés, les plus récents gardés.
+
+    Le service n'a pas d'authentification (réseau local) : l'app n'y dépose que des
+    réglages, jamais de secret (compte, adresses d'addons)."""
+
+    def __init__(self, directory):
+        self.directory = directory
+        self.lock = threading.Lock()
+
+    def names(self):
+        try:
+            return sorted((n for n in os.listdir(self.directory) if BACKUP_NAME_RE.match(n)), reverse=True)
+        except FileNotFoundError:
+            return []
+
+    def save(self, payload):
+        """Enregistre `payload` (bytes JSON déjà validés) ; renvoie le nom du fichier."""
+        with self.lock:
+            os.makedirs(self.directory, exist_ok=True)
+            micros = time.time_ns() // 1000
+            while True:
+                seconds, fraction = divmod(micros, 1_000_000)
+                stamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime(seconds))
+                name = f"settings-{stamp}.{fraction:06d}Z.json"
+                if not os.path.exists(os.path.join(self.directory, name)):
+                    break
+                micros += 1
+            tmp = os.path.join(self.directory, name + ".tmp")
+            with open(tmp, "wb") as f:
+                f.write(payload)
+            os.replace(tmp, os.path.join(self.directory, name))
+            for old in self.names()[KEEP_BACKUPS:]:
+                try:
+                    os.remove(os.path.join(self.directory, old))
+                except OSError:
+                    pass
+            return name
+
+    def latest(self):
+        names = self.names()
+        if not names:
+            return None, None
+        with open(os.path.join(self.directory, names[0]), "rb") as f:
+            return names[0], f.read()
+
+    def listing(self):
+        out = []
+        for name in self.names():
+            try:
+                size = os.path.getsize(os.path.join(self.directory, name))
+            except OSError:
+                continue
+            out.append({"name": name, "size": size})
+        return out
+
+
+def validate_backup(raw):
+    """JSON d'une sauvegarde d'Aurora, ou ValueError."""
+    data = json.loads(raw)
+    if not isinstance(data, dict) or data.get("app") != "Aurora" or not isinstance(data.get("settings"), dict):
+        raise ValueError("ce n'est pas une sauvegarde d'Aurora")
+    return data
+
+
 def item_query(path):
     """(type, identifiants YouTube de repli) d'après la requête ?type=…&yt=…"""
     query = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query)
@@ -297,9 +368,11 @@ def item_query(path):
     return kind, fallback
 
 
-def make_handler(cache, localizer=None):
+def make_handler(cache, localizer=None, backups=None):
     if localizer is None:
         localizer = localize.TrailerLocalizer("", None, log=log)
+    if backups is None:
+        backups = BackupStore(os.path.join(cache.directory, "backups"))
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "aurora-trailers/1"
@@ -335,6 +408,7 @@ def make_handler(cache, localizer=None):
                     "preview": True,
                     "topshelf": topshelf is not None,
                     "localized": localizer.enabled,
+                    "backup": True,
                     "ytdlp": ytdlp_version(),
                     "ffmpeg": shutil.which("ffmpeg") is not None,
                     "cached": len(entries),
@@ -344,6 +418,23 @@ def make_handler(cache, localizer=None):
             ts = TOPSHELF_PATH_RE.match(path)
             if ts:
                 self._serve_topshelf(ts.group(1), head)
+                return
+            if path == "/backup/latest.json":
+                name, payload = backups.latest()
+                if payload is None:
+                    self._error(HTTPStatus.NOT_FOUND, "aucune sauvegarde")
+                    return
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Backup-Name", name)
+                self.end_headers()
+                if not head:
+                    self.wfile.write(payload)
+                return
+            if path == "/backup/list.json":
+                self._json(HTTPStatus.OK, {"backups": backups.listing()})
                 return
             rs = RESOLVE_PATH_RE.match(path)
             if rs:
@@ -442,7 +533,11 @@ def make_handler(cache, localizer=None):
                 pass
 
         def do_POST(self):  # noqa: N802
-            if self.path.split("?", 1)[0] != "/prefetch":
+            path = self.path.split("?", 1)[0]
+            if path == "/backup":
+                self._save_backup()
+                return
+            if path != "/prefetch":
                 self._error(HTTPStatus.NOT_FOUND, "inconnu")
                 return
             length = int(self.headers.get("Content-Length") or 0)
@@ -467,6 +562,21 @@ def make_handler(cache, localizer=None):
                 threading.Thread(target=prefetch_items, args=(cache, localizer, items), daemon=True).start()
                 queued += len(items)
             self._json(HTTPStatus.ACCEPTED, {"queued": queued})
+
+        def _save_backup(self):
+            length = int(self.headers.get("Content-Length") or 0)
+            if length <= 0 or length > MAX_BACKUP_BYTES:
+                self._error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "taille invalide")
+                return
+            raw = self.rfile.read(length)
+            try:
+                validate_backup(raw)
+            except ValueError as e:
+                self._error(HTTPStatus.BAD_REQUEST, str(e) or "JSON invalide")
+                return
+            name = backups.save(raw)
+            log(f"sauvegarde des réglages : {name} ({length} octets)")
+            self._json(HTTPStatus.CREATED, {"saved": name, "count": len(backups.names())})
 
     return Handler
 

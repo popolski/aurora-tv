@@ -95,6 +95,9 @@ Astuce : appui long sur une carte de « Continuer à regarder » pour la retirer
 - **Informations** : type, année, durée, note IMDb encadrée, puce « Au cinéma » si le film est
   récent, notes **Rotten Tomatoes** et **Metacritic** (d'après Wikidata, quand elles existent),
   groupes **Genres**, **Réalisation**, **Avec**, résumé.
+- **Saga** : si le film fait partie d'une série de films (Wikidata), une rangée « Saga » sous
+  les boutons montre toutes les œuvres dans l'ordre (rang de la saga, sinon date), la fiche
+  actuelle signalée et les films déjà vus estompés ; flèche vers le bas pour l'atteindre.
 - **Filmographie** : depuis les boutons, **flèche vers le haut** pour atteindre les noms de
   **Réalisation** et **Avec** ; un clic ouvre la filmographie de la personne (films puis séries,
   du plus récent au plus ancien, d'après Wikidata). Chaque affiche ouvre la fiche, avec les
@@ -201,6 +204,11 @@ rester sur un écran noir, et propose de réessayer avec le lecteur système.
 ![Ma liste](screenshots/08-ma-liste.jpg)
 
 - **Ma liste** : tous les titres ajoutés, synchronisés avec Stremio.
+- **Au hasard** (« Je ne sais pas quoi regarder ») : un titre de Ma liste tiré au sort, avec
+  son résumé et son image. Filtres : films et séries, films, séries ; durée « peu importe »,
+  « moins de 1 h 30 », « moins de 2 h » (pour une série : la durée d'un épisode). Les films déjà
+  vus ne sont pas proposés ; **Un autre** relance sans reproposer les précédents ; **Voir la
+  fiche** ouvre le titre.
 - **Recherche** (loupe dans la barre d'onglets) : saisie au clavier ou dictée Siri ; résultats
   par addon de catalogue.
 
@@ -219,6 +227,10 @@ connexion ») :
 - **carrousel Top Shelf** : quand Aurora est dans la première rangée de l'écran d'accueil de
   l'Apple TV, le haut de l'écran montre les dix dernières sorties de films, avec leur titre et
   un extrait de 30 s ; « Lire » et « Plus d'infos » ouvrent Aurora.
+
+**Contenu du carrousel.** Réglages › **Carrousel de l'écran d'accueil** : *Dernières sorties*
+(par défaut), *Continuer à regarder* (reprise : « Reprendre S02E03 · 24 min restantes ») ou
+*Ma liste*. Le carrousel se met à jour quand la bibliothèque change ; « Lire » reprend la lecture.
 
 **En français si possible.** Avec une clé TMDB gratuite enregistrée sur le NAS (fichier
 `.env`, voir le [README du service](../trailer-server/README.md#bandes-annonces-en-français)),
@@ -244,6 +256,8 @@ bande-annonce avec ce build d'Aurora.
 | Lecteur | **Mon téléviseur affiche le Dolby Vision** | à n'activer que si c'est vrai |
 | Lecteur | **Saut gauche/droite** : 5 à 60 s | — |
 | Lecteur | **Épisode suivant automatique**, **encart « Épisode suivant »** (30 s à 3 min avant la fin) | — |
+| Apple TV | **Carrousel de l'écran d'accueil** : dernières sorties, continuer à regarder ou Ma liste | — |
+| Assistance | **Sauvegarde** : sauvegarder les réglages sur le NAS, restaurer la dernière sauvegarde | réglages seulement (ni compte, ni addons, ni bibliothèque) ; 10 sauvegardes gardées |
 | Lecteur | **« Êtes-vous toujours là ? »** : après 2, 3 (par défaut), 4 ou 5 épisodes enchaînés sans interaction, ou jamais | met en pause avant l'épisode suivant |
 | Lecteur | **Son : mode nuit et dialogues** | renvoie aux réglages de l'Apple TV (Vidéo et audio) |
 | Lecteur | **Bouton « Passer l'intro »**, **passer automatiquement** | minutages TheIntroDB / AniSkip |

@@ -8,6 +8,8 @@ nonisolated enum Route: Hashable {
     case sources(SourcesRoute)
     /// Filmographie d'une personne citée sur une fiche.
     case person(PersonRef)
+    /// « Je ne sais pas quoi regarder » (tirage au sort dans Ma liste).
+    case surprise
 }
 
 /// Demande d'affichage des sources d'une vidéo.
@@ -131,6 +133,7 @@ struct NavigationRoot<Content: View>: View {
                         case .catalog(let ref): CatalogGridView(ref: ref)
                         case .sources(let request): SourcesView(request: request)
                         case .person(let person): PersonView(person: person)
+                        case .surprise: SurpriseView()
                         }
                     }
                     .screenBackground()
