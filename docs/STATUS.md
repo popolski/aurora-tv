@@ -31,7 +31,7 @@ Dernière mise à jour : 4 novembre 2026, build 52.
 | Minuteur de mise en veille, « Êtes-vous toujours là ? » | ✅ | ⏳ | ✅ logique (minuteur, compteur, réglage) | ⏳ |
 | Synchronisation des sous-titres par réplique entendue | ✅ | ⏳ | ✅ calcul du décalage et choix des répliques | ⏳ |
 | Films déjà vus estompés ou masqués | ✅ | ✅ | — | ✅ (build 34) |
-| Version iPad (interface réduite, lecteur tactile, sans Top Shelf) | ✅ | ✅ (build 60) | 🟡 captures du simulateur en mode démo : accueil, fiche, sources ; lecteur tactile non capturé | ⏳ |
+| Version iPad (interface réduite, lecteur tactile, sans Top Shelf) | ✅ | ✅ (build 60) | 🟡 captures du simulateur en mode démo : accueil, fiche, sources ; lecteur tactile non capturé | ✅ installée avec Sideloadly, « tout fonctionne » (build 60) |
 | CI GitHub Actions → IPA non signée vérifiée, installation par atvloadly | ✅ | ✅ | — | ✅ (une quarantaine de builds installés) |
 | Captures d'écran automatiques (mode démo) | ✅ | ✅ | ✅ simulateur | — |
 
