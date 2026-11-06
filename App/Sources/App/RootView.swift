@@ -59,6 +59,18 @@ struct RootView: View {
         }
         .background(AmbientBackground())
         .onOpenURL { url in open(url) }
+        // Mode démonstration : `-openURL aurora://…` ouvre directement un écran (captures de la CI,
+        // sans la confirmation système qu'impose l'ouverture d'un lien depuis l'extérieur).
+        .task {
+            guard model.isDemo, let url = Self.launchURL else { return }
+            open(url)
+        }
+    }
+
+    private static var launchURL: URL? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-openURL"), i + 1 < args.count else { return nil }
+        return URL(string: args[i + 1])
     }
 
     /// Lien du Top Shelf : fiche du contenu, ou directement ses sources (« Lire »).

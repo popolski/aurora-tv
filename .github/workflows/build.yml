@@ -261,9 +261,14 @@ jobs:
           xcrun simctl launch "$DEVICE" io.github.popolski.lanterne -uitest -demo
           sleep 30
           xcrun simctl io "$DEVICE" screenshot dist/apercu-ipad-1-accueil.png
-          xcrun simctl openurl "$DEVICE" "aurora://meta/movie/tt9900001"
-          sleep 15
+          xcrun simctl terminate "$DEVICE" io.github.popolski.lanterne || true
+          xcrun simctl launch "$DEVICE" io.github.popolski.lanterne -uitest -demo -openURL "aurora://meta/movie/tt9900001"
+          sleep 20
           xcrun simctl io "$DEVICE" screenshot dist/apercu-ipad-2-fiche.png
+          xcrun simctl terminate "$DEVICE" io.github.popolski.lanterne || true
+          xcrun simctl launch "$DEVICE" io.github.popolski.lanterne -uitest -demo -openURL "aurora://play/movie/tt9900001"
+          sleep 20
+          xcrun simctl io "$DEVICE" screenshot dist/apercu-ipad-3-sources.png
           ls -la dist
       - name: Captures
         uses: actions/upload-artifact@v4

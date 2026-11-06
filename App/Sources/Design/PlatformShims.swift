@@ -63,12 +63,16 @@ struct TVCanvas: ViewModifier {
         #else
         GeometryReader { geo in
             let scale = max(0.4, min(1, geo.size.width / Self.designWidth))
+            // Canevas plus grand que l'écran, centré, puis réduit autour de son centre :
+            // il occupe exactement l'écran (ancré en haut à gauche, le débordement était
+            // centré avant la réduction et décalait tout vers la gauche — build 58).
             content
                 // Texte système (réglages, listes) à la taille qu'il aurait sur le téléviseur.
                 .dynamicTypeSize(.accessibility1)
                 .frame(width: geo.size.width / scale, height: geo.size.height / scale)
-                .scaleEffect(scale, anchor: .topLeading)
-                .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
+                .scaleEffect(scale, anchor: .center)
+                .frame(width: geo.size.width, height: geo.size.height)
+                .position(x: geo.size.width / 2, y: geo.size.height / 2)
         }
         .ignoresSafeArea()
         #endif
