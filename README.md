@@ -53,7 +53,9 @@ films et séries sont inventés, leurs images générées.</sub>
    compte Apple (gratuit suffit), **« Remove extensions » désactivé**.
 3. Pour une mise à jour : **ouvrir d'abord une autre app sur l'Apple TV**, puis installer
    par-dessus (les réglages et la bibliothèque sont conservés).
-4. Facultatif : installer le service de bandes-annonces sur le NAS
+4. **Sur iPad** : fichier `Aurora-iPad-…-unsigned.ipa`, installé avec Sideloadly depuis un
+   PC — voir [Aurora sur iPad](docs/IPAD.md).
+5. Facultatif : installer le service de bandes-annonces sur le NAS
    ([trailer-server/](trailer-server/README.md)).
 
 Pas à pas complet : **[Guide d'utilisation](docs/GUIDE.md)**.
@@ -63,6 +65,7 @@ Pas à pas complet : **[Guide d'utilisation](docs/GUIDE.md)**.
 | Document | Contenu |
 |---|---|
 | [Guide d'utilisation](docs/GUIDE.md) | installation, chaque écran, la télécommande, chaque réglage, dépannage |
+| [Aurora sur iPad](docs/IPAD.md) | version iPad : différences, installation avec Sideloadly, renouvellement |
 | [Pile technique et choix](docs/TECHNICAL.md) | technologies, architecture, décisions et leurs raisons, leçons tirées de l'appareil |
 | [Moteur de lecture](docs/PLAYER-ENGINE.md) | comparaison AVPlayer / VLC / mpv / KSPlayer / AetherEngine, jalons, formats, mise en œuvre |
 | [Architecture du code](docs/ARCHITECTURE.md) | modules, focus, cycle de vie du lecteur, persistance |
