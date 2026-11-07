@@ -202,9 +202,18 @@ final class PlayerSession {
         }
     }
 
+    /// Série : identifiant de la fiche, pour mémoriser et reprendre les choix de pistes.
+    private var seriesID: String? {
+        isSeries && context.localTest == nil ? context.meta.id : nil
+    }
+
+    /// Langues de cet épisode : choix mémorisés de la série, sinon réglages généraux.
+    private var languages: LanguagePreferences { app.languages(forSeries: seriesID) }
+
     private func makeRequest() -> EngineLoadRequest? {
         let prefs = app.settings
-        let audioLangs = [prefs.languages.preferredAudio, prefs.languages.secondaryAudio].filter { !$0.isEmpty }
+        let languages = self.languages
+        let audioLangs = [languages.preferredAudio, languages.secondaryAudio].filter { !$0.isEmpty }
         if let test = context.localTest {
             guard let url = test.url else { return nil }
             var subs: [SubtitleItem] = []
@@ -353,7 +362,10 @@ final class PlayerSession {
 
     private func configureTracks(_ s: EngineSnapshot) {
         tracksConfigured = true
-        let selector = TrackSelector(preferences: app.settings.languages)
+        let selector = TrackSelector(preferences: languages)
+        if let seriesID, app.languages(forSeries: seriesID) != app.settings.languages {
+            log.info("pistes : choix mémorisés pour cette série appliqués")
+        }
         let audio = s.audioTracks.first { $0.id == s.selectedAudioID } ?? selector.audio(s.audioTracks)
         if engine is SystemPlaybackEngine, let wanted = selector.audio(s.audioTracks), wanted.id != s.selectedAudioID {
             engine.selectAudio(wanted.id)
@@ -368,12 +380,18 @@ final class PlayerSession {
 
     func selectAudio(_ id: Int) {
         engine.selectAudio(id)
+        if let seriesID, let track = snapshot.audioTracks.first(where: { $0.id == id }) {
+            app.rememberAudio(track, seriesID: seriesID)
+        }
         touch()
     }
 
     func selectSubtitle(_ id: Int?) {
         userChoseSubtitle = true
         engine.selectSubtitle(id)
+        if let seriesID {
+            app.rememberSubtitle(id.flatMap { id in snapshot.subtitleTracks.first { $0.id == id } }, seriesID: seriesID)
+        }
         touch()
     }
 

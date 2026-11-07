@@ -77,7 +77,12 @@ final class DetailModel {
                 if !scores.isEmpty { self.reviews = scores }
             }
             if let self, !self.isSeries, !app.isUITest || app.isDemo, FilmographyClient.isIMDbID(self.meta.id) {
-                self.saga = await app.sagas.saga(forIMDb: self.meta.id)
+                // Wikidata d'abord ; sinon collection TMDB (service du NAS, clé TMDB requise).
+                var saga = await app.sagas.saga(forIMDb: self.meta.id)
+                if saga == nil, let server = app.settings.trailers.server {
+                    saga = await app.discovery.collection(server: server, id: self.meta.id)
+                }
+                self.saga = saga
             }
         }
     }

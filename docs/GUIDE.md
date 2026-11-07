@@ -28,7 +28,7 @@ Aurora n'est pas sur l'App Store : on l'installe soi-même sur l'Apple TV, sans 
 **atvloadly** (installé sur un NAS ou un ordinateur du réseau local).
 
 1. **Télécharger l'IPA** : page [Releases](https://github.com/popolski/aurora-tv/releases),
-   dernier `build-NN`, fichier `Aurora-…-unsigned.ipa`.
+   dernier `build-NN`, fichier `Aurora-AppleTV-…-unsigned.ipa`.
 2. **Apple TV** : activer le mode développeur (Réglages › Confidentialité et sécurité), puis
    l'appairer dans atvloadly (Réglages › Télécommandes et appareils › Appli Remote et appareils).
 3. **atvloadly** : choisir l'IPA, un compte Apple (un compte gratuit suffit ; utiliser de
@@ -39,6 +39,26 @@ Aurora n'est pas sur l'App Store : on l'installe soi-même sur l'Apple TV, sans 
 
 > Avec un compte Apple gratuit, la signature dure 7 jours : atvloadly la renouvelle
 > automatiquement tant que l'Apple TV est allumée et joignable.
+
+### Mises à jour automatiques (atvloadly 0.6 ou plus récent)
+
+atvloadly sait suivre les Releases GitHub d'une app et installer lui-même chaque nouveau build :
+plus besoin de télécharger l'IPA.
+
+1. Dans atvloadly, sur l'app Aurora, ajouter une **source GitHub** : `popolski/aurora-tv`
+   (l'adresse complète du dépôt convient aussi).
+2. Choisir le fichier **`Aurora-AppleTV-…-unsigned.ipa`** quand atvloadly propose les fichiers
+   du dernier build. Il retient ce choix d'après le mot « AppleTV » du nom et l'applique aux
+   builds suivants ; le fichier iPad (« iPad » dans le nom) est de toute façon écarté pour une
+   Apple TV.
+3. Activer la **mise à jour automatique**. atvloadly vérifie toutes les 6 heures (réglable) et
+   installe pendant sa fenêtre de rafraîchissement nocturne (3 h – 6 h par défaut), quand
+   l'Apple TV est en veille — ce qui évite aussi le blocage à « 100 % » des installations faites
+   pendant que le carrousel est affiché. Sans la mise à jour automatique, il envoie seulement
+   une notification (si les notifications d'atvloadly sont configurées).
+
+Les libellés exacts de l'interface d'atvloadly peuvent différer : ce fonctionnement est décrit
+d'après son code source (version 0.8.2), pas vérifié écran par écran.
 
 Détails techniques : [DEPLOYMENT.md](DEPLOYMENT.md).
 
@@ -76,6 +96,10 @@ Détails techniques : [DEPLOYMENT.md](DEPLOYMENT.md).
 
 Astuce : appui long sur une carte de « Continuer à regarder » pour la retirer de la rangée.
 
+- **Parce que vous avez regardé…** : rangée de titres proches du dernier film ou de la dernière
+  série regardés (recommandations TMDB, via le service du NAS et sa clé TMDB) ; les films déjà
+  vus et les titres en cours n'y figurent pas.
+
 ## 4. Films et Séries
 
 ![Films](screenshots/06-films.jpg)
@@ -95,7 +119,8 @@ Astuce : appui long sur une carte de « Continuer à regarder » pour la retirer
 - **Informations** : type, année, durée, note IMDb encadrée, puce « Au cinéma » si le film est
   récent, notes **Rotten Tomatoes** et **Metacritic** (d'après Wikidata, quand elles existent),
   groupes **Genres**, **Réalisation**, **Avec**, résumé.
-- **Saga** : si le film fait partie d'une série de films (Wikidata), une rangée « Saga » sous
+- **Saga** : si le film fait partie d'une série de films (Wikidata, sinon « collection » TMDB
+  via le service du NAS), une rangée « Saga » sous
   les boutons montre toutes les œuvres dans l'ordre (rang de la saga, sinon date), la fiche
   actuelle signalée et les films déjà vus estompés ; flèche vers le bas pour l'atteindre.
 - **Filmographie** : depuis les boutons, **flèche vers le haut** pour atteindre les noms de
@@ -166,6 +191,10 @@ Astuce : appui long sur une carte de « Continuer à regarder » pour la retirer
 
 ![Audio et sous-titres](screenshots/11-pistes.jpg)
 
+**Pistes mémorisées par série.** Dans une série, choisir une autre piste audio ou d'autres
+sous-titres (ou les désactiver) vaut pour les épisodes suivants de cette série : ils
+démarrent avec ces choix au lieu des réglages généraux. Les films ne sont pas concernés.
+
 Le panneau du bas comporte quatre onglets :
 
 - **Audio et sous-titres** : piste audio (le français est choisi par défaut, puis l'anglais),
@@ -210,7 +239,8 @@ rester sur un écran noir, et propose de réessayer avec le lecteur système.
   vus ne sont pas proposés ; **Un autre** relance sans reproposer les précédents ; **Voir la
   fiche** ouvre le titre.
 - **Recherche** (loupe dans la barre d'onglets) : saisie au clavier ou dictée Siri ; résultats
-  par addon de catalogue.
+  par addon de catalogue. En tête, une rangée **Personnes** (Wikidata) : acteurs, réalisateurs,
+  scénaristes dont le nom correspond ; un clic ouvre leur filmographie.
 
 ## 10. Bandes-annonces et carrousel de l'écran d'accueil
 

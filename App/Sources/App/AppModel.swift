@@ -58,11 +58,17 @@ final class AppModel {
     @ObservationIgnored let filmography: FilmographyClient
     /// Sagas des films (Wikidata).
     @ObservationIgnored let sagas: SagaClient
+    /// Recommandations et collections TMDB, servies par le NAS (clé TMDB du NAS).
+    @ObservationIgnored let discovery: DiscoveryClient
+    /// Client HTTP des services publics (Wikidata…), pour les requêtes ponctuelles.
+    @ObservationIgnored let webHTTP: any HTTPClient
     @ObservationIgnored let defaults: any KeyValueStore
     @ObservationIgnored let isUITest: Bool
     /// Mode démonstration (`-uitest -demo`) : catalogue inventé pour les captures d'écran.
     @ObservationIgnored let isDemo = ProcessInfo.processInfo.arguments.contains("-demo")
     @ObservationIgnored private var observers: [Task<Void, Never>] = []
+    /// Pistes choisies à la main, par série (reprises aux épisodes suivants).
+    @ObservationIgnored private var seriesTracks = SeriesTrackMemory()
     @ObservationIgnored private var lastForegroundSync = Date.distantPast
     @ObservationIgnored let log = LogChannel("app")
 
@@ -90,6 +96,22 @@ final class AppModel {
         }
     }
 
+    /// Préférences de langue pour un épisode : choix mémorisés de la série, sinon réglages.
+    func languages(forSeries seriesID: String?) -> LanguagePreferences {
+        guard let seriesID, let choice = seriesTracks.choice(for: seriesID) else { return settings.languages }
+        return choice.applied(to: settings.languages)
+    }
+
+    func rememberAudio(_ track: TrackDescriptor, seriesID: String) {
+        seriesTracks.rememberAudio(track, seriesID: seriesID)
+        defaults.encode(seriesTracks, forKey: SeriesTrackMemory.key)
+    }
+
+    func rememberSubtitle(_ track: TrackDescriptor?, seriesID: String) {
+        seriesTracks.rememberSubtitle(track, seriesID: seriesID)
+        defaults.encode(seriesTracks, forKey: SeriesTrackMemory.key)
+    }
+
     /// Transmet au carrousel Top Shelf l'adresse du NAS, le contenu choisi et, pour
     /// « Continuer à regarder » ou « Ma liste », les titres de la bibliothèque.
     func publishTopShelf(force: Bool = false) {
@@ -107,6 +129,8 @@ final class AppModel {
         self.reviews = reviews
         self.filmography = filmography
         self.sagas = SagaClient(http: wikidataHTTP)
+        self.discovery = DiscoveryClient(http: wikidataHTTP)
+        self.webHTTP = wikidataHTTP
         self.addonClient = addonClient
         var aggregator = AddonAggregator(client: addonClient)
         aggregator.titles = titles
@@ -117,6 +141,7 @@ final class AppModel {
         self.defaults = defaults
         self.isUITest = isUITest
         self.settings = defaults.decode(AppSettings.self, forKey: Self.settingsKey) ?? AppSettings()
+        self.seriesTracks = defaults.decode(SeriesTrackMemory.self, forKey: SeriesTrackMemory.key) ?? SeriesTrackMemory()
         if !isUITest { publishTopShelf(force: true) }
     }
 

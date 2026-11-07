@@ -30,6 +30,9 @@ Dernière mise à jour : 4 novembre 2026, build 52.
 | Filmographie depuis « Avec » / « Réalisation » (Wikidata) | ✅ | ⏳ | ✅ réponses simulées | ⏳ |
 | Minuteur de mise en veille, « Êtes-vous toujours là ? » | ✅ | ⏳ | ✅ logique (minuteur, compteur, réglage) | ⏳ |
 | Synchronisation des sous-titres par réplique entendue | ✅ | ⏳ | ✅ calcul du décalage et choix des répliques | ⏳ |
+| Pistes mémorisées par série | ✅ | ⏳ | ✅ mémoire et sélection | ⏳ |
+| Découverte : « Parce que vous avez regardé… », collections TMDB, recherche de personnes | ✅ | ⏳ | ✅ réponses simulées (Swift et Python) | ⏳ |
+| Mises à jour suivies par atvloadly (Releases GitHub) | ✅ | ⏳ | — | ⏳ |
 | Sagas sur la fiche, « Au hasard » dans Ma liste | ✅ | ⏳ | ✅ réponses Wikidata simulées, tirage | ⏳ |
 | Top Shelf au choix (sorties, en cours, Ma liste) | ✅ | ⏳ | ✅ entrées et configuration | ⏳ |
 | Sauvegarde des réglages sur le NAS | ✅ | ⏳ | ✅ format (Swift) et service (Python) | ⏳ |

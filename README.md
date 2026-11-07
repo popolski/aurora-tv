@@ -42,6 +42,8 @@ films et séries sont inventés, leurs images générées.</sub>
   **en VF si possible**, sinon en VOSTFR, sinon en VO (avec une clé TMDB gratuite sur le NAS).
 - **Addons auto-hébergés** sur le réseau local acceptés en `http://` (les apps Stremio
   officielles exigent HTTPS).
+- **Découvrir** : « Parce que vous avez regardé… », recherche de personnes, pistes audio et
+  sous-titres mémorisées par série, mises à jour installées seules par atvloadly.
 - **Le soir et les jours sans idée** : saga d'un film sur sa fiche, filmographie des acteurs,
   « Au hasard » dans Ma liste, carrousel de l'écran d'accueil au choix (sorties, en cours, Ma
   liste), réglages sauvegardés sur le NAS.
@@ -51,7 +53,7 @@ films et séries sont inventés, leurs images générées.</sub>
 ## Installer
 
 1. Télécharger le dernier IPA : [Releases](https://github.com/popolski/aurora-tv/releases)
-   (`build-NN`, fichier `Aurora-…-unsigned.ipa`).
+   (`build-NN`, fichier `Aurora-AppleTV-…-unsigned.ipa`).
 2. L'installer sur l'Apple TV avec [atvloadly](https://github.com/bitxeno/atvloadly) et un
    compte Apple (gratuit suffit), **« Remove extensions » désactivé**.
 3. Pour une mise à jour : **ouvrir d'abord une autre app sur l'Apple TV**, puis installer
@@ -85,11 +87,11 @@ Pas à pas complet : **[Guide d'utilisation](docs/GUIDE.md)**.
 Aucun Mac n'est nécessaire : tout est compilé par GitHub Actions (image `xcode-27`).
 
 ```bash
-cd Packages/LanterneCore && swift test   # logique métier (147 tests)
+cd Packages/LanterneCore && swift test   # logique métier (153 tests)
 ```
 
 ```bash
-cd trailer-server && python3 -m unittest -v test_server test_topshelf test_localize   # service NAS
+cd trailer-server && python3 -m unittest -v test_server test_topshelf test_localize test_discovery   # service NAS
 ```
 
 Avec un Mac : `brew install xcodegen`, puis `xcodegen generate` et ouvrir `Lanterne.xcodeproj`.

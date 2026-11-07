@@ -48,6 +48,8 @@ l'API Stremio, sauf adresses de réseau local (IP privées, `.local`, `.lan`, Ta
 | TheIntroDB (`api.theintrodb.org`, API v4, sans clé) | début de lecture, si « Passer l'intro » est activé | identifiant IMDb/TMDB, saison, épisode, durée — aucune donnée de compte |
 | Wikidata (`query.wikidata.org`, sans clé) | fiche (notes de la critique) ; catalogues contenant des titres non latins ; filmographie d'une personne (à la demande) | identifiants IMDb et Wikidata seulement — les noms ne sont jamais insérés dans les requêtes |
 | TMDB (`api.themoviedb.org`), **depuis le service du NAS uniquement**, clé de l'utilisateur dans `.env` sur le NAS | première demande de bande-annonce d'une fiche (choix VF / VOSTFR / VO, gardé 7 jours) | identifiant IMDb ou TMDB de la fiche — la clé n'est jamais journalisée ni versionnée |
+| TMDB, découverte (**NAS uniquement**) | accueil (« Parce que vous avez regardé… »), fiche d'un film sans saga Wikidata | identifiant IMDb du titre — réponses filtrées par l'app (IMDb, images `image.tmdb.org` en HTTPS) |
+| Wikidata, recherche (`www.wikidata.org/w/api.php`, sans clé) | saisie dans la recherche (3 caractères ou plus) | le texte recherché |
 | Cinemeta (`v3-cinemeta.strem.io`) | rafraîchissement du Top Shelf | aucune (catalogue public) |
 | Service aurora-trailers (NAS, réseau local) | bandes-annonces, images du Top Shelf | identifiants YouTube, adresses d'images publiques |
 

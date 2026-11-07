@@ -125,4 +125,17 @@ Ordre recommandé : 1, 2, 3, puis 4 et 6, puis le reste.
 
 Fait hors liste (04/11/2026) : bandes-annonces en français (VF > VOSTFR > VO, TMDB côté NAS, validé build 52) ; addons « Local Files » de l'ordinateur ignorés (build 51) ; liens stremio:// locaux en HTTP (build 50).
 
+## Idées en attente (proposées le 07/11/2026)
+
+1. ✅ Mises à jour suivies par atvloadly (Releases GitHub, IPA `Aurora-AppleTV-…`) — prêt
+   (build 62), à configurer dans atvloadly.
+2. ✅ Pistes audio / sous-titres mémorisées par série — implémenté (build 62), à valider.
+3. Informations techniques du flux (débit réel, images perdues, mémoire tampon).
+4. Chapitres des fichiers MKV.
+5. ✅ « Parce que vous avez regardé… » (TMDB via le NAS) — implémenté (build 62), à valider.
+6. ✅ Sagas complétées par les collections TMDB — implémenté (build 62), à valider.
+7. ✅ Recherche de personnes (Wikidata) → filmographie — implémenté (build 62), à valider.
+8. Captures de la documentation à refaire (sagas, « Au hasard », minuteur).
+9. Qualification HDR10 / Dolby Vision / Atmos / PGS sur l'Apple TV.
+
 Écarté : vignettes d'aperçu dans la barre de progression (non fournies par le moteur).

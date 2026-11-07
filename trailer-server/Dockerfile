@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir "pillow==11.0.0"
 
 RUN useradd --uid 1000 --create-home aurora \
  && mkdir -p /cache && chown aurora /cache
-COPY server.py topshelf.py localize.py /app/
+COPY server.py topshelf.py localize.py discovery.py /app/
 COPY fonts /app/fonts
 
 USER aurora

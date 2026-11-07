@@ -52,6 +52,18 @@ indique `"localized": true`, et
 `http://<ip-du-nas>:8787/resolve/tt0111161.json?type=movie` donne la langue choisie pour
 « Les Évadés ».
 
+## Découverte (TMDB)
+
+Avec la même clé TMDB, le service fournit aussi à Aurora :
+
+- `GET /tmdb/recommendations/<fiche>.json?type=movie|series` : titres proches (« Parce que
+  vous avez regardé… ») ;
+- `GET /tmdb/collection/<fiche>.json` : saga d'un film selon TMDB, quand Wikidata n'en connaît pas.
+
+Chaque titre TMDB est converti en identifiant IMDb (`/external_ids`, correspondance gardée) ;
+réponses gardées 3 jours dans `/cache/discovery.json`. Sans clé : erreur 503, Aurora n'affiche
+simplement pas ces rangées.
+
 ## Sauvegarde des réglages d'Aurora
 
 Réglages › Sauvegarde, dans l'app, dépose une copie des réglages sur ce service
@@ -98,7 +110,7 @@ première installation (téléchargements Debian lents depuis le NAS).
 ## Tests
 
 ```bash
-python3 -m unittest -v test_server test_topshelf test_localize
+python3 -m unittest -v test_server test_topshelf test_localize test_discovery
 ```
 
 Les tests remplacent yt-dlp et TMDB par des imitations : ils ne vérifient pas l'accès réel à

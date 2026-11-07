@@ -6,7 +6,7 @@
 push GitHub ──► Actions (runner « xcode-27 », macOS ARM64, Xcode 27.1, SDK tvOS 27.0)
                  ├─ swift test (LanterneCore)
                  ├─ xcodegen → xcodebuild (Release, generic/platform=tvOS, arm64, non signé)
-                 ├─ scripts/package-ipa.sh  → Aurora-<version>-<build>-unsigned.ipa
+                 ├─ scripts/package-ipa.sh  → Aurora-AppleTV-<version>-<build>-unsigned.ipa
                  ├─ scripts/verify-ipa.sh   → contrôle arm64/tvOS de chaque binaire, plist, ressources
                  ├─ (option) scripts/sign-ipa.sh si secrets de signature présents
                  └─ artefacts : IPA + SHA256SUMS, journaux, dSYM
@@ -31,15 +31,32 @@ atvloadly les re-signe avec l'application.
 
 1. GitHub › Actions › dernière exécution verte de « Build » › artefact
    `Aurora-<version>-<build>` → télécharger et dézipper : on obtient
-   `Aurora-…-unsigned.ipa` (vérifier l'empreinte avec `SHA256SUMS.txt`).
+   `Aurora-AppleTV-…-unsigned.ipa` (vérifier l'empreinte avec `SHA256SUMS.txt`).
 2. Interface web d'atvloadly › Apple TV « Chambre » › sélectionner l'IPA › **Install**.
 3. Lancer Lanterne sur l'Apple TV. Premier test conseillé : Réglages › Diagnostics › Tester le
    lecteur.
 
 Plus simple : chaque build réussi de `main` publie une **Release GitHub** `build-<n>` contenant
 l'IPA (dépôt public). Dans atvloadly, utiliser l'URL directe de l'IPA
-(`https://github.com/popolski/aurora-tv/releases/download/build-<n>/Aurora-<version>-<n>-unsigned.ipa`)
+(`https://github.com/popolski/aurora-tv/releases/download/build-<n>/Aurora-AppleTV-<version>-<n>-unsigned.ipa`)
 ou suivre les Releases du dépôt. Les pushes de tags `v*` publient aussi une Release.
+
+## Mises à jour suivies par atvloadly
+
+Chaque build de `main` publie une Release `build-NN` (non « prerelease ») contenant
+`Aurora-AppleTV-<version>-<n>-unsigned.ipa` et `Aurora-iPad-…`. atvloadly (≥ 0.6) suit ces
+Releases (`GET /repos/popolski/aurora-tv/releases`, sans brouillons ni « prerelease ») :
+
+- il ne garde que les fichiers `.ipa` et écarte ceux d'une autre plateforme d'après leur nom
+  (« iPad » = iOS pour une Apple TV) ; « AppleTV » dans le nom marque l'IPA tvOS ;
+- le fichier choisi une fois devient un filtre (le mot « appletv » du nom) appliqué aux builds
+  suivants ; un nom qui ne correspondrait plus est signalé, jamais deviné ;
+- vérification toutes les 6 h par défaut, installation automatique pendant la fenêtre de
+  rafraîchissement (3 h – 6 h), sinon simple notification ; 60 requêtes GitHub par heure sans jeton.
+
+Les Releases « screenshots » et « apercus-ipad » (captures, « prerelease » pour la seconde) ne
+contiennent pas d'IPA : atvloadly les ignore. **Ne pas changer le nom des IPA** sans prévenir :
+le filtre d'atvloadly cesserait de trouver les builds suivants.
 
 ## Mises à jour sans perte de données
 

@@ -13,6 +13,8 @@ Points d'entrée :
   GET  /trailer/for/<fiche>.mp4?type=movie&yt=<id>   bande-annonce d'une fiche, en français
        si possible (VF, sinon VOSTFR, sinon VO ; TMDB, clé TMDB_API_KEY) ; aussi .preview.mp4
   GET  /resolve/<fiche>.json?type=movie&yt=<id>      choix fait pour une fiche (diagnostic)
+  GET  /tmdb/recommendations/<fiche>.json?type=movie  titres proches (TMDB, clé requise)
+  GET  /tmdb/collection/<fiche>.json                 saga d'un film selon TMDB (clé requise)
   POST /backup                 sauvegarde des réglages d'Aurora (JSON, 256 Ko au plus, 10 gardées)
   GET  /backup/latest.json     dernière sauvegarde ; GET /backup/list.json : liste
   GET  /topshelf/<id>.jpg?bg=…&logo=…&title=…  image du carrousel avec le titre incrusté
@@ -34,6 +36,7 @@ import urllib.parse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import discovery
 import localize
 
 try:  # Pillow : facultatif (images du carrousel Top Shelf)
@@ -45,6 +48,7 @@ ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 TOPSHELF_PATH_RE = re.compile(r"^/topshelf/([A-Za-z0-9][A-Za-z0-9:_.-]{0,63})\.jpg$")
 TRAILER_PATH_RE = re.compile(r"^/trailer/([A-Za-z0-9_-]{11})(\.preview)?\.mp4$")
 ITEM_TRAILER_PATH_RE = re.compile(r"^/trailer/for/([A-Za-z0-9][A-Za-z0-9:_.-]{0,63}?)(\.preview)?\.mp4$")
+TMDB_PATH_RE = re.compile(r"^/tmdb/(recommendations|collection)/([A-Za-z0-9][A-Za-z0-9:_.-]{0,63})\.json$")
 RESOLVE_PATH_RE = re.compile(r"^/resolve/([A-Za-z0-9][A-Za-z0-9:_.-]{0,63})\.json$")
 TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "")
 PREVIEW_START = int(os.environ.get("PREVIEW_START", "5"))
@@ -368,11 +372,13 @@ def item_query(path):
     return kind, fallback
 
 
-def make_handler(cache, localizer=None, backups=None):
+def make_handler(cache, localizer=None, backups=None, finder=None):
     if localizer is None:
         localizer = localize.TrailerLocalizer("", None, log=log)
     if backups is None:
         backups = BackupStore(os.path.join(cache.directory, "backups"))
+    if finder is None:
+        finder = discovery.Discovery(localizer, None, log=log)
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "aurora-trailers/1"
@@ -409,6 +415,7 @@ def make_handler(cache, localizer=None, backups=None):
                     "topshelf": topshelf is not None,
                     "localized": localizer.enabled,
                     "backup": True,
+                    "discovery": finder.enabled,
                     "ytdlp": ytdlp_version(),
                     "ffmpeg": shutil.which("ffmpeg") is not None,
                     "cached": len(entries),
@@ -432,6 +439,25 @@ def make_handler(cache, localizer=None, backups=None):
                 self.end_headers()
                 if not head:
                     self.wfile.write(payload)
+                return
+            tm = TMDB_PATH_RE.match(path)
+            if tm:
+                if not finder.enabled:
+                    self._error(HTTPStatus.SERVICE_UNAVAILABLE, "clé TMDB absente (fichier .env du NAS)")
+                    return
+                kind, _ = item_query(self.path)
+                if tm.group(1) == "recommendations":
+                    items = finder.recommendations(tm.group(2), kind)
+                    if items is None:
+                        self._error(HTTPStatus.BAD_GATEWAY, "TMDB indisponible")
+                        return
+                    self._json(HTTPStatus.OK, {"items": items})
+                else:
+                    saga = finder.collection(tm.group(2))
+                    if saga is None:
+                        self._error(HTTPStatus.NOT_FOUND, "aucune collection")
+                        return
+                    self._json(HTTPStatus.OK, saga)
                 return
             if path == "/backup/list.json":
                 self._json(HTTPStatus.OK, {"backups": backups.listing()})
@@ -623,7 +649,8 @@ def main():
     localizer = localize.TrailerLocalizer(TMDB_API_KEY, CACHE_DIR, log=log)
     log("bandes-annonces en français : " + ("oui (TMDB)" if localizer.enabled
         else "non (ajoutez TMDB_API_KEY dans le fichier .env, voir README)"))
-    server = ThreadingHTTPServer(("0.0.0.0", PORT), make_handler(cache, localizer))
+    finder = discovery.Discovery(localizer, CACHE_DIR, log=log)
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), make_handler(cache, localizer, finder=finder))
     server.daemon_threads = True
     try:
         server.serve_forever()

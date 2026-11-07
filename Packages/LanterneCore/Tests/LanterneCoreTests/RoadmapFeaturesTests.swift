@@ -191,3 +191,94 @@ struct SettingsBackupTests {
         #expect(TrailerLink.latestBackupURL(server: server).absoluteString == "http://192.168.1.120:8787/backup/latest.json")
     }
 }
+
+@Suite("Pistes mémorisées par série")
+struct SeriesTrackMemoryTests {
+    private let en = TrackDescriptor(id: 2, kind: .audio, language: "eng")
+    private let frSub = TrackDescriptor(id: 5, kind: .subtitle, language: "fre")
+
+    @Test func audioAndSubtitleChoicesOverrideDefaults() {
+        var memory = SeriesTrackMemory()
+        memory.rememberAudio(en, seriesID: "tt0903747")
+        memory.rememberSubtitle(frSub, seriesID: "tt0903747")
+        let prefs = memory.choice(for: "tt0903747")!.applied(to: LanguagePreferences())
+        #expect(prefs.preferredAudio == "en")
+        #expect(prefs.secondaryAudio == "fr")  // l'ancienne langue préférée sert de repli
+        #expect(prefs.preferredSubtitle == "fr" && prefs.subtitleMode == .always)
+        // La sélection automatique suit ces préférences.
+        let selector = TrackSelector(preferences: prefs)
+        let tracks = [TrackDescriptor(id: 1, kind: .audio, language: "fre", isDefault: true), en]
+        #expect(selector.audio(tracks)?.id == 2)
+        #expect(selector.subtitle([frSub], selectedAudio: en)?.id == 5)
+    }
+
+    @Test func subtitlesOffAndUnknownLanguage() {
+        var memory = SeriesTrackMemory()
+        memory.rememberSubtitle(nil, seriesID: "tt1")
+        #expect(memory.choice(for: "tt1")!.applied(to: LanguagePreferences()).subtitleMode == .off)
+        // Piste sans langue : rien n'est retenu.
+        memory.rememberAudio(TrackDescriptor(id: 9, kind: .audio), seriesID: "tt2")
+        #expect(memory.choice(for: "tt2") == nil)
+        // Choix d'audio seul : les sous-titres gardent le réglage général.
+        memory.rememberAudio(en, seriesID: "tt3")
+        #expect(memory.choice(for: "tt3")!.applied(to: LanguagePreferences()).subtitleMode == .foreignAudioOnly)
+    }
+
+    @Test func memoryIsBoundedAndCodable() throws {
+        var memory = SeriesTrackMemory()
+        for i in 0..<(SeriesTrackMemory.limit + 5) {
+            memory.rememberAudio(en, seriesID: "tt\(i)", now: Date(timeIntervalSince1970: TimeInterval(i)))
+        }
+        #expect(memory.choices.count == SeriesTrackMemory.limit)
+        #expect(memory.choice(for: "tt0") == nil)
+        let decoded = try JSONDecoder().decode(SeriesTrackMemory.self, from: JSONEncoder().encode(memory))
+        #expect(decoded == memory)
+    }
+}
+
+@Suite("Découverte (TMDB via le NAS, recherche de personnes)")
+struct DiscoveryTests {
+    @Test func recommendationsAreValidated() {
+        let data = Data(#"""
+        {"items":[
+          {"imdb":"tt0234215","type":"movie","title":"Matrix Reloaded","year":2003,
+           "poster":"https://image.tmdb.org/t/p/w342/p.jpg","background":"http://image.tmdb.org/t/p/w1280/b.jpg"},
+          {"imdb":"tt0944947","type":"series","title":"Game of Thrones","poster":"https://evil.example/p.jpg"},
+          {"imdb":"nm0000001","type":"movie","title":"Personne"},
+          {"imdb":"tt0234215","type":"movie","title":"Doublon"}
+        ]}
+        """#.utf8)
+        let items = DiscoveryClient.parseRecommendations(data)
+        #expect(items.map(\.imdbID) == ["tt0234215", "tt0944947"])
+        #expect(items[0].poster?.absoluteString == "https://image.tmdb.org/t/p/w342/p.jpg")
+        #expect(items[0].background == nil)   // HTTP refusé
+        #expect(items[1].poster == nil)       // autre hôte refusé
+        #expect(items[1].type == "series" && items[1].meta.type == "series")
+    }
+
+    @Test func collectionKeepsTheServerOrder() throws {
+        let data = Data(#"{"name":"Matrix - Saga","parts":[{"imdb":"tt0133093","title":"Matrix","year":1999},{"imdb":"tt0234215","title":"Matrix Reloaded","year":2003}]}"#.utf8)
+        let saga = try #require(DiscoveryClient.parseCollection(data))
+        #expect(saga.name == "Matrix - Saga" && saga.parts.map(\.year) == [1999, 2003])
+        #expect(DiscoveryClient.parseCollection(Data(#"{"name":"x","parts":[{"imdb":"tt1","title":"Seul"}]}"#.utf8)) == nil)
+        let server = try #require(URL(string: "http://192.168.1.120:8787"))
+        #expect(DiscoveryClient.recommendationsURL(server: server, id: "tt0133093", type: "series")?.absoluteString
+                == "http://192.168.1.120:8787/tmdb/recommendations/tt0133093.json?type=series")
+        #expect(DiscoveryClient.collectionURL(server: server, id: "../x") == nil)
+    }
+
+    @Test func peopleSearchKeepsScreenProfessions() throws {
+        #expect(PeopleSearch.requestURL(query: "jo") == nil)
+        let url = try #require(PeopleSearch.requestURL(query: "John Carpenter"))
+        #expect(url.absoluteString.contains("action=wbsearchentities") && url.absoluteString.contains("search=John%20Carpenter"))
+        let data = Data(#"""
+        {"search":[
+          {"id":"Q95008","label":"John Carpenter","description":"réalisateur, scénariste et compositeur américain"},
+          {"id":"Q123","label":"John Carpenter","description":"homme politique britannique"},
+          {"id":"Q456","label":"John Carpenter","description":"American actor"},
+          {"id":"P31","label":"pas une personne","description":"acteur"}
+        ]}
+        """#.utf8)
+        #expect(PeopleSearch.parse(data).map(\.wikidataID) == ["Q95008", "Q456"])
+    }
+}

@@ -18,11 +18,13 @@ public enum CreditRole: String, Sendable, Codable, Hashable, CaseIterable {
 public struct PersonRef: Sendable, Codable, Hashable {
     public var name: String
     public var role: CreditRole
-    /// Identifiant IMDb de l'œuvre d'origine (`tt…`).
+    /// Identifiant IMDb de l'œuvre d'origine (`tt…`), vide si la personne vient de la recherche.
     public var fromIMDb: String
+    /// Personne déjà identifiée (recherche par nom) : pas besoin de l'œuvre d'origine.
+    public var wikidataID: String?
 
-    public init(name: String, role: CreditRole, fromIMDb: String) {
-        self.name = name; self.role = role; self.fromIMDb = fromIMDb
+    public init(name: String, role: CreditRole, fromIMDb: String, wikidataID: String? = nil) {
+        self.name = name; self.role = role; self.fromIMDb = fromIMDb; self.wikidataID = wikidataID
     }
 }
 
@@ -95,6 +97,15 @@ public actor FilmographyClient {
 
     public func filmography(for person: PersonRef) async -> Filmography? {
         if let cached = cache[person] { return cached }
+        if let id = person.wikidataID {
+            // Personne choisie dans la recherche : directement ses œuvres.
+            guard let worksURL = Self.worksURL(personID: id),
+                  let data = await fetch(worksURL, step: "œuvres de \(id)") else { return nil }
+            let result = Filmography(name: person.name, wikidataID: id, credits: Self.parseWorks(data))
+            guard !result.credits.isEmpty else { return nil }
+            cache[person] = result
+            return result
+        }
         guard let peopleURL = Self.peopleURL(imdbID: person.fromIMDb) else { return nil }
         guard let peopleData = await fetch(peopleURL, step: "distribution de \(person.fromIMDb)") else { return nil }
         let people = Self.parsePeople(peopleData)

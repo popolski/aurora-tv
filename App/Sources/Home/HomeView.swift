@@ -117,6 +117,8 @@ struct HomeView: View {
     @FocusState private var focusedCard: String?
     @State private var lastFocusedCard: String?
     @State private var appearedAt = Date()
+    /// « Parce que vous avez regardé… » (TMDB via le NAS).
+    @State private var because: [DiscoveryItem] = []
 
     private var shown: MetaItem? { (featured ?? home.hero).map { home.enriched[$0.id] ?? $0 } }
 
@@ -208,6 +210,7 @@ struct HomeView: View {
             await advanceBillboard()
         }
         .task(id: trailerPrefetchKey) { prefetchTrailers() }
+        .task(id: "\(becauseSeed?.id ?? "")|\(model.settings.trailers.serverURL)") { await loadBecause() }
         .onDisappear { trailerURL = nil }
     }
 
@@ -247,9 +250,39 @@ struct HomeView: View {
                     .focused($focusedCard, equals: "list|\(item.id)")
             }
         }
+        if let seed = becauseSeed, !becauseItems.isEmpty {
+            ShelfRow(title: "Parce que vous avez regardé \(seed.name)", items: becauseItems, cardHeight: BackdropCard.height) { item in
+                BackdropCard(title: item.title, imageURL: item.background, fallbackURL: item.poster,
+                             subtitle: [item.type == ContentType.series ? "Série" : "Film", item.year.map(String.init)]
+                                .compactMap { $0 }.joined(separator: " · "),
+                             route: .meta(item.meta), onFocus: { focusChanged(item.meta) })
+                    .focused($focusedCard, equals: "because|\(item.id)")
+            }
+        }
         ForEach(home.rows) { row in
             CatalogShelf(row: row, focus: $focusedCard) { meta in focusChanged(meta) }
         }
+    }
+
+    /// Dernier titre regardé (en cours, sinon historique) qui sert de point de départ.
+    private var becauseSeed: LibraryItem? {
+        (model.continueWatching + model.history).first {
+            FilmographyClient.isIMDbID($0.id) && ($0.type == ContentType.movie || $0.type == ContentType.series)
+        }
+    }
+
+    /// Sans les films déjà vus ni les titres en cours.
+    private var becauseItems: [DiscoveryItem] {
+        let inProgress = Set(model.continueWatching.map(\.id))
+        return because.filter { !model.watchedMovieIDs.contains($0.imdbID) && !inProgress.contains($0.imdbID) }
+    }
+
+    private func loadBecause() async {
+        guard let seed = becauseSeed, let server = model.settings.trailers.server, !model.isUITest || model.isDemo else {
+            because = []
+            return
+        }
+        because = await model.discovery.recommendations(server: server, id: seed.id, type: seed.type)
     }
 
     private func configure() {

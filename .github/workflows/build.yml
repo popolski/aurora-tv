@@ -58,7 +58,7 @@ jobs:
         run: pip install "pillow==11.0.0"
       - name: Tests (yt-dlp et téléchargements simulés)
         working-directory: trailer-server
-        run: python -m unittest -v test_server test_topshelf test_localize
+        run: python -m unittest -v test_server test_topshelf test_localize test_discovery
 
   app:
     name: Application tvOS (IPA)
@@ -121,7 +121,7 @@ jobs:
         run: bash scripts/fakesign.sh build/dd/Build/Products/Release-appletvos/Lanterne.app
       - name: IPA non signée
         run: |
-          IPA="dist/Aurora-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}-unsigned.ipa"
+          IPA="dist/Aurora-AppleTV-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build }}-unsigned.ipa"
           bash scripts/package-ipa.sh build/dd/Build/Products/Release-appletvos/Lanterne.app "$IPA"
           bash scripts/verify-ipa.sh "$IPA" io.github.popolski.lanterne
           shasum -a 256 dist/*.ipa | tee dist/SHA256SUMS.txt
