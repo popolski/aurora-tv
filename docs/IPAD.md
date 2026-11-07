@@ -87,6 +87,22 @@ sont conservés (même identifiant d'app).
 - **SideStore** : renouvellement depuis l'iPad seul, sans PC, mais mise en place plus
   technique (fichier d'appairage et application VPN locale).
 
+## Hors de chez soi (Tailscale)
+
+Le service du NAS (bandes-annonces, recommandations, sauvegarde) n'a pas d'authentification :
+il ne doit pas être ouvert sur Internet. Pour s'en servir hors de chez soi, l'iPad passe par
+**Tailscale** (VPN, gratuit) :
+
+1. Paquet **Tailscale** sur le NAS (Centre de paquets), connecté au compte Tailscale.
+2. Le NAS annonce le réseau local (`tailscale set --advertise-routes=192.168.1.0/24`, en SSH ou
+   par une tâche planifiée root de DSM), route approuvée dans la console Tailscale
+   (*Machines › Edit route settings*), expiration de la clé du NAS désactivée.
+3. App **Tailscale** sur l'iPad, même compte, option « Use Tailscale subnets » activée.
+
+L'adresse habituelle du NAS (`http://192.168.1.120:8787`) fonctionne alors partout, sans rien
+changer dans Aurora. Validé le 07/11/2026 (DSM, bandes-annonces et Aurora depuis l'extérieur).
+Attention : tous les appareils du compte Tailscale joignent alors le réseau local.
+
 ## Dépannage
 
 | Problème | Solution |
