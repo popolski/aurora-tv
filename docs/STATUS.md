@@ -37,7 +37,7 @@ Dernière mise à jour : 4 novembre 2026, build 52.
 | Top Shelf au choix (sorties, en cours, Ma liste) | ✅ | ⏳ | ✅ entrées et configuration | ⏳ |
 | Sauvegarde des réglages sur le NAS | ✅ | ⏳ | ✅ format (Swift) et service (Python) | ⏳ |
 | Films déjà vus estompés ou masqués | ✅ | ✅ | — | ✅ (build 34) |
-| Version iPad (interface réduite, lecteur tactile, sans Top Shelf) | ✅ | ✅ (build 60) | 🟡 captures du simulateur en mode démo : accueil, fiche, sources ; lecteur tactile non capturé | ✅ installée avec Sideloadly, « tout fonctionne » (build 60) |
+| Version iPad (interface réduite, lecteur tactile, sans Top Shelf) | ✅ | ✅ (build 60) | 🟡 captures du simulateur en mode démo : accueil, fiche, sources ; lecteur tactile non capturé | ✅ installée avec Sideloadly (build 60), puis avec atvloadly et sa source GitHub (build 62) |
 | CI GitHub Actions → IPA non signée vérifiée, installation par atvloadly | ✅ | ✅ | — | ✅ (une quarantaine de builds installés) |
 | Captures d'écran automatiques (mode démo) | ✅ | ✅ | ✅ simulateur | — |
 

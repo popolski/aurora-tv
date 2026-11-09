@@ -34,7 +34,31 @@ iPad réel** (build 60, installation avec Sideloadly) (voir [STATUS.md](STATUS.m
   certificat utilisé par l'autre outil, et Aurora ne s'ouvrirait plus sur l'Apple TV
   avant la prochaine re-signature.
 
-## Installation avec Sideloadly (Windows)
+## Installation avec atvloadly (recommandé, validé le 09/11/2026)
+
+atvloadly, déjà utilisé pour l'Apple TV, installe aussi sur iPad (onglet « iPhone », qui vaut
+pour iPhone et iPad) : installations, renouvellement et mises à jour depuis le NAS, sans PC
+au quotidien.
+
+1. **Une seule fois, sur un PC** : [idevice_pair](https://github.com/jkcoxson/idevice_pair),
+   iPad branché en USB et déverrouillé (mode développeur et débogage sans fil actifs), section
+   *Pairing file* : **Remote pairing** (et non Lockdown), puis *Create*. Le fichier obtenu est un
+   secret (accès à l'iPad depuis le réseau) : à garder pour soi.
+2. Depuis Safari sur l'iPad : interface d'atvloadly (`http://<ip-du-nas>:5533`), **Ajouter un
+   appareil › iPhone**, adresse IP de l'iPad, envoi du fichier, *Start Connecting*.
+3. Installation par la **source GitHub** `popolski/aurora-tv`, fichier `Aurora-iPad-…`, mise à jour
+   automatique activée ; puis *Réglages › Général › VPN et gestion de l'appareil* : faire confiance
+   au compte.
+4. Renouvellement : quand l'iPad est **déverrouillé et sur le Wi-Fi** de la maison (atvloadly
+   prévient que ce n'est « pas garanti » : ouvrir l'iPad à la maison de temps en temps).
+
+Une erreur « download failed with status code 504 » vient de GitHub (fichiers momentanément
+indisponibles, atvloadly ne réessaie pas) : relancer quelques minutes plus tard.
+
+L'identifiant d'app diffère de celui d'une installation par Sideloadly : c'est une autre app
+Aurora (se reconnecter au compte Stremio, puis supprimer l'ancienne).
+
+## Installation avec Sideloadly (Windows, sans atvloadly)
 
 1. **Télécharger l'IPA iPad** : page
    [Releases](https://github.com/popolski/aurora-tv/releases), dernier `build-NN`, fichier
