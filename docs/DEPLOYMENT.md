@@ -41,6 +41,27 @@ l'IPA (dépôt public). Dans atvloadly, utiliser l'URL directe de l'IPA
 (`https://github.com/popolski/aurora-tv/releases/download/build-<n>/Aurora-AppleTV-<version>-<n>-unsigned.ipa`)
 ou suivre les Releases du dépôt. Les pushes de tags `v*` publient aussi une Release.
 
+## Builds par Codemagic (depuis le 14/11/2026)
+
+GitHub Actions ne peut plus lancer de build (compte GitHub bloqué pour facturation). Les builds
+passent par **Codemagic** (`codemagic.yaml`) : Mac mini M2, Xcode 27.1, offre gratuite de
+**500 minutes macOS par mois** (au-delà : facturation à la minute si elle est activée). Un build
+fait les tests Python et Swift, les deux IPA vérifiées, et publie la Release `build-NNN` sur
+GitHub (numéro Codemagic + 100), suivie par atvloadly comme avant. Les tests d'interface et
+les aperçus iPad (les plus longs) ne tournent plus à chaque build.
+
+Mise en place, une fois :
+
+1. **Jeton GitHub** : github.com › Settings › Developer settings › *Fine-grained personal access
+   tokens* › *Generate new token* ; dépôt **popolski/aurora-tv** uniquement ; permission
+   **Contents : Read and write** ; durée au choix. Ne le copier nulle part ailleurs.
+2. **Codemagic** (codemagic.io, connexion avec GitHub) : *Add application* › GitHub ›
+   `popolski/aurora-tv` › type *Other* ; le fichier `codemagic.yaml` est détecté.
+3. Dans l'application Codemagic › *Environment variables* : variable `GITHUB_TOKEN`, valeur =
+   le jeton, **Secret** coché, groupe **`github`**.
+4. *Webhooks* : créer le webhook (bouton dans la barre latérale) pour que chaque envoi sur
+   `main` lance un build ; sinon, *Start new build* à la main.
+
 ## Mises à jour suivies par atvloadly
 
 Chaque build de `main` publie une Release `build-NN` (non « prerelease ») contenant

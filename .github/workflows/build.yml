@@ -1,10 +1,8 @@
 name: Build
 
+# Depuis le 14/11/2026, les builds sont faits par Codemagic (codemagic.yaml) : compte GitHub
+# bloqué pour facturation. Ce workflow reste disponible à la demande (Actions › Run workflow).
 on:
-  push:
-    branches: ["main", "claude/**"]
-    tags: ["v*"]
-  pull_request:
   workflow_dispatch:
 
 concurrency:
