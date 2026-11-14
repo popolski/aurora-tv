@@ -24,6 +24,7 @@ public actor DiscoveryClient {
     private let http: any HTTPClient
     private var recommendationsCache: [String: [DiscoveryItem]] = [:]
     private var collectionCache: [String: Saga?] = [:]
+    private var availableCache: [String: (at: Date, items: [DiscoveryItem])] = [:]
 
     public init(http: any HTTPClient) { self.http = http }
 
@@ -34,6 +35,29 @@ public actor DiscoveryClient {
         var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
         components?.queryItems = [URLQueryItem(name: "type", value: type == ContentType.series ? "series" : "movie")]
         return components?.url
+    }
+
+    /// Périodes proposées pour « Disponibles » (jours).
+    public static let availablePeriods = [30, 60, 90]
+
+    public static func availableURL(server: URL, days: Int, region: String = "FR") -> URL? {
+        guard availablePeriods.contains(days), region.count == 2, region.allSatisfy(\.isLetter) else { return nil }
+        let base = server.appendingPathComponent("tmdb").appendingPathComponent("available.json")
+        var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "region", value: region), URLQueryItem(name: "days", value: String(days))]
+        return components?.url
+    }
+
+    /// Films sortis en vidéo (numérique ou physique) en France ces derniers jours, les plus
+    /// populaires d'abord. `nil` : service du NAS injoignable ou sans clé TMDB.
+    public func available(server: URL, days: Int) async -> [DiscoveryItem]? {
+        let key = "\(server.absoluteString)|\(days)"
+        if let cached = availableCache[key], Date().timeIntervalSince(cached.at) < 3600 { return cached.items }
+        guard let url = Self.availableURL(server: server, days: days),
+              let data = await fetch(url) else { return nil }
+        let items = Self.parseRecommendations(data)
+        availableCache[key] = (Date(), items)
+        return items
     }
 
     public static func collectionURL(server: URL, id: String) -> URL? {

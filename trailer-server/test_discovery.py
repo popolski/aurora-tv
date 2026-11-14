@@ -13,6 +13,7 @@ import localize
 class FakeTMDB:
     def __init__(self):
         self.requests = []
+        self.discover_queries = []
 
     def __call__(self, req, timeout=None):
         path = urllib.parse.urlsplit(req.full_url).path
@@ -40,6 +41,14 @@ class FakeTMDB:
             "/3/find/tt0000001": {"movie_results": [{"id": 1}], "tv_results": []},
             "/3/movie/1": {"id": 1, "belongs_to_collection": None},
         }
+        if path == "/3/discover/movie":
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(req.full_url).query)
+            self.discover_queries.append(query)
+            body = {"total_pages": 1, "results": [
+                {"id": 604, "title": "Matrix Reloaded", "release_date": "2003-05-15", "poster_path": "/p604.jpg"},
+                {"id": 999, "title": "Sans IMDb", "release_date": "2026-09-01"},
+            ]}
+            return io.BytesIO(json.dumps(body).encode())
         body = routes.get(path)
         if body is None:
             raise localize.urllib.error.HTTPError(req.full_url, 404, "absent", {}, None)
@@ -84,6 +93,20 @@ class DiscoveryTests(unittest.TestCase):
         self.assertIsNone(finder.recommendations("tt0133093", "movie"))
         self.assertIsNone(self.finder.recommendations("../etc", "movie"))
         self.assertFalse(any("cle-secrete" in line for line in self.logs))
+
+    def test_available_movies(self):
+        import datetime
+        items = self.finder.available("fr", 45, today=datetime.date(2026, 11, 14))
+        self.assertEqual([i["imdb"] for i in items], ["tt0234215"])
+        q = self.fake.discover_queries[0]
+        self.assertEqual(q["with_release_type"], ["4|5"])
+        self.assertEqual(q["region"], ["FR"])
+        self.assertEqual(q["release_date.gte"], ["2026-09-15"])   # 45 jours refusés : 60 par défaut
+        self.assertEqual(q["release_date.lte"], ["2026-11-14"])
+        self.assertEqual(q["sort_by"], ["popularity.desc"])
+        # Cache (même jour, même période) : aucun nouvel appel.
+        self.finder.available("FR", 60, today=datetime.date(2026, 11, 14))
+        self.assertEqual(len(self.fake.discover_queries), 1)
 
     def test_image_paths(self):
         self.assertEqual(discovery.image("/a.jpg", "w342"), "https://image.tmdb.org/t/p/w342/a.jpg")

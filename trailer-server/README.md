@@ -58,7 +58,10 @@ Avec la même clé TMDB, le service fournit aussi à Aurora :
 
 - `GET /tmdb/recommendations/<fiche>.json?type=movie|series` : titres proches (« Parce que
   vous avez regardé… ») ;
-- `GET /tmdb/collection/<fiche>.json` : saga d'un film selon TMDB, quand Wikidata n'en connaît pas.
+- `GET /tmdb/collection/<fiche>.json` : saga d'un film selon TMDB, quand Wikidata n'en connaît pas ;
+- `GET /tmdb/available.json?region=FR&days=60` : films sortis en vidéo (numérique ou physique)
+  dans le pays depuis 30, 60 ou 90 jours, les plus populaires d'abord (onglet Films ›
+  Disponibles ; gardé 6 heures).
 
 Chaque titre TMDB est converti en identifiant IMDb (`/external_ids`, correspondance gardée) ;
 réponses gardées 3 jours dans `/cache/discovery.json`. Sans clé : erreur 503, Aurora n'affiche

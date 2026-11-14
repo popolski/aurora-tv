@@ -1,12 +1,14 @@
-"""Découverte via TMDB (clé TMDB_API_KEY du NAS) : recommandations et collections.
+"""Découverte via TMDB (clé TMDB_API_KEY du NAS) : recommandations, collections, sorties vidéo.
 
 - recommandations : titres proches d'une fiche (« Parce que vous avez regardé… ») ;
-- collection : saga d'un film selon TMDB, en complément de Wikidata.
+- collection : saga d'un film selon TMDB, en complément de Wikidata ;
+- disponibles : films sortis récemment en vidéo (numérique ou physique) dans un pays.
 
 Aurora n'ouvre que des fiches à identifiant IMDb (Cinemeta) : chaque titre TMDB est
 converti par /external_ids (correspondance gardée sans limite de durée). Réponses
 gardées 3 jours. Sans clé, rien n'est appelé.
 """
+import datetime
 import json
 import os
 import threading
@@ -18,6 +20,8 @@ import localize
 
 IMAGE_BASE = "https://image.tmdb.org/t/p/"
 RESULT_TTL = 3 * 86400
+AVAILABLE_TTL = 6 * 3600
+ALLOWED_DAYS = (30, 60, 90)
 ERROR_TTL = 15 * 60
 
 
@@ -74,14 +78,14 @@ class Discovery:
         except OSError:
             pass
 
-    def _cached(self, key, compute):
+    def _cached(self, key, compute, ttl_ok=RESULT_TTL):
         now = time.time()
         with self.lock:
             entry = self.results.get(key)
         if entry and entry.get("until", 0) > now:
             return entry.get("value")
         try:
-            value, ttl = compute(), RESULT_TTL
+            value, ttl = compute(), ttl_ok
         except urllib.error.HTTPError as e:
             self.log(f"TMDB ({key}) : erreur HTTP {e.code}")
             value, ttl = None, ERROR_TTL
@@ -164,3 +168,39 @@ class Discovery:
             return {"name": data.get("name") or ref.get("name") or "Saga", "parts": out}
 
         return self._cached(f"collection:{item_id}", compute)
+
+    def available(self, region="FR", days=60, today=None, pages=2):
+        """Films sortis en vidéo (numérique : type 4, physique : type 5) dans `region` depuis
+        `days` jours, du plus populaire au moins populaire."""
+        if not self.enabled:
+            return None
+        region = region.upper() if isinstance(region, str) and len(region) == 2 and region.isalpha() else "FR"
+        days = days if days in ALLOWED_DAYS else 60
+        today = today or datetime.date.today()
+        start = today - datetime.timedelta(days=days)
+
+        def compute():
+            results = []
+            for page in range(1, pages + 1):
+                data = self.loc._get("/discover/movie", {
+                    "language": "fr-FR", "region": region, "with_release_type": "4|5",
+                    "release_date.gte": start.isoformat(), "release_date.lte": today.isoformat(),
+                    "sort_by": "popularity.desc", "include_adult": "false", "vote_count.gte": 5, "page": page,
+                })
+                results += [r for r in (data.get("results") or []) if isinstance(r, dict) and r.get("id")]
+                if page >= int(data.get("total_pages") or 1):
+                    break
+            seen, items = set(), []
+            for imdb, _, r in self._with_imdb([("movie", r) for r in results]):
+                if imdb in seen:
+                    continue
+                seen.add(imdb)
+                items.append({
+                    "imdb": imdb, "type": "movie", "title": r.get("title") or imdb,
+                    "year": year_of(r.get("release_date")),
+                    "poster": image(r.get("poster_path"), "w342"),
+                    "background": image(r.get("backdrop_path"), "w1280"),
+                })
+            return items
+
+        return self._cached(f"available:{region}:{days}:{today.isoformat()}", compute, ttl_ok=AVAILABLE_TTL)

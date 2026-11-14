@@ -1,9 +1,10 @@
 import SwiftUI
 import LanterneCore
 
-/// Les trois façons d'explorer Films et Séries (catalogues Cinemeta).
+/// Les façons d'explorer Films et Séries : catalogues Cinemeta, et pour les films
+/// « Disponibles » (sorties vidéo récentes, TMDB via le service du NAS).
 enum DiscoverKind: String, CaseIterable, Identifiable {
-    case popular = "top", new = "year", featured = "imdbRating"
+    case popular = "top", new = "year", featured = "imdbRating", available = "available"
 
     var id: String { rawValue }
 
@@ -12,6 +13,7 @@ enum DiscoverKind: String, CaseIterable, Identifiable {
         case .popular: "Populaires"
         case .new: "Nouveautés"
         case .featured: "À la une"
+        case .available: "Disponibles"
         }
     }
 }
@@ -30,6 +32,10 @@ struct DiscoverView: View {
     /// Affiche qui a le focus, et fiches complètes déjà chargées (distribution, réalisation…).
     @State private var focused: MetaItem?
     @State private var details: [String: MetaItem] = [:]
+    /// « Disponibles » : période (jours) et résultat (`nil` = chargement ou NAS indisponible).
+    @State private var availableDays = 60
+    @State private var available: [DiscoveryItem]?
+    @State private var availableFailed = false
 
     private var type: String { fixedType ?? ContentType.movie }
 
@@ -43,12 +49,17 @@ struct DiscoverView: View {
         return refs.first { $0.addon.manifest.id == "com.linvo.cinemeta" } ?? refs.first
     }
 
-    private var kinds: [DiscoverKind] { DiscoverKind.allCases.filter { catalog(for: $0) != nil } }
+    /// « Disponibles » : films seulement, avec le service du NAS (clé TMDB).
+    private var availableEnabled: Bool { type == ContentType.movie && app.settings.trailers.server != nil }
+
+    private var kinds: [DiscoverKind] {
+        DiscoverKind.allCases.filter { $0 == .available ? availableEnabled : catalog(for: $0) != nil }
+    }
     private var current: CatalogRef? { catalog(for: kind) }
 
     /// Options du menu déroulant : genres (Populaires) ou années, de la plus récente (Nouveautés).
     private var filterOptions: [String] {
-        guard kind != .featured, let options = current?.catalog.genreOptions else { return [] }
+        guard kind != .featured, kind != .available, let options = current?.catalog.genreOptions else { return [] }
         if kind == .new, options.allSatisfy({ Int($0) != nil }) {
             return options.sorted { (Int($0) ?? 0) > (Int($1) ?? 0) }
         }
@@ -70,7 +81,11 @@ struct DiscoverView: View {
             header
             HStack(alignment: .top, spacing: 30) {
                 ScrollView(.vertical) {
-                    if let row {
+                    if kind == .available {
+                        availableGrid
+                            .padding(.top, 20)
+                            .padding(.bottom, 120)
+                    } else if let row {
                         CatalogGrid(row: row, columnCount: 4, trailing: 10) { meta in focused = meta }
                             .padding(.top, 20)
                             .padding(.bottom, 120)
@@ -107,6 +122,15 @@ struct DiscoverView: View {
             if !kinds.contains(kind), let first = kinds.first { kind = first }
             rebuild()
         }
+        .task(id: kind == .available ? availableDays : -1) {
+            guard kind == .available, let server = app.settings.trailers.server else { return }
+            available = nil
+            availableFailed = false
+            let items = await app.discovery.available(server: server, days: availableDays)
+            guard !Task.isCancelled else { return }
+            available = items
+            availableFailed = items == nil
+        }
         .onChange(of: kind) { _, _ in filter = nil; rebuild() }
         .onChange(of: filter) { _, _ in row?.reload(genre: effectiveFilter) }
         .onChange(of: app.addons) { _, _ in rebuild() }
@@ -128,6 +152,7 @@ struct DiscoverView: View {
                 .font(.screenTitle)
             HStack(spacing: 30) {
                 if kinds.count > 1 { segments }
+                if kind == .available { periodMenu }
                 if !filterOptions.isEmpty { filterMenu }
                 Spacer(minLength: 0)
             }
@@ -151,6 +176,58 @@ struct DiscoverView: View {
                 .overlay(Capsule().fill(Theme.backgroundDeep.opacity(0.3)))
                 .overlay(Capsule().strokeBorder(Theme.stroke, lineWidth: 1))
         )
+    }
+
+    /// « Disponibles » : sorties vidéo des 30, 60 ou 90 derniers jours.
+    private var periodMenu: some View {
+        Menu {
+            ForEach(DiscoveryClient.availablePeriods, id: \.self) { days in
+                Button {
+                    availableDays = days
+                } label: {
+                    if days == availableDays {
+                        Label("\(days) derniers jours", systemImage: "checkmark")
+                    } else {
+                        Text("\(days) derniers jours")
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 14) {
+                Text("Sortis en vidéo : \(availableDays) derniers jours")
+                Image(systemName: "chevron.down").font(.system(size: 20, weight: .bold))
+            }
+        }
+        .buttonStyle(PillButtonStyle())
+    }
+
+    /// Grille « Disponibles » (même présentation que les catalogues).
+    @ViewBuilder private var availableGrid: some View {
+        let columns = Array(repeating: GridItem(.fixed(Theme.Poster.width), spacing: 48), count: 4)
+        VStack(alignment: .leading, spacing: 20) {
+            if availableFailed {
+                MessageView(systemImage: "wifi.exclamationmark", title: "Sorties vidéo indisponibles",
+                            message: "Le service du NAS ne répond pas, ou n'a pas de clé TMDB (fichier .env, voir trailer-server/README.md).")
+            } else if let available {
+                let movies = app.visibleTitles(available.map(\.meta))
+                if movies.isEmpty {
+                    MessageView(systemImage: "tray", title: "Aucune sortie vidéo sur cette période")
+                } else {
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 60) {
+                        ForEach(movies) { meta in
+                            MetaPosterLink(meta: meta, onFocus: { focused = $0 })
+                        }
+                    }
+                }
+            } else {
+                LazyVGrid(columns: columns, spacing: 60) {
+                    ForEach(0..<8, id: \.self) { _ in ShimmerBlock().frame(width: Theme.Poster.width, height: Theme.Poster.height) }
+                }
+            }
+        }
+        .padding(.leading, Theme.horizontalMargin)
+        .padding(.trailing, 10)
+        .focusGroup()
     }
 
     private var filterMenu: some View {

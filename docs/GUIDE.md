@@ -104,8 +104,13 @@ Astuce : appui long sur une carte de « Continuer à regarder » pour la retirer
 
 ![Films](screenshots/06-films.jpg)
 
-- Trois choix seulement : **Populaires**, **Nouveautés**, **À la une**.
+- Trois choix : **Populaires**, **Nouveautés**, **À la une** ; pour les films, un quatrième,
+  **Disponibles**, si le service du NAS est configuré.
 - **Populaires** : menu déroulant « Genre ». **Nouveautés** : menu déroulant « Année ».
+- **Disponibles** : les films **sortis en vidéo en France** (numérique ou Blu-ray/DVD) pendant
+  les 30, 60 ou 90 derniers jours (menu déroulant), les plus populaires d'abord ; contrairement
+  aux Nouveautés, pas de films seulement au cinéma. Source : TMDB, par le service du NAS (clé
+  TMDB requise).
 - La grille est à gauche ; **le panneau de droite** suit l'affiche sélectionnée : image, logo,
   année, durée, note, résumé, genres, distribution, réalisation.
 - Les films déjà vus peuvent être estompés ou masqués (Réglages › Accueil).

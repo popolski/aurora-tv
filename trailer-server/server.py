@@ -15,6 +15,7 @@ Points d'entrée :
   GET  /resolve/<fiche>.json?type=movie&yt=<id>      choix fait pour une fiche (diagnostic)
   GET  /tmdb/recommendations/<fiche>.json?type=movie  titres proches (TMDB, clé requise)
   GET  /tmdb/collection/<fiche>.json                 saga d'un film selon TMDB (clé requise)
+  GET  /tmdb/available.json?region=FR&days=60        films sortis en vidéo récemment (clé requise)
   POST /backup                 sauvegarde des réglages d'Aurora (JSON, 256 Ko au plus, 10 gardées)
   GET  /backup/latest.json     dernière sauvegarde ; GET /backup/list.json : liste
   GET  /topshelf/<id>.jpg?bg=…&logo=…&title=…  image du carrousel avec le titre incrusté
@@ -439,6 +440,21 @@ def make_handler(cache, localizer=None, backups=None, finder=None):
                 self.end_headers()
                 if not head:
                     self.wfile.write(payload)
+                return
+            if path == "/tmdb/available.json":
+                if not finder.enabled:
+                    self._error(HTTPStatus.SERVICE_UNAVAILABLE, "clé TMDB absente (fichier .env du NAS)")
+                    return
+                query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+                try:
+                    days = int((query.get("days") or ["60"])[0])
+                except ValueError:
+                    days = 60
+                items = finder.available((query.get("region") or ["FR"])[0], days)
+                if items is None:
+                    self._error(HTTPStatus.BAD_GATEWAY, "TMDB indisponible")
+                    return
+                self._json(HTTPStatus.OK, {"items": items})
                 return
             tm = TMDB_PATH_RE.match(path)
             if tm:

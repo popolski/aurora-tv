@@ -265,6 +265,9 @@ struct DiscoveryTests {
         #expect(DiscoveryClient.recommendationsURL(server: server, id: "tt0133093", type: "series")?.absoluteString
                 == "http://192.168.1.120:8787/tmdb/recommendations/tt0133093.json?type=series")
         #expect(DiscoveryClient.collectionURL(server: server, id: "../x") == nil)
+        #expect(DiscoveryClient.availableURL(server: server, days: 60)?.absoluteString
+                == "http://192.168.1.120:8787/tmdb/available.json?region=FR&days=60")
+        #expect(DiscoveryClient.availableURL(server: server, days: 45) == nil)
     }
 
     @Test func peopleSearchKeepsScreenProfessions() throws {
