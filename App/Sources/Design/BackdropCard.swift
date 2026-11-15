@@ -150,6 +150,9 @@ struct BillboardInfo: View {
     let meta: MetaItem?
     /// Bande-annonce en cours : le résumé s'efface pour laisser voir l'image.
     var dimmed = false
+    /// Version réduite (pages Films et Séries) : sans la nature du titre, logo plus petit,
+    /// résumé sur deux lignes, pour laisser la place à la grille.
+    var compact = false
     @State private var unreadableLogos: Set<URL> = []
 
     /// Logo affiché : aucun s'il a été jugé illisible (écriture d'origine).
@@ -161,17 +164,19 @@ struct BillboardInfo: View {
     /// Gabarit fixe (logo/titre, puces, résumé sur 3 lignes réservées) : le bloc
     /// ne change jamais de hauteur d'un titre à l'autre, donc rien ne saute.
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: compact ? 14 : 18) {
             // Nature du titre, discrète, au-dessus du logo.
-            Text(kindLabel)
-                .font(.manrope(17, .heavy))
-                .tracking(3)
-                .foregroundStyle(Theme.accent)
-                .opacity(meta == nil ? 0 : 1)
+            if !compact {
+                Text(kindLabel)
+                    .font(.manrope(17, .heavy))
+                    .tracking(3)
+                    .foregroundStyle(Theme.accent)
+                    .opacity(meta == nil ? 0 : 1)
+            }
             ZStack(alignment: .bottomLeading) {
                 if logo == nil, let name = meta?.name {
                     Text(name)
-                        .font(.heroTitle)
+                        .font(compact ? .manrope(68, .heavy) : .heroTitle)
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(2)
                         .minimumScaleFactor(0.5)
@@ -180,7 +185,7 @@ struct BillboardInfo: View {
                 }
                 CrossfadeImage(url: logo, maxPixel: 900, contentMode: .fit, alignment: .bottomLeading, duration: 0.35)
             }
-            .frame(width: 760, height: 170, alignment: .bottomLeading)
+            .frame(width: compact ? 600 : 760, height: compact ? 110 : 170, alignment: .bottomLeading)
 
             ZStack(alignment: .leading) {
                 if let meta { MetaChips(meta: meta) }
@@ -190,8 +195,8 @@ struct BillboardInfo: View {
             Text(meta?.description ?? " ")
                 .font(.bodyLarge)
                 .foregroundStyle(Theme.textSecondary)
-                .lineLimit(3, reservesSpace: true)
-                .frame(width: 920, alignment: .topLeading)
+                .lineLimit(compact ? 2 : 3, reservesSpace: true)
+                .frame(width: compact ? 1100 : 920, alignment: .topLeading)
                 .contentTransition(.opacity)
                 .opacity(dimmed ? 0 : 1)
                 .animation(.easeInOut(duration: 0.8), value: dimmed)

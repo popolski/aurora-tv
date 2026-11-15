@@ -96,7 +96,7 @@ final class ScreenshotTests: XCTestCase {
             Thread.sleep(forTimeInterval: 2)
         }
 
-        // Films : grille et panneau de détails.
+        // Films : fond immersif et grille.
         goToTab("Films")
         focusContent()
         press(.down, times: 2)

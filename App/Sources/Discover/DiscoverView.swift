@@ -19,8 +19,9 @@ enum DiscoverKind: String, CaseIterable, Identifiable {
 }
 
 /// Exploration d'un type (Films ou Séries) : Populaires (filtre par genre),
-/// Nouveautés (filtre par année) ou À la une. Seuls ces trois choix sont
-/// proposés ; les autres catalogues (Trakt, etc.) restent sur l'accueil.
+/// Nouveautés (filtre par année), À la une, Disponibles (films). Fond immersif : l'image
+/// du titre qui a le focus remplit l'écran, son résumé au-dessus d'une grille de 6 colonnes.
+/// Les autres catalogues (Trakt, etc.) restent sur l'accueil.
 struct DiscoverView: View {
     @Environment(AppModel.self) private var app
     /// Type affiché par l'onglet (Films, Séries).
@@ -29,8 +30,10 @@ struct DiscoverView: View {
     /// Genre (Populaires) ou année (Nouveautés) ; `nil` = tous / valeur par défaut.
     @State private var filter: String?
     @State private var row: CatalogRowModel?
-    /// Affiche qui a le focus, et fiches complètes déjà chargées (distribution, réalisation…).
+    /// Affiche qui a le focus ; titre affiché en grand (fond et résumé), mis à jour après une
+    /// courte pause et une fois sa fiche complète chargée : un seul fondu, sans état intermédiaire.
     @State private var focused: MetaItem?
+    @State private var featured: MetaItem?
     @State private var details: [String: MetaItem] = [:]
     /// « Disponibles » : période (jours) et résultat (`nil` = chargement ou NAS indisponible).
     @State private var availableDays = 60
@@ -76,47 +79,63 @@ struct DiscoverView: View {
         return filterRequired ? filterOptions.first : nil
     }
 
+    /// Titre à mettre en avant : celui qui a le focus, sinon le premier de la liste.
+    private var candidate: MetaItem? {
+        if let focused { return focused }
+        if kind == .available { return available.flatMap { app.visibleTitles($0.map(\.meta)).first } }
+        return row.flatMap { app.visibleTitles($0.items).first }
+    }
+
+    private var shown: MetaItem? { featured.map { details[$0.id] ?? $0 } }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 26) {
-            header
-            HStack(alignment: .top, spacing: 30) {
+        ZStack(alignment: .topLeading) {
+            // Fond plein écran : image du titre mis en avant (comme l'accueil).
+            BillboardBackdrop(meta: shown)
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                BillboardInfo(meta: shown, compact: true)
+                    .frame(height: 262, alignment: .bottomLeading)
+                    .padding(.horizontal, Theme.horizontalMargin)
+                    .padding(.top, 20)
                 ScrollView(.vertical) {
-                    if kind == .available {
-                        availableGrid
-                            .padding(.top, 20)
-                            .padding(.bottom, 120)
-                    } else if let row {
-                        CatalogGrid(row: row, columnCount: 4, trailing: 10) { meta in focused = meta }
-                            .padding(.top, 20)
-                            .padding(.bottom, 120)
-                    } else if app.isBootstrapped {
-                        MessageView(systemImage: "square.grid.2x2", title: "Aucun catalogue à explorer",
-                                    message: "Le catalogue Cinemeta n'est pas disponible. Vérifiez vos addons dans Réglages.")
+                    Group {
+                        if kind == .available {
+                            availableGrid
+                        } else if let row {
+                            CatalogGrid(row: row, columnCount: 6) { meta in focused = meta }
+                        } else if app.isBootstrapped {
+                            MessageView(systemImage: "square.grid.2x2", title: "Aucun catalogue à explorer",
+                                        message: "Le catalogue Cinemeta n'est pas disponible. Vérifiez vos addons dans Réglages.")
+                        }
                     }
+                    .padding(.top, 34)
+                    .padding(.bottom, 120)
                 }
-                // La grille va jusqu'au bas de l'écran et s'efface en fondu (build 35 : rangée coupée
-                // net au-dessus du bas, effet de « cadre »).
+                // Les rangées qui remontent s'effacent en fondu sous le résumé ; la grille va
+                // jusqu'au bas de l'écran.
                 .mask(
-                    LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.04),
-                                           .init(color: .black, location: 0.86), .init(color: .clear, location: 1)],
+                    LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.07),
+                                           .init(color: .black, location: 0.9), .init(color: .clear, location: 1)],
                                    startPoint: .top, endPoint: .bottom)
                 )
                 .ignoresSafeArea(edges: .bottom)
-                // Panneau de détails : suit l'affiche qui a le focus.
-                DiscoverDetailPanel(meta: focused.map { details[$0.id] ?? $0 })
-                    .frame(width: 560)
-                    .padding(.trailing, 80)
-                    .padding(.bottom, 40)
             }
+            .padding(.top, 40)
         }
-        .padding(.top, 40)
-        .task(id: focused?.id) {
-            guard let meta = focused, details[meta.id] == nil else { return }
-            try? await Task.sleep(nanoseconds: 350_000_000)
+        .task(id: candidate?.id) {
+            guard let meta = candidate else { return }
+            if featured != nil { try? await Task.sleep(nanoseconds: 300_000_000) }
             guard !Task.isCancelled else { return }
-            if let detail = try? await app.aggregator.meta(type: meta.type, id: meta.id, addons: app.addons) {
-                details[meta.id] = meta.merged(withDetail: detail)
+            if details[meta.id] == nil {
+                let aggregator = app.aggregator, addons = app.addons
+                let detail = try? await withDeadline(seconds: 3) {
+                    try await aggregator.meta(type: meta.type, id: meta.id, addons: addons)
+                }
+                guard !Task.isCancelled else { return }
+                if let detail { details[meta.id] = meta.merged(withDetail: detail) }
             }
+            featured = meta
         }
         .onAppear {
             if !kinds.contains(kind), let first = kinds.first { kind = first }
@@ -131,8 +150,9 @@ struct DiscoverView: View {
             available = items
             availableFailed = items == nil
         }
-        .onChange(of: kind) { _, _ in filter = nil; rebuild() }
-        .onChange(of: filter) { _, _ in row?.reload(genre: effectiveFilter) }
+        .onChange(of: kind) { _, _ in filter = nil; focused = nil; rebuild() }
+        .onChange(of: filter) { _, _ in focused = nil; row?.reload(genre: effectiveFilter) }
+        .onChange(of: availableDays) { _, _ in focused = nil }
         .onChange(of: app.addons) { _, _ in rebuild() }
     }
 
@@ -147,15 +167,15 @@ struct DiscoverView: View {
     // MARK: En-tête : titre, sélecteur à trois choix, menu déroulant
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 26) {
+        // Titre et choix sur une seule ligne : la place va à l'image et à la grille.
+        HStack(spacing: 34) {
             Text(ContentTypeLabel.label(for: type))
                 .font(.screenTitle)
-            HStack(spacing: 30) {
-                if kinds.count > 1 { segments }
-                if kind == .available { periodMenu }
-                if !filterOptions.isEmpty { filterMenu }
-                Spacer(minLength: 0)
-            }
+                .shadow(color: .black.opacity(0.35), radius: 10)
+            if kinds.count > 1 { segments }
+            if kind == .available { periodMenu }
+            if !filterOptions.isEmpty { filterMenu }
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, Theme.horizontalMargin)
         .focusGroup()
@@ -194,7 +214,7 @@ struct DiscoverView: View {
             }
         } label: {
             HStack(spacing: 14) {
-                Text("Sortis en vidéo : \(availableDays) derniers jours")
+                Text("Sortis depuis \(availableDays) jours")
                 Image(systemName: "chevron.down").font(.system(size: 20, weight: .bold))
             }
         }
@@ -203,7 +223,7 @@ struct DiscoverView: View {
 
     /// Grille « Disponibles » (même présentation que les catalogues).
     @ViewBuilder private var availableGrid: some View {
-        let columns = Array(repeating: GridItem(.fixed(Theme.Poster.width), spacing: 48), count: 4)
+        let columns = Array(repeating: GridItem(.fixed(Theme.Poster.width), spacing: 48), count: 6)
         VStack(alignment: .leading, spacing: 20) {
             if availableFailed {
                 MessageView(systemImage: "wifi.exclamationmark", title: "Sorties vidéo indisponibles",
@@ -221,12 +241,11 @@ struct DiscoverView: View {
                 }
             } else {
                 LazyVGrid(columns: columns, spacing: 60) {
-                    ForEach(0..<8, id: \.self) { _ in ShimmerBlock().frame(width: Theme.Poster.width, height: Theme.Poster.height) }
+                    ForEach(0..<12, id: \.self) { _ in ShimmerBlock().frame(width: Theme.Poster.width, height: Theme.Poster.height) }
                 }
             }
         }
-        .padding(.leading, Theme.horizontalMargin)
-        .padding(.trailing, 10)
+        .padding(.horizontal, Theme.horizontalMargin)
         .focusGroup()
     }
 
@@ -256,71 +275,6 @@ struct DiscoverView: View {
         }
         .buttonStyle(PillButtonStyle())
         .accessibilityIdentifier("discover.filter")
-    }
-}
-
-/// Panneau de détails d'Explorer : image, titre, informations, résumé, genres,
-/// distribution, réalisation du titre qui a le focus dans la grille.
-struct DiscoverDetailPanel: View {
-    let meta: MetaItem?
-    @State private var unreadableLogos: Set<URL> = []
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            if let meta {
-                ZStack(alignment: .bottomLeading) {
-                    RemoteImage(url: meta.background ?? meta.poster, maxPixel: 1100) { Theme.surface }
-                        .frame(width: 504, height: 284)
-                        .clipped()
-                    LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
-                    if let logo = meta.displayLogo, !unreadableLogos.contains(logo) {
-                        RemoteImage(url: logo, maxPixel: 600, contentMode: .fit) {
-                            Text(meta.name).font(.manrope(30, .heavy)).foregroundStyle(.white).lineLimit(2)
-                        }
-                        .frame(maxWidth: 300, maxHeight: 90, alignment: .bottomLeading)
-                        .padding(18)
-                    } else {
-                        Text(meta.name).font(.manrope(30, .heavy)).foregroundStyle(.white).lineLimit(2).padding(18)
-                    }
-                }
-                .frame(width: 504, height: 284)
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-
-                HStack(spacing: 14) {
-                    if let year = meta.displayYear { Text(year) }
-                    if let runtime = meta.runtime { Text(runtime) }
-                    if let note = RatingBadge.display(meta.imdbRating) { ImdbScoreBox(rating: note) }
-                    if meta.isInCinema { CinemaBadge() }
-                }
-                .font(.manrope(20, .bold))
-                .foregroundStyle(Theme.textSecondary)
-
-                if let description = meta.description {
-                    Text(description)
-                        .font(.system(size: 21))
-                        .foregroundStyle(Theme.textSecondary)
-                        .lineLimit(6)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                LabeledChips(label: "Genres", values: meta.genres.map(Localize.genre))
-                LabeledChips(label: "Avec", values: meta.cast, limit: 3)
-                LabeledChips(label: "Réalisation", values: meta.directors, limit: 2)
-            } else {
-                Text("Parcourez la grille : le résumé du titre sélectionné s'affiche ici.")
-                    .font(.meta).foregroundStyle(Theme.textTertiary)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(28)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(GlassPanel(cornerRadius: 36))
-        .animation(.easeInOut(duration: 0.25), value: meta?.id)
-        .accessibilityElement(children: .combine)
-        .task(id: meta?.displayLogo) {
-            guard let meta, let url = meta.displayLogo else { return }
-            let readable = await LogoCheck.shared.isReadable(url, nonLatinOrigin: meta.nonLatinOrigin)
-            if !readable { unreadableLogos.insert(url) }
-        }
     }
 }
 

@@ -111,8 +111,9 @@ Astuce : appui long sur une carte de « Continuer à regarder » pour la retirer
   les 30, 60 ou 90 derniers jours (menu déroulant), les plus populaires d'abord ; contrairement
   aux Nouveautés, pas de films seulement au cinéma. Source : TMDB, par le service du NAS (clé
   TMDB requise).
-- La grille est à gauche ; **le panneau de droite** suit l'affiche sélectionnée : image, logo,
-  année, durée, note, résumé, genres, distribution, réalisation.
+- **Fond immersif** : l'image du titre sélectionné remplit l'écran (fondu enchaîné), avec au-dessus
+  de la grille son logo, ses informations (année, genres, durée, note IMDb) et son résumé.
+  Grille de 6 affiches par ligne ; tant que rien n'est sélectionné, le premier titre est mis en avant.
 - Les films déjà vus peuvent être estompés ou masqués (Réglages › Accueil).
 
 ![Séries](screenshots/07-series.jpg)
